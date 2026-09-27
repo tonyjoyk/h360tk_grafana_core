@@ -1,0 +1,46 @@
+{
+  "grain": "one row per stock-tracked drug",
+  "source": "WideFormResponse",
+  "row": "LongSheetRow",
+  "unpivot": "Emit one row for each rxnorm_code from active_stock_tracked_drugs. Read the wide field whose key is that rxnorm_code. Ignore every other key.",
+  "executable": "heart360tk_schema.drug_stock_form_long_rows(jsonb)",
+  "columns": [
+    {
+      "name": "org_unit_id",
+      "from": "facility",
+      "type": "integer",
+      "required": true,
+      "rule": "org_units.id"
+    },
+    {
+      "name": "reporting_month",
+      "from": "reporting_month",
+      "type": "date",
+      "required": true,
+      "rule": "date on the first of the month"
+    },
+    {
+      "name": "drug_code",
+      "from": "rxnorm_code",
+      "type": "text",
+      "required": true,
+      "rule": "protocol_drugs.rxnorm_code"
+    },
+    {
+      "name": "in_stock",
+      "from": "the wide field keyed by rxnorm_code",
+      "type": "numeric",
+      "required": false,
+      "blank_stays_blank": true,
+      "zero_stays_zero": true,
+      "rule": "empty for unknown and never coerced to 0"
+    },
+    {
+      "name": "submitted_at",
+      "from": "submitted_at",
+      "type": "timestamptz",
+      "required": false,
+      "rule": "response time when the form records it"
+    }
+  ]
+}

@@ -1,0 +1,96 @@
+{
+  "form_title": "Stock Submission",
+  "success_confirmation": "Your stock report was received. You can close this form or submit another month.",
+  "resubmit_allowed": true,
+  "drug_fields_from": "heart360tk_schema.active_stock_tracked_drugs",
+  "facility_options_from": "heart360tk_schema.drug_stock_form_facility_export",
+  "cohort_table": "heart360tk_schema.drug_stock_form_cohort",
+  "cohort_rule": "Ops inserts eligible org_units.id values. A facility that is not inserted stays off the form. Community-size sites stay off because ops does not insert them. There is no size column.",
+  "fields": [
+    {
+      "key": "facility",
+      "label": "Facility",
+      "required": true,
+      "input": "choice",
+      "value": "org_units.id",
+      "choice_label": "org_units.name",
+      "options_from": "drug_stock_form_facility_export"
+    },
+    {
+      "key": "reporting_month",
+      "label": "Reporting Month",
+      "required": true,
+      "input": "choice",
+      "recorded_as": "YYYY-MM or YYYY-MM-DD",
+      "normalizes_to": "date on the first of the month"
+    }
+  ],
+  "in_stock_fields": [
+    {
+      "rxnorm_code": "329528",
+      "label": "In-Stock Amlodipine 5 mg",
+      "drug_name": "Amlodipine",
+      "dosage": "5 mg",
+      "drug_category": "CCB",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    },
+    {
+      "rxnorm_code": "329526",
+      "label": "In-Stock Amlodipine 10 mg",
+      "drug_name": "Amlodipine",
+      "dosage": "10 mg",
+      "drug_category": "CCB",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    },
+    {
+      "rxnorm_code": "316764",
+      "label": "In-Stock Telmisartan 40 mg",
+      "drug_name": "Telmisartan",
+      "dosage": "40 mg",
+      "drug_category": "ARB",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    },
+    {
+      "rxnorm_code": "316765",
+      "label": "In-Stock Telmisartan 80 mg",
+      "drug_name": "Telmisartan",
+      "dosage": "80 mg",
+      "drug_category": "ARB",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    },
+    {
+      "rxnorm_code": "331132",
+      "label": "In-Stock Chlorthalidone 12.5 mg",
+      "drug_name": "Chlorthalidone",
+      "dosage": "12.5 mg",
+      "drug_category": "Diuretic",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    },
+    {
+      "rxnorm_code": "197499",
+      "label": "In-Stock Chlorthalidone 25 mg",
+      "drug_name": "Chlorthalidone",
+      "dosage": "25 mg",
+      "drug_category": "Diuretic",
+      "required": false,
+      "input": "number",
+      "blank_allowed": true,
+      "help": "Leave blank if unknown"
+    }
+  ]
+}
