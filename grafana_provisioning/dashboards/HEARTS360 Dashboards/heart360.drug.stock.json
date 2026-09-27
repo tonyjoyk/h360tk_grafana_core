@@ -112,29 +112,218 @@
       "type": "equansdatahub-tree-panel"
     },
     {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
       "description": "Reporting Month is the stock month and is not the Grafana time picker.",
       "fieldConfig": {
-        "defaults": {},
-        "overrides": []
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "mode": "basic",
+              "type": "color-background"
+            },
+            "filterable": false,
+            "inspect": false,
+            "minWidth": 120,
+            "wrapHeaderText": true
+          },
+          "mappings": [
+            {
+              "options": {
+                "?": {
+                  "color": "#EFEFEF",
+                  "index": 0,
+                  "text": "?"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#FFFFFF",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Facility"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 180
+              },
+              {
+                "id": "custom.width",
+                "value": 280
+              },
+              {
+                "id": "mappings",
+                "value": []
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Patient days$/"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "noValue",
+                "value": "?"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 110
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#E02F44",
+                      "value": null
+                    },
+                    {
+                      "color": "#FF9830",
+                      "value": 30
+                    },
+                    {
+                      "color": "#F2CC0C",
+                      "value": 60
+                    },
+                    {
+                      "color": "#56A64B",
+                      "value": 90
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "#EFEFEF",
+                        "index": 0,
+                        "text": "?"
+                      }
+                    },
+                    "type": "special"
+                  },
+                  {
+                    "options": {
+                      "-1": {
+                        "color": "#FFFFFF",
+                        "index": 1,
+                        "text": "\u2014"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
-        "h": 6,
+        "h": 14,
         "w": 24,
         "x": 0,
         "y": 13
       },
       "id": 10,
       "options": {
-        "code": {
-          "language": "plaintext",
-          "showLineNumbers": false,
-          "showMiniMap": false
+        "cellHeight": "sm",
+        "frozenColumns": {
+          "left": 1
         },
-        "content": "Reporting Month is the stock month and is not the Grafana time picker.",
-        "mode": "markdown"
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Facility"
+          }
+        ]
       },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)",
+          "refId": "A"
+        }
+      ],
       "title": "Stock on hand",
-      "type": "text"
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "format": "json",
+            "keepTime": false,
+            "replace": true,
+            "source": "matrix"
+          }
+        }
+      ],
+      "type": "table"
     }
   ],
   "preload": false,

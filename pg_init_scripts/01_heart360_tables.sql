@@ -2001,3 +2001,4 @@ GRANT SELECT ON heart360tk_schema.HEART360_DM_PATIENTS_CATAGORY TO heart360tk;
 \ir migrations/0.5.2_to_0.5.3.sql
 \ir migrations/0.5.3_to_0.5.4.sql
 \ir migrations/0.5.4_to_0.5.5.sql
+\ir migrations/0.5.5_to_0.5.6.sql
