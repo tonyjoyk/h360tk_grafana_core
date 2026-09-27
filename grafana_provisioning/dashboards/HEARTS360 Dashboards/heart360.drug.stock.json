@@ -1,0 +1,194 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "panels": [],
+      "title": "Change location",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "additionalColumns": "",
+        "clickMode": "SetVariable",
+        "compactMode": true,
+        "dashboardVariableName": "org_unit",
+        "dataLinkNewTab": false,
+        "dataLinkUrl": "",
+        "disabledColumn": "disabled",
+        "displayedTreeDepth": 1,
+        "enableSelectDeselectAll": false,
+        "iconClickMode": "doNothing",
+        "iconClickTooltip": "",
+        "iconColorColumn": "",
+        "iconColorMappings": {
+          "valueMappings": []
+        },
+        "iconColumn": "",
+        "iconMappings": {
+          "valueMappings": []
+        },
+        "idColumn": "id",
+        "includeDisabled": false,
+        "labelColumn": "name",
+        "multiSelect": false,
+        "orderLevels": "asc",
+        "parentIconColorColumn": "",
+        "parentIconColorMappings": {
+          "valueMappings": []
+        },
+        "parentIconColumn": "",
+        "parentIconMappings": {
+          "valueMappings": []
+        },
+        "parentIdColumn": "parent_id",
+        "searchPlaceholder": "Search",
+        "showCheckbox": false,
+        "showColumnHeaders": false,
+        "showGridLines": false,
+        "showIconFilter": false,
+        "showItemCount": false,
+        "showSearch": true,
+        "supportsDisabled": false,
+        "toggleSelectMode": "chevronOnly",
+        "valueMappings": {}
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name, id, parent_id FROM heart360tk_schema.org_units",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "equansdatahub-tree-panel"
+    },
+    {
+      "description": "Reporting Month is the stock month and is not the Grafana time picker.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 6,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 10,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "Reporting Month is the stock month and is not the Grafana time picker.",
+        "mode": "markdown"
+      },
+      "title": "Stock on hand",
+      "type": "text"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-hypertension-cached"
+        },
+        "definition": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Reporting Month",
+        "multi": false,
+        "name": "reporting_month",
+        "options": [],
+        "query": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "refresh": 1,
+        "regex": "",
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "org_unit",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6M",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Drug Stock",
+  "uid": "heart360_drug_stock",
+  "version": 1,
+  "weekStart": ""
+}

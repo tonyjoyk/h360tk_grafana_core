@@ -16,7 +16,7 @@ services:
       - GF_PANELS_DISABLE_SANITIZE_HTML=true
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_USERS_ALLOW_SIGN_UP=false
-      - GF_INSTALL_PLUGINS=volkovlabs-table-panel,yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel
+      - GF_INSTALL_PLUGINS=volkovlabs-table-panel,yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel,equansdatahub-tree-panel
       - GF_TIME_PICKER_QUICK_RANGES=[{"from":"now-6M","to":"now","display":"Last 6 months"},{"from":"now-1y","to":"now","display":"Last year"},{"from":"now-2y","to":"now","display":"Last 2 years"},{"from":"now-5y","to":"now","display":"Last 5 years"}]
       - GF_DATE_FORMATS_INTERVAL_MONTH=MMM-YYYY
       - GF_USERS_DEFAULT_THEME=light
