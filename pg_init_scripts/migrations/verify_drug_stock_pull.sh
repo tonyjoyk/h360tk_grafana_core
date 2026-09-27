@@ -61,17 +61,21 @@ drop_db() {
 
 cleanup() {
     drop_db || true
-    "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS grafana;" >/dev/null || true
 }
 
 trap cleanup EXIT
 
 drop_db
 "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 <<SQL
-DROP ROLE IF EXISTS grafana;
-DROP ROLE IF EXISTS heart360tk;
-CREATE ROLE heart360tk LOGIN;
-CREATE ROLE grafana LOGIN;
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'heart360tk') THEN
+        CREATE ROLE heart360tk LOGIN;
+    END IF;
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'grafana') THEN
+        CREATE ROLE grafana LOGIN;
+    END IF;
+END \$\$;
 CREATE DATABASE ${DB_NAME} OWNER heart360tk;
 SQL
 
@@ -597,10 +601,9 @@ spec = importlib.util.spec_from_file_location("drug_stock_pull", sys.argv[1])
 mod = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(mod)
 rows = mod.rows_from_sheet_values([
-    ["org_unit_id", "reporting_month", "drug_code", "in_stock", "submitted_at"],
-    ["11", "2026-09-18", "329528", "", "2026-09-20T01:00:00Z"],
+    ["drug_code", "in_stock", "org_unit_id", "submitted_at", "reporting_month"],
+    ["329528", "", "11", "2026-09-20T01:00:00Z", "2026-09-18"],
     ["", "", "", "", ""],
-    ["12", "2026-08", "329526", "0"],
 ])
 expected = [
     {
@@ -609,17 +612,22 @@ expected = [
         "drug_code": "329528",
         "in_stock": "",
         "submitted_at": "2026-09-20T01:00:00Z",
-    },
+    }
+]
+bare = mod.rows_from_sheet_values([
+    ["12", "2026-08", "329526", "0"],
+])
+bare_expected = [
     {
         "org_unit_id": "12",
         "reporting_month": "2026-08",
         "drug_code": "329526",
         "in_stock": "0",
         "submitted_at": "",
-    },
+    }
 ]
-if rows != expected:
-    raise SystemExit(f"sheet values parsed as {rows}")
+if rows != expected or bare != bare_expected:
+    raise SystemExit(f"sheet values parsed as {rows} and {bare}")
 print("sheet values parsed")
 PY
 
