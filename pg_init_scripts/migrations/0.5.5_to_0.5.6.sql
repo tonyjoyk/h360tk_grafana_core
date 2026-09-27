@@ -60,7 +60,7 @@ AS $$
                 ORDER BY
                     d.drug_name,
                     COALESCE(
-                        substring(d.dosage FROM '^[0-9]+([.][0-9]+)?')::numeric,
+                        substring(d.dosage FROM '^[0-9]+[.]?[0-9]*')::numeric,
                         0
                     ),
                     d.rxnorm_code

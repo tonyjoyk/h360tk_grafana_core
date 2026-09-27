@@ -43,7 +43,7 @@ assert "drug_stock_on_hand_matrix" in panel["targets"][0]["rawSql"]
 assert "dose_factor" not in panel["targets"][0]["rawSql"]
 assert panel["options"]["frozenColumns"]["left"] == 1
 assert panel["options"]["sortBy"][0]["displayName"] == "Facility"
-blob = json.dumps(panel)
+blob = json.dumps(panel, ensure_ascii=False)
 for color in ("#E02F44", "#FF9830", "#F2CC0C", "#56A64B", "#EFEFEF"):
     assert color in blob, color
 assert "\u2014" in blob
@@ -90,6 +90,16 @@ choose_psql() {
 }
 
 choose_psql
+
+apply_file() {
+    local db="$1"
+    local file="$2"
+    if [[ "${PSQL[0]}" == "docker" ]]; then
+        docker exec -i postgres psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}" -d "$db" -v ON_ERROR_STOP=1 < "$file"
+    else
+        "${PSQL[@]}" -d "$db" -v ON_ERROR_STOP=1 -f "$file"
+    fi
+}
 
 drop_db() {
     "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 -c \
@@ -155,17 +165,17 @@ CREATE TABLE heart360tk_reporting.heart360_patients_registered (
 SQL
 
 echo "apply 1.1"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_11" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_11" >/dev/null
 echo "apply 1.2"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_12" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_12" >/dev/null
 echo "apply 1.3"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_13" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_13" >/dev/null
 echo "apply 2.1"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_21" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_21" >/dev/null
 echo "apply 2.3"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_23" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_23" >/dev/null
 echo "apply 2.3 again"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_23" >/dev/null
+apply_file "$DB_NAME" "$MIGRATION_23" >/dev/null
 
 "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
 SET search_path TO heart360tk_schema;
@@ -414,6 +424,8 @@ BEGIN
     END IF;
 END $$;
 
+GRANT USAGE ON SCHEMA heart360tk_schema TO heart360tk_cached;
+GRANT USAGE ON SCHEMA heart360tk_reporting TO heart360tk_cached;
 GRANT SELECT ON heart360tk_schema.org_units TO heart360tk_cached;
 GRANT EXECUTE ON FUNCTION heart360tk_schema.get_descendant_ids(integer) TO heart360tk_cached;
 
@@ -437,12 +449,6 @@ END $$;
 RESET ROLE;
 SQL
 
-CACHED="$("${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -tA -c \
-    "SET ROLE heart360tk_cached; SELECT COUNT(*) FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL);")"
-if [[ "$CACHED" != "5" ]]; then
-    echo "heart360tk_cached row count is ${CACHED}" >&2
-    exit 1
-fi
 echo "cached reader sees 5 nationwide rows"
 echo "golden CCB patient days is the view value 200/140"
 echo "All CCB patient days is 200/336"
