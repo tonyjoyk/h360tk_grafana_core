@@ -19,19 +19,23 @@ class SourceError(Exception):
 def rows_from_sheet_values(values):
     if not values:
         return []
-    start = 0
     header = [str(cell).strip().lower() for cell in values[0]]
-    if header and header[0] == "org_unit_id":
+    if "org_unit_id" in header and "drug_code" in header:
         start = 1
+        indexes = {name: header.index(name) for name in SHEET_COLUMNS if name in header}
+    else:
+        start = 0
+        indexes = {name: pos for pos, name in enumerate(SHEET_COLUMNS)}
     rows = []
     for raw in values[start:]:
         cells = ["" if cell is None else str(cell) for cell in raw]
-        while len(cells) < len(SHEET_COLUMNS):
-            cells.append("")
-        cells = cells[: len(SHEET_COLUMNS)]
-        if all(cell.strip() == "" for cell in cells):
+        record = {}
+        for name in SHEET_COLUMNS:
+            pos = indexes.get(name)
+            record[name] = cells[pos] if pos is not None and pos < len(cells) else ""
+        if all(record[name].strip() == "" for name in SHEET_COLUMNS):
             continue
-        rows.append(dict(zip(SHEET_COLUMNS, cells)))
+        rows.append(record)
     return rows
 
 
