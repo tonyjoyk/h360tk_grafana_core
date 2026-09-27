@@ -178,7 +178,7 @@
               },
               {
                 "id": "custom.width",
-                "value": 180
+                "value": 280
               },
               {
                 "id": "mappings",
@@ -307,7 +307,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  CASE\n    WHEN '${reporting_month}' ~ '^[0-9]{4}-[0-9]{2}-[0-9]{2}$' THEN '${reporting_month}'::date\n    ELSE NULL::date\n  END,\n  CASE\n    WHEN '${org_unit}' ~ '^[0-9]+$' THEN '${org_unit}'::integer\n    ELSE NULL::integer\n  END\n)",
+          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)",
           "refId": "A"
         }
       ],

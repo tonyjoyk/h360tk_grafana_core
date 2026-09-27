@@ -40,6 +40,7 @@ panel = panels[0]
 assert panel["type"] == "table", panel["type"]
 assert panel["title"] == "Stock on hand"
 assert "drug_stock_on_hand_matrix" in panel["targets"][0]["rawSql"]
+assert "NULLIF('${org_unit}', '')::integer" in panel["targets"][0]["rawSql"]
 assert "dose_factor" not in panel["targets"][0]["rawSql"]
 assert panel["options"]["frozenColumns"]["left"] == 1
 assert panel["options"]["sortBy"][0]["displayName"] == "Facility"
