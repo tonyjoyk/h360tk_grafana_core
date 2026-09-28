@@ -5,4 +5,7 @@ pythonvenv
 data/upload/*.csv
 data/upload/*.xlsx
 
+# BMAD personal overrides live under _bmad/custom/*.user.toml (see that folder's .gitignore).
+# _bmad-output/ is tracked so the team can share planning runs (PRD/UX/architecture).
+
 
