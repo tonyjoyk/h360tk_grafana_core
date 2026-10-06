@@ -651,58 +651,9 @@ WHERE (mrc.result_type IS NULL OR LOWER(mrc.result_type) <> 'removed_from_overdu
 
 -- ============================================================================
 -- VIEW 5: HEART360_COHORT_PATIENT_DETAILS
+-- Quarterly new-registration outcomes. quarters_since_registration = 1.
 -- ============================================================================
-CREATE OR REPLACE VIEW HEART360_COHORT_PATIENT_DETAILS AS
-WITH patients_quarter AS (
-    SELECT
-        p.patient_id,
-        p.org_unit_id,
-        date_trunc('quarter', registration_date) AS registration_quarter,
-        date_trunc('quarter', registration_date) + interval '6 month' AS cohort_validation_month,
-        registration_date
-    FROM patients p
-    WHERE EXISTS (
-        SELECT 1 FROM patient_diagnoses pd
-        WHERE pd.patient_id = p.patient_id
-          AND pd.diagnosis_code = 'I10'
-    )
-),
-LAST_BP_IN_INTERVAL AS (
-    SELECT
-        e.patient_id,
-        e.encounter_date,
-        bp.systolic_bp,
-        bp.diastolic_bp
-    FROM encounters e
-    LEFT JOIN blood_pressures bp ON e.id = bp.encounter_id
-    WHERE e.id IN (
-        SELECT max(e2.id) AS encounter_id
-        FROM encounters e2
-        WHERE (e2.patient_id, e2.encounter_date) IN (
-            SELECT
-                patients_quarter.patient_id,
-                max(e3.encounter_date) AS most_recent_bp
-            FROM encounters e3
-            JOIN patients_quarter
-                ON patients_quarter.patient_id = e3.patient_id
-                AND e3.encounter_date < patients_quarter.cohort_validation_month
-            GROUP BY patients_quarter.patient_id
-        )
-        GROUP BY e2.patient_id
-    )
-)
-SELECT
-    patients_quarter.patient_id,
-    patients_quarter.org_unit_id,
-    registration_quarter,
-    CASE
-        WHEN encounter_date IS NULL THEN 'missed visit'
-        WHEN cohort_validation_month > encounter_date + interval '3 month' THEN 'missed visit'
-        WHEN diastolic_bp < 90 AND systolic_bp < 140 THEN 'controlled'
-        ELSE 'uncontrolled'
-    END AS status_at_end_of_interval
-FROM patients_quarter
-LEFT OUTER JOIN LAST_BP_IN_INTERVAL ON LAST_BP_IN_INTERVAL.patient_id = patients_quarter.patient_id;
+\ir sql/cohort_q1_view.sql
 
 
 -- ============================================================================
@@ -1545,6 +1496,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS idx_overdue_start_month_org_month ON heart360t
 CREATE UNIQUE INDEX IF NOT EXISTS idx_overdue_called_org_month ON heart360tk_reporting.HEART360_OVERDUE_PATIENTS_CALLED (org_unit_id, ref_month);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_overdue_returned_org_month ON heart360tk_reporting.HEART360_OVERDUE_RETURNED_TO_CARE (org_unit_id, ref_month);
 CREATE INDEX IF NOT EXISTS idx_cohort_org_quarter ON heart360tk_reporting.HEART360_COHORT_PATIENT_DETAILS (org_unit_id, registration_quarter);
+ALTER TABLE heart360tk_reporting.HEART360_COHORT_PATIENT_DETAILS
+    DROP CONSTRAINT IF EXISTS cohort_patient_details_outcome_chk;
+ALTER TABLE heart360tk_reporting.HEART360_COHORT_PATIENT_DETAILS
+    ADD CONSTRAINT cohort_patient_details_outcome_chk
+    CHECK (status_at_end_of_interval IN ('controlled', 'uncontrolled', 'missed_visit', 'visited_no_bp'));
 CREATE UNIQUE INDEX IF NOT EXISTS idx_pat_dm_cat_org_month ON heart360tk_reporting.HEART360_DM_PATIENTS_CATAGORY (org_unit_id, ref_month);
 
 CREATE TABLE IF NOT EXISTS heart360tk_reporting.reporting_table_refresh_log (

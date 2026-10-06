@@ -21,6 +21,7 @@ RUN echo >> /usr/local/share/postgresql/postgresql.conf.sample && \
 
 COPY ./pg_init_scripts/00_schemas.sql          docker-entrypoint-initdb.d/00_schemas.sql
 COPY ./pg_init_scripts/01_heart360_tables.sql  docker-entrypoint-initdb.d/01_heart360_tables.sql
+COPY ./pg_init_scripts/sql/cohort_q1_view.sql  docker-entrypoint-initdb.d/sql/cohort_q1_view.sql
 
 # Migration scripts are NOT auto-run by the postgres entrypoint
 COPY ./pg_init_scripts/migrations               docker-entrypoint-initdb.d/migrations
