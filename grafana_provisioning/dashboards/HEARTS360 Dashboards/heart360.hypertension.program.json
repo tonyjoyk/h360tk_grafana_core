@@ -351,7 +351,7 @@
             }
           },
           "decimals": 0,
-          "displayName": "% Patients with BP ≥140/90 at latest visit in the past 3 months",
+          "displayName": "% Patients with BP \u2265140/90 at latest visit in the past 3 months",
           "mappings": [],
           "max": 100,
           "min": 0,
@@ -441,7 +441,7 @@
       ],
       "title": "% Uncontrolled BP at latest visit in past 3 months",
       "type": "timeseries",
-      "description": "Numerator:\nPatients with uncontrolled BP (≥140 systolic OR ≥90 diastolic) at their latest visit in the past 3 months.\nDenominator:\nPatients with hypertension registered before the past 3 months. Dead patients and 12 month lost to follow-up patients are excluded."
+      "description": "Numerator:\nPatients with uncontrolled BP (\u2265140 systolic OR \u226590 diastolic) at their latest visit in the past 3 months.\nDenominator:\nPatients with hypertension registered before the past 3 months. Dead patients and 12 month lost to follow-up patients are excluded."
     },
     {
       "datasource": {
@@ -2367,7 +2367,7 @@
       "id": 21,
       "options": {
         "afterRender": "",
-        "content": "{{#if (eq isAllowed 0)}}\n  <div style=\"color: #e02424; background: rgba(224, 36, 36, 0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; width: 100%;\">\n    <span>⚠️</span>\n    <span>\n      <strong>Access Denied:</strong> Ask admin to add to one of these teams: {{{requiredGroups}}}\n    </span>\n  </div>\n{{/if}}",
+        "content": "{{#if (eq isAllowed 0)}}\n  <div style=\"color: #e02424; background: rgba(224, 36, 36, 0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; width: 100%;\">\n    <span>\u26a0\ufe0f</span>\n    <span>\n      <strong>Access Denied:</strong> Ask admin to add to one of these teams: {{{requiredGroups}}}\n    </span>\n  </div>\n{{/if}}",
         "contentPartials": [],
         "defaultContent": "The query didn't return any results.",
         "editor": {
@@ -2416,6 +2416,315 @@
       "title": "",
       "transparent": true,
       "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 54
+      },
+      "id": 9,
+      "panels": [],
+      "title": "Cohort report",
+      "type": "row"
+    },
+    {
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 55
+      },
+      "id": 10,
+      "options": {
+        "code": {
+          "language": "plaintext",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "Patients with hypertension (I10), grouped by the quarter they registered. Each bar is their outcome in the next quarter, after that quarter has ended. Controlled means systolic under 140 and diastolic under 90. Uncontrolled means systolic 140 or higher, or diastolic 90 or higher. Visited, no BP means a visit in that quarter without a complete blood pressure. Missed visit means no visit in that quarter. The four outcomes add up to the cohort. The latest visit in the quarter is the one that counts. Dead patients stay in the cohort. The five most recent closed quarters are shown, newest at the top.",
+        "mode": "markdown"
+      },
+      "pluginVersion": "12.4.1",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "fillOpacity": 80,
+            "gradientMode": "none",
+            "lineWidth": 1,
+            "axisPlacement": "auto"
+          },
+          "decimals": 0,
+          "min": 0
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "controlled"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Controlled"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#73BF69",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "uncontrolled"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Uncontrolled"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#FF9830",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missed_visit"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Missed visit"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#F2495C",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "visited_no_bp"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Visited, no BP"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "fixedColor": "#B877D9",
+                  "mode": "fixed"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "controlled_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Controlled %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "uncontrolled_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Uncontrolled %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "missed_visit_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Missed visit %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "visited_no_bp_pct"
+            },
+            "properties": [
+              {
+                "id": "displayName",
+                "value": "Visited, no BP %"
+              },
+              {
+                "id": "unit",
+                "value": "percent"
+              },
+              {
+                "id": "decimals",
+                "value": 1
+              },
+              {
+                "id": "custom.hideFrom",
+                "value": {
+                  "legend": true,
+                  "tooltip": false,
+                  "viz": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 59
+      },
+      "id": 22,
+      "options": {
+        "barRadius": 0,
+        "barWidth": 0.8,
+        "fullHighlight": false,
+        "groupWidth": 0.7,
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "orientation": "horizontal",
+        "showValue": "never",
+        "stacking": "percent",
+        "tooltip": {
+          "hideZeros": false,
+          "mode": "multi",
+          "sort": "none"
+        },
+        "xField": "quarter",
+        "xTickLabelMaxLength": 24,
+        "xTickLabelRotation": 0,
+        "xTickLabelSpacing": 0
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT * FROM (\n  WITH selected_org AS (\n    SELECT id FROM get_descendant_ids((\n      SELECT ou.id FROM org_units ou\n      WHERE ou.id::text = NULLIF(TRIM(BOTH FROM '${org_unit}'), '')\n      LIMIT 1\n    ))\n  ),\n  quarters AS (\n    SELECT (\n      date_trunc('quarter', CURRENT_DATE)\n      - interval '6 months'\n      - offs.n * interval '3 months'\n    ) AS registration_quarter\n    FROM generate_series(0, 4) AS offs(n)\n  ),\n  counts AS (\n    SELECT\n      q.registration_quarter,\n      COUNT(*) FILTER (WHERE c.status_at_end_of_interval = 'controlled') AS controlled,\n      COUNT(*) FILTER (WHERE c.status_at_end_of_interval = 'uncontrolled') AS uncontrolled,\n      COUNT(*) FILTER (WHERE c.status_at_end_of_interval = 'missed_visit') AS missed_visit,\n      COUNT(*) FILTER (WHERE c.status_at_end_of_interval = 'visited_no_bp') AS visited_no_bp\n    FROM quarters q\n    LEFT JOIN heart360_cohort_patient_details c\n      ON c.registration_quarter = q.registration_quarter\n     AND c.org_unit_id IN (SELECT id FROM selected_org)\n    GROUP BY q.registration_quarter\n  )\n  SELECT\n    to_char(registration_quarter, 'YYYY \"Q\"Q') AS quarter,\n    controlled,\n    uncontrolled,\n    missed_visit,\n    visited_no_bp,\n    COALESCE(ROUND(100.0 * controlled / NULLIF(controlled + uncontrolled + missed_visit + visited_no_bp, 0), 1), 0) AS controlled_pct,\n    COALESCE(ROUND(100.0 * uncontrolled / NULLIF(controlled + uncontrolled + missed_visit + visited_no_bp, 0), 1), 0) AS uncontrolled_pct,\n    COALESCE(ROUND(100.0 * missed_visit / NULLIF(controlled + uncontrolled + missed_visit + visited_no_bp, 0), 1), 0) AS missed_visit_pct,\n    COALESCE(ROUND(100.0 * visited_no_bp / NULLIF(controlled + uncontrolled + missed_visit + visited_no_bp, 0), 1), 0) AS visited_no_bp_pct\n  FROM counts\n  ORDER BY registration_quarter DESC\n) AS master_access_control\nWHERE '${isAllowed}' = '1'\n",
+          "refId": "A",
+          "sql": {
+            "columns": [
+              {
+                "parameters": [],
+                "type": "function"
+              }
+            ],
+            "groupBy": [
+              {
+                "property": {
+                  "type": "string"
+                },
+                "type": "groupBy"
+              }
+            ],
+            "limit": 50
+          }
+        }
+      ],
+      "title": "Quarterly registration outcomes",
+      "type": "barchart"
     }
   ],
   "preload": false,
@@ -3238,6 +3547,6 @@
   "timezone": "browser",
   "title": "Hypertension Program",
   "uid": "heart360_drilldown",
-  "version": 5,
+  "version": 6,
   "weekStart": ""
 }
