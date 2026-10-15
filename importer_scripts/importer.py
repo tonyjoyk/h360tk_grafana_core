@@ -17,6 +17,7 @@ from apscheduler.schedulers.blocking import BlockingScheduler
 from apscheduler.triggers.cron import CronTrigger
 
 from import_versions import get_importer
+from import_versions.aggregate_json import import_aggregate_json_file, validate_aggregate_json
 from import_versions.base import BaseImportVersion
 
 logging.basicConfig(
@@ -26,16 +27,33 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
-IMPORT_CRON = os.getenv('IMPORT_CRON', '0 * * * *').strip()
-IMPORT_AGGREGATE_DATA = os.getenv('IMPORT_AGGREGATE_DATA', 'false').strip().lower() == 'true'
-IMPORT_PROTOCOL = os.getenv('IMPORT_PROTOCOL', 'sftp').strip().lower()
-IMPORT_FOLDER_PATH = os.getenv('IMPORT_FOLDER_PATH', '/export').strip()
 
-SFTP_HOST = os.getenv('SFTP_HOST', '').strip()
-SFTP_PORT = int(os.getenv('SFTP_PORT', '22').strip())
-SFTP_USER = os.getenv('SFTP_USER', '').strip()
-SFTP_PASSWORD = os.getenv('SFTP_PASSWORD', '').strip()
-SFTP_TIMEOUT_SECONDS = int(os.getenv('SFTP_TIMEOUT', '60').strip())
+def _env_str(name: str, default: str = '') -> str:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    value = raw.strip()
+    return value if value else default
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = _env_str(name, str(default))
+    try:
+        return int(raw)
+    except ValueError:
+        return default
+
+
+IMPORT_CRON = _env_str('IMPORT_CRON', '0 * * * *')
+IMPORT_AGGREGATE_DATA = _env_str('IMPORT_AGGREGATE_DATA', 'false').lower() == 'true'
+IMPORT_PROTOCOL = _env_str('IMPORT_PROTOCOL', 'sftp').lower()
+IMPORT_FOLDER_PATH = _env_str('IMPORT_FOLDER_PATH', '/export')
+
+SFTP_HOST = _env_str('SFTP_HOST')
+SFTP_PORT = _env_int('SFTP_PORT', 22)
+SFTP_USER = _env_str('SFTP_USER')
+SFTP_PASSWORD = _env_str('SFTP_PASSWORD')
+SFTP_TIMEOUT_SECONDS = _env_int('SFTP_TIMEOUT', 60)
 
 DB_CONNECTION_PARAMS = {
     'host': os.getenv('POSTGRES_HOST', 'postgres'),
@@ -44,8 +62,11 @@ DB_CONNECTION_PARAMS = {
     'password': os.getenv('POSTGRES_PASSWORD', ''),
 }
 
-
 def validate_config():
+    if IMPORT_PROTOCOL not in {'sftp', 'file'}:
+        log.error("Unsupported IMPORT_PROTOCOL '%s'. Use 'sftp' or 'file'.", IMPORT_PROTOCOL)
+        sys.exit(1)
+
     required = {
         'POSTGRES_PASSWORD': DB_CONNECTION_PARAMS['password'],
     }
@@ -141,7 +162,19 @@ def _is_import_zip(filename: str) -> bool:
     )
 
 
-def fetch_sftp_zip_names() -> list[str]:
+def _is_import_json(filename: str) -> bool:
+    return (
+        filename.lower().endswith('.json')
+        and not filename.startswith('.')
+        and not filename.endswith('.tmp')
+    )
+
+
+def _is_import_payload(filename: str) -> bool:
+    return _is_import_zip(filename) or _is_import_json(filename)
+
+
+def fetch_sftp_payload_names() -> list[str]:
     remote_dir = IMPORT_FOLDER_PATH.rstrip('/')
     transport = None
     sftp = None
@@ -149,21 +182,21 @@ def fetch_sftp_zip_names() -> list[str]:
     try:
         transport, sftp = _open_sftp_client()
         entries = sftp.listdir_attr(remote_dir)
-        zip_names = sorted(
+        names = sorted(
             entry.filename
             for entry in entries
-            if not stat.S_ISDIR(entry.st_mode) and _is_import_zip(entry.filename)
+            if not stat.S_ISDIR(entry.st_mode) and _is_import_payload(entry.filename)
         )
         log.info(
-            'Found %d zip file(s) in %s@%s:%s',
-            len(zip_names),
+            'Found %d import file(s) in %s@%s:%s',
+            len(names),
             SFTP_USER,
             SFTP_HOST,
             remote_dir,
         )
-        for name in zip_names:
+        for name in names:
             log.info('  %s', name)
-        return zip_names
+        return names
 
     finally:
         if sftp is not None:
@@ -175,16 +208,31 @@ def fetch_sftp_zip_names() -> list[str]:
             transport.close()
 
 
-def download_sftp_zip(zip_name: str, local_zip_path: str) -> None:
+def fetch_file_payload_names() -> list[str]:
+    if not os.path.isdir(IMPORT_FOLDER_PATH):
+        raise FileNotFoundError(
+            f"IMPORT_FOLDER_PATH does not exist or is not a directory: {IMPORT_FOLDER_PATH}"
+        )
+    names = sorted(
+        name for name in os.listdir(IMPORT_FOLDER_PATH)
+        if os.path.isfile(os.path.join(IMPORT_FOLDER_PATH, name)) and _is_import_payload(name)
+    )
+    log.info('Found %d import file(s) in local path %s', len(names), IMPORT_FOLDER_PATH)
+    for name in names:
+        log.info('  %s', name)
+    return names
+
+
+def download_sftp_payload(name: str, local_path: str) -> None:
     remote_dir = IMPORT_FOLDER_PATH.rstrip('/')
-    remote_path = f'{remote_dir}/{zip_name}'
+    remote_path = f'{remote_dir}/{name}'
     transport = None
     sftp = None
 
     try:
         transport, sftp = _open_sftp_client()
-        sftp.get(remote_path, local_zip_path)
-        log.info('  Downloaded %s', zip_name)
+        sftp.get(remote_path, local_path)
+        log.info('  Downloaded %s', name)
     finally:
         if sftp is not None:
             try:
@@ -199,27 +247,43 @@ _SFTP_RETRY_MAX_ATTEMPTS = 3
 _SFTP_RETRY_BACKOFF_SECONDS = [0, 5, 10]
 
 
-def download_sftp_zip_with_retry(zip_name: str, local_zip_path: str) -> None:
+def download_sftp_payload_with_retry(name: str, local_path: str) -> None:
     last_exc: Exception | None = None
     for attempt in range(1, _SFTP_RETRY_MAX_ATTEMPTS + 1):
         delay = _SFTP_RETRY_BACKOFF_SECONDS[attempt - 1]
         if delay:
             log.warning(
                 '  Retrying download of %s (attempt %d/%d) in %ds...',
-                zip_name, attempt, _SFTP_RETRY_MAX_ATTEMPTS, delay,
+                name, attempt, _SFTP_RETRY_MAX_ATTEMPTS, delay,
             )
             time.sleep(delay)
         try:
-            download_sftp_zip(zip_name, local_zip_path)
+            download_sftp_payload(name, local_path)
             return
         except Exception as e:
             last_exc = e
             log.warning(
                 '  Download attempt %d/%d failed for %s: %s',
-                attempt, _SFTP_RETRY_MAX_ATTEMPTS, zip_name, e,
+                attempt, _SFTP_RETRY_MAX_ATTEMPTS, name, e,
             )
     assert last_exc is not None
     raise last_exc
+
+
+def copy_file_payload(name: str, local_path: str) -> None:
+    src_path = os.path.join(IMPORT_FOLDER_PATH, name)
+    shutil.copy2(src_path, local_path)
+    log.info('  Copied %s from local import path', name)
+
+
+def download_payload_with_retry(name: str, local_path: str) -> None:
+    if IMPORT_PROTOCOL == 'sftp':
+        download_sftp_payload_with_retry(name, local_path)
+        return
+    if IMPORT_PROTOCOL == 'file':
+        copy_file_payload(name, local_path)
+        return
+    raise ValueError(f'Unsupported IMPORT_PROTOCOL: {IMPORT_PROTOCOL}')
 
 
 def load_metadata(extract_dir: str) -> dict:
@@ -328,28 +392,33 @@ def run_import():
     conn = None
 
     try:
-        if IMPORT_PROTOCOL != 'sftp':
+        if IMPORT_PROTOCOL == 'sftp':
+            payload_names = fetch_sftp_payload_names()
+            location_label = f'SFTP {SFTP_USER}@{SFTP_HOST}:{IMPORT_FOLDER_PATH}'
+        elif IMPORT_PROTOCOL == 'file':
+            payload_names = fetch_file_payload_names()
+            location_label = f'local folder {IMPORT_FOLDER_PATH}'
+        else:
             raise ValueError(f'Unsupported IMPORT_PROTOCOL: {IMPORT_PROTOCOL}')
 
-        zip_names = fetch_sftp_zip_names()
-        if not zip_names:
+        if not payload_names:
             log.info(
-                'No zip files found at %s on SFTP server — nothing to import.',
-                IMPORT_FOLDER_PATH,
+                'No import files found in %s — nothing to import.',
+                location_label,
             )
             return
 
-        log.info('Phase 1 — Downloading %d zip file(s)...', len(zip_names))
+        log.info('Phase 1 — Downloading %d import file(s)...', len(payload_names))
         downloaded: list[tuple[str, str]] = []
-        for zip_name in zip_names:
-            local_zip_path = os.path.join(work_dir, zip_name)
+        for payload_name in payload_names:
+            local_path = os.path.join(work_dir, payload_name)
             try:
-                download_sftp_zip_with_retry(zip_name, local_zip_path)
-                downloaded.append((zip_name, local_zip_path))
+                download_payload_with_retry(payload_name, local_path)
+                downloaded.append((payload_name, local_path))
             except Exception as e:
                 log.error(
                     'Failed to download %s after %d attempts — skipping: %s',
-                    zip_name, _SFTP_RETRY_MAX_ATTEMPTS, e,
+                    payload_name, _SFTP_RETRY_MAX_ATTEMPTS, e,
                 )
 
         if not downloaded:
@@ -357,31 +426,36 @@ def run_import():
             return
 
         log.info(
-            'Phase 1 complete — %d/%d zip file(s) downloaded successfully.',
+            'Phase 1 complete — %d/%d import file(s) downloaded successfully.',
             len(downloaded),
-            len(zip_names),
+            len(payload_names),
         )
 
-        log.info('Phase 2 — Validating %d downloaded zip file(s)...', len(downloaded))
-        valid_zips: list[tuple[str, str]] = []
-        for zip_name, local_zip_path in downloaded:
-            ok, reason = validate_zip(local_zip_path, zip_name)
-            if ok:
-                log.info('  [VALID]   %s', zip_name)
-                valid_zips.append((zip_name, local_zip_path))
+        log.info('Phase 2 — Validating %d downloaded import file(s)...', len(downloaded))
+        valid_payloads: list[tuple[str, str]] = []
+        for payload_name, local_path in downloaded:
+            if _is_import_zip(payload_name):
+                ok, reason = validate_zip(local_path, payload_name)
+            elif _is_import_json(payload_name):
+                ok, reason = validate_aggregate_json(local_path)
             else:
-                log.warning('  [SKIPPED] %s — %s', zip_name, reason)
+                ok, reason = False, 'unsupported file type'
+            if ok:
+                log.info('  [VALID]   %s', payload_name)
+                valid_payloads.append((payload_name, local_path))
+            else:
+                log.warning('  [SKIPPED] %s — %s', payload_name, reason)
 
-        if not valid_zips:
+        if not valid_payloads:
             log.error(
-                'No zip files passed validation — '
+                'No import files passed validation — '
                 'reporting tables will NOT be truncated to avoid data loss.'
             )
             return
 
         log.info(
-            'Phase 2 complete — %d/%d zip file(s) passed validation.',  # noqa: E501
-            len(valid_zips),
+            'Phase 2 complete — %d/%d import file(s) passed validation.',  # noqa: E501
+            len(valid_payloads),
             len(downloaded),
         )
 
@@ -389,49 +463,54 @@ def run_import():
         conn.autocommit = False
 
         log.info(
-            'Phase 3 — Truncating reporting tables and importing %d zip file(s)...',
-            len(valid_zips),
+            'Phase 3 — Truncating reporting tables and importing %d file(s)...',
+            len(valid_payloads),
         )
         BaseImportVersion.truncate_reporting_tables(conn)
         conn.commit()
 
         imported_count = 0
-        for zip_name, local_zip_path in valid_zips:
-            zip_start = time.time()
+        for payload_name, local_path in valid_payloads:
+            payload_start = time.time()
             source_key = None
 
             try:
-                source_key = read_zip_source_key(local_zip_path)
-                import_zip_file(conn, local_zip_path, source_key)
+                if _is_import_zip(payload_name):
+                    source_key = read_zip_source_key(local_path)
+                    import_zip_file(conn, local_path, source_key)
+                elif _is_import_json(payload_name):
+                    source_key = import_aggregate_json_file(conn, local_path)
+                else:
+                    raise ValueError(f'Unsupported validated import file: {payload_name}')
                 conn.commit()
 
-                duration = round(time.time() - zip_start, 2)
+                duration = round(time.time() - payload_start, 2)
                 log_import_run(
                     source_key=source_key,
-                    started_at=zip_start,
+                    started_at=payload_start,
                     status='success',
                     duration_seconds=duration,
                 )
                 imported_count += 1
                 log.info(
                     '  Imported %s (source_key=%s) in %.2fs',
-                    zip_name,
+                    payload_name,
                     source_key,
                     duration,
                 )
 
             except Exception as e:
                 conn.rollback()
-                duration = round(time.time() - zip_start, 2)
+                duration = round(time.time() - payload_start, 2)
                 log.error(
-                    'Failed to import zip %s: %s',
-                    zip_name,
+                    'Failed to import %s: %s',
+                    payload_name,
                     e,
                     exc_info=True,
                 )
                 log_import_run(
-                    source_key=source_key or os.path.splitext(zip_name)[0],
-                    started_at=zip_start,
+                    source_key=source_key or os.path.splitext(payload_name)[0],
+                    started_at=payload_start,
                     status='failed',
                     duration_seconds=duration,
                     error_message=str(e),
@@ -442,9 +521,9 @@ def run_import():
         else:
             duration = round(time.time() - job_start, 2)
             log.info(
-                '=== Import job complete — %d/%d zip(s) imported in %.2fs ===',
+                '=== Import job complete — %d/%d file(s) imported in %.2fs ===',
                 imported_count,
-                len(valid_zips),
+                len(valid_payloads),
                 duration,
             )
 
