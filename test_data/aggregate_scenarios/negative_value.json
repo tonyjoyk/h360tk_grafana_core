@@ -19,11 +19,11 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 9
         },
         {
-          "code": "bp_uncontrolled",
+          "code": "nb_patients_uncontrolled",
           "value": -4
         }
       ]

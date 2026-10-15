@@ -4,14 +4,14 @@ Use this checklist when onboarding any EHR to send aggregate indicator data dire
 
 ## 1) File and frequency
 
-- [ ] Send one JSON file per reporting month.
+- [ ] Send a JSON file whenever the counts change. Each entry is the full picture for one calendar month.
 - [ ] Use UTF-8 encoded `.json`.
 - [ ] Ensure `resourceType` is `AggregateIndicatorSubmission`.
 
 ## 2) Source identity
 
 - [ ] Set a stable `reporter.identifier.value` (vendor/system key).
-- [ ] Set a unique monthly submission `identifier.value`.
+- [ ] Set an `identifier.value` for the file, and reuse it when you correct that file.
 
 ## 3) Reporting period
 
@@ -32,41 +32,36 @@ If central ID is not available:
 Send the counts you have. The full list is in [Send your indicator counts to the national dashboard](ehr-aggregate-indicator-requirements.md).
 
 Hypertension codes you can send:
-- [ ] `bp_controlled`
-- [ ] `bp_uncontrolled`
-- [ ] `missed_visit`
-- [ ] `visit_no_bp`
-- [ ] `lost_to_follow_up`
-- [ ] `total_registered`
-- [ ] `newly_registered`
-- [ ] `patients_under_care`
-- [ ] `new_registrations`
+- [ ] `nb_patients_controlled`
+- [ ] `nb_patients_uncontrolled`
+- [ ] `nb_patients_no_visit`
+- [ ] `nb_patients_visit_no_bp`
+- [ ] `heart360_patients_category.nb_patients_lost_to_follow_up`
+- [ ] `heart360_patients_category.total_number_of_patients`
+- [ ] `nb_patients_newly_registered`
+- [ ] `nb_patients_under_care`
+- [ ] `nb_new_patients`
 
 Diabetes codes you can send:
-- [ ] `bs_controlled`
-- [ ] `bs_uncontrolled_moderate`
-- [ ] `bs_uncontrolled_high`
-- [ ] `bs_missed_visit`
-- [ ] `dm_patients_under_care`
-- [ ] `dm_new_registrations`
-- [ ] `dm_total_registered`
-- [ ] `dm_lost_to_follow_up`
-- [ ] `dm_bp_controlled`
-- [ ] `dm_bp_controlled_130_80`
+- [ ] `diabetes_controlled`
+- [ ] `uncontrolled_moderate`
+- [ ] `uncontrolled_high`
+- [ ] `missed_visit`
+- [ ] `nb_dm_patients_under_care`
+- [ ] `nb_new_dm_patients`
+- [ ] `heart360_dm_patients_catagory.total_number_of_patients`
+- [ ] `heart360_dm_patients_catagory.nb_patients_lost_to_follow_up`
+- [ ] `bp_controlled_140_90`
+- [ ] `bp_controlled_130_80`
 
 Rules:
 - [ ] Values must be non-negative integers.
-- [ ] Unknown indicator codes are allowed but ignored in MVP.
-
-Optional:
-- [ ] `extensions.denominator_under_care`
-- [ ] `extensions.newly_registered`
-- [ ] `extensions.lost_to_follow_up`
+- [ ] Unknown indicator codes are ignored.
 
 ## 6) Quality checks before sending
 
-- [ ] `bp_controlled`, `bp_uncontrolled`, and `missed_visit` are counts, not percentages, and they do not have to add up to 100.
-- [ ] Patients who visited with no blood pressure recorded are sent as `visit_no_bp`, not as zero.
+- [ ] `nb_patients_controlled`, `nb_patients_uncontrolled`, and `nb_patients_no_visit` are counts, and they do not have to add up to 100.
+- [ ] Patients who visited with no blood pressure recorded are sent as `nb_patients_visit_no_bp`. Send zero only when the real count is zero.
 - [ ] No duplicate org unit entries for the same period unless intentionally split.
 - [ ] A test file has been validated in a non-production environment.
 

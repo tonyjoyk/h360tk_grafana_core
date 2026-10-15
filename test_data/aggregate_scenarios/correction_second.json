@@ -19,7 +19,7 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 100
         }
       ]

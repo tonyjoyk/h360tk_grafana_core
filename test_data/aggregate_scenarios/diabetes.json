@@ -19,43 +19,43 @@
       },
       "indicators": [
         {
-          "code": "bs_controlled",
+          "code": "diabetes_controlled",
           "value": 40
         },
         {
-          "code": "bs_uncontrolled_moderate",
+          "code": "uncontrolled_moderate",
           "value": 15
         },
         {
-          "code": "bs_uncontrolled_high",
+          "code": "uncontrolled_high",
           "value": 5
         },
         {
-          "code": "bs_missed_visit",
+          "code": "missed_visit",
           "value": 10
         },
         {
-          "code": "dm_patients_under_care",
+          "code": "nb_dm_patients_under_care",
           "value": 80
         },
         {
-          "code": "dm_new_registrations",
+          "code": "nb_new_dm_patients",
           "value": 6
         },
         {
-          "code": "dm_bp_controlled",
+          "code": "bp_controlled_140_90",
           "value": 24
         },
         {
-          "code": "dm_bp_controlled_130_80",
+          "code": "bp_controlled_130_80",
           "value": 12
         },
         {
-          "code": "dm_total_registered",
+          "code": "heart360_dm_patients_catagory.total_number_of_patients",
           "value": 100
         },
         {
-          "code": "dm_lost_to_follow_up",
+          "code": "heart360_dm_patients_catagory.nb_patients_lost_to_follow_up",
           "value": 8
         }
       ]

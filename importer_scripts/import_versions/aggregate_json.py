@@ -7,36 +7,47 @@ from psycopg2 import sql
 
 log = logging.getLogger(__name__)
 
-# Counts only. The dashboard calculates every percentage from these columns.
+# JSON codes are the toolkit column names. A code is table-qualified only when
+# the same column exists on both the hypertension and diabetes tables.
+# One code can fill several columns, because the dashboards read the same
+# count from more than one table.
 INDICATORS: dict[str, tuple[tuple[str, str], ...]] = {
-    'bp_controlled': (('heart360_patients_category', 'nb_patients_controlled'),),
-    'bp_uncontrolled': (('heart360_patients_category', 'nb_patients_uncontrolled'),),
-    'missed_visit': (('heart360_patients_category', 'nb_patients_no_visit'),),
-    'visit_no_bp': (('heart360_patients_category', 'nb_patients_visit_no_bp'),),
-    'lost_to_follow_up': (('heart360_patients_category', 'nb_patients_lost_to_follow_up'),),
-    'total_registered': (('heart360_patients_category', 'total_number_of_patients'),),
-    'newly_registered': (('heart360_patients_category', 'nb_patients_newly_registered'),),
-    'patients_under_care': (
+    'nb_patients_controlled': (('heart360_patients_category', 'nb_patients_controlled'),),
+    'nb_patients_uncontrolled': (('heart360_patients_category', 'nb_patients_uncontrolled'),),
+    'nb_patients_no_visit': (('heart360_patients_category', 'nb_patients_no_visit'),),
+    'nb_patients_visit_no_bp': (('heart360_patients_category', 'nb_patients_visit_no_bp'),),
+    'heart360_patients_category.nb_patients_lost_to_follow_up': (
+        ('heart360_patients_category', 'nb_patients_lost_to_follow_up'),
+    ),
+    'heart360_patients_category.total_number_of_patients': (
+        ('heart360_patients_category', 'total_number_of_patients'),
+    ),
+    'nb_patients_newly_registered': (('heart360_patients_category', 'nb_patients_newly_registered'),),
+    'nb_patients_under_care': (
         ('heart360_patients_under_care', 'nb_patients_under_care'),
         ('heart360_patients_category', 'nb_patients_under_care'),
     ),
-    'new_registrations': (('heart360_patients_registered', 'nb_new_patients'),),
-    'bs_controlled': (('heart360_blood_sugar_controlled', 'diabetes_controlled'),),
-    'bs_uncontrolled_moderate': (('heart360_blood_sugar_severity', 'uncontrolled_moderate'),),
-    'bs_uncontrolled_high': (('heart360_blood_sugar_severity', 'uncontrolled_high'),),
-    'bs_missed_visit': (('heart360_blood_sugar_missed_visits', 'missed_visit'),),
-    'dm_patients_under_care': (
+    'nb_new_patients': (('heart360_patients_registered', 'nb_new_patients'),),
+    'diabetes_controlled': (('heart360_blood_sugar_controlled', 'diabetes_controlled'),),
+    'uncontrolled_moderate': (('heart360_blood_sugar_severity', 'uncontrolled_moderate'),),
+    'uncontrolled_high': (('heart360_blood_sugar_severity', 'uncontrolled_high'),),
+    'missed_visit': (('heart360_blood_sugar_missed_visits', 'missed_visit'),),
+    'nb_dm_patients_under_care': (
         ('heart360_dm_patients_under_care', 'nb_dm_patients_under_care'),
         ('heart360_blood_sugar_controlled', 'diabetes_patients_under_care'),
         ('heart360_blood_sugar_severity', 'diabetes_patients_under_care'),
         ('heart360_blood_sugar_missed_visits', 'diabetes_patients_under_care'),
         ('heart360_dm_bp_control', 'dm_patients_under_care'),
     ),
-    'dm_new_registrations': (('heart360_dm_patients_under_care', 'nb_new_dm_patients'),),
-    'dm_lost_to_follow_up': (('heart360_dm_patients_catagory', 'nb_patients_lost_to_follow_up'),),
-    'dm_total_registered': (('heart360_dm_patients_catagory', 'total_number_of_patients'),),
-    'dm_bp_controlled': (('heart360_dm_bp_control', 'bp_controlled_140_90'),),
-    'dm_bp_controlled_130_80': (('heart360_dm_bp_control', 'bp_controlled_130_80'),),
+    'nb_new_dm_patients': (('heart360_dm_patients_under_care', 'nb_new_dm_patients'),),
+    'heart360_dm_patients_catagory.nb_patients_lost_to_follow_up': (
+        ('heart360_dm_patients_catagory', 'nb_patients_lost_to_follow_up'),
+    ),
+    'heart360_dm_patients_catagory.total_number_of_patients': (
+        ('heart360_dm_patients_catagory', 'total_number_of_patients'),
+    ),
+    'bp_controlled_140_90': (('heart360_dm_bp_control', 'bp_controlled_140_90'),),
+    'bp_controlled_130_80': (('heart360_dm_bp_control', 'bp_controlled_130_80'),),
 }
 
 
@@ -238,25 +249,6 @@ def _add_count(cells: dict, month: date, org_unit_id: int, table: str, column: s
     bucket[column] = bucket.get(column, 0) + value
 
 
-def _apply_extensions(indicators: list, extensions: dict) -> list:
-    codes = {
-        item.get('code')
-        for item in indicators
-        if isinstance(item, dict)
-    }
-    merged = list(indicators)
-    aliases = {
-        'denominator_under_care': 'patients_under_care',
-        'newly_registered': 'newly_registered',
-        'lost_to_follow_up': 'lost_to_follow_up',
-    }
-    for extension_name, code in aliases.items():
-        if code in codes or extension_name not in extensions:
-            continue
-        merged.append({'code': code, 'value': extensions[extension_name]})
-    return merged
-
-
 def _upsert(conn, month: date, org_unit_id: int, table: str, columns: dict[str, int]) -> None:
     if not columns:
         return
@@ -345,12 +337,10 @@ def import_aggregate_json_file(conn, json_path: str) -> str:
             continue
 
         indicators = entry.get('indicators') or []
-        extensions = entry.get('extensions') if isinstance(entry.get('extensions'), dict) else {}
         if not isinstance(indicators, list):
             rejected += 1
             _log_skip(conn, source_key, submission_id, month, idx, 'indicators must be an array', org_unit_payload, entry)
             continue
-        indicators = _apply_extensions(indicators, extensions)
 
         stored = 0
         for indicator in indicators:
@@ -377,16 +367,6 @@ def import_aggregate_json_file(conn, json_path: str) -> str:
             for table, column in targets:
                 _add_count(cells, month, org_unit_id, table, column, value)
             stored += 1
-
-        # Old files sent one denominator. Keep the hypertension percent formula working.
-        if 'denominator_under_care' in extensions and 'total_registered' not in {
-            str(item.get('code', '')).strip().lower() for item in indicators if isinstance(item, dict)
-        }:
-            denom = _count_value(extensions.get('denominator_under_care')) or 0
-            newly = _count_value(extensions.get('newly_registered')) or 0
-            lost = _count_value(extensions.get('lost_to_follow_up')) or 0
-            _add_count(cells, month, org_unit_id, 'heart360_patients_category',
-                       'total_number_of_patients', denom + newly + lost)
 
         if stored == 0:
             rejected += 1

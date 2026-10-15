@@ -17,7 +17,7 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 4
         }
       ]
@@ -30,7 +30,7 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 11
         }
       ]

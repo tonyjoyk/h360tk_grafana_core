@@ -19,39 +19,39 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 50
         },
         {
-          "code": "bp_uncontrolled",
+          "code": "nb_patients_uncontrolled",
           "value": 30
         },
         {
-          "code": "missed_visit",
+          "code": "nb_patients_no_visit",
           "value": 10
         },
         {
-          "code": "visit_no_bp",
+          "code": "nb_patients_visit_no_bp",
           "value": 10
         },
         {
-          "code": "total_registered",
+          "code": "heart360_patients_category.total_number_of_patients",
           "value": 120
         },
         {
-          "code": "newly_registered",
+          "code": "nb_patients_newly_registered",
           "value": 10
         },
         {
-          "code": "lost_to_follow_up",
+          "code": "heart360_patients_category.nb_patients_lost_to_follow_up",
           "value": 10
         },
         {
-          "code": "patients_under_care",
+          "code": "nb_patients_under_care",
           "value": 90
         },
         {
-          "code": "new_registrations",
+          "code": "nb_new_patients",
           "value": 8
         }
       ]

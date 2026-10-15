@@ -23,11 +23,11 @@
       },
       "indicators": [
         {
-          "code": "new_registrations",
+          "code": "nb_new_patients",
           "value": 5
         },
         {
-          "code": "patients_under_care",
+          "code": "nb_patients_under_care",
           "value": 70
         }
       ]
@@ -44,11 +44,11 @@
       },
       "indicators": [
         {
-          "code": "new_registrations",
+          "code": "nb_new_patients",
           "value": 7
         },
         {
-          "code": "patients_under_care",
+          "code": "nb_patients_under_care",
           "value": 80
         }
       ]
@@ -65,11 +65,11 @@
       },
       "indicators": [
         {
-          "code": "new_registrations",
+          "code": "nb_new_patients",
           "value": 8
         },
         {
-          "code": "patients_under_care",
+          "code": "nb_patients_under_care",
           "value": 90
         }
       ]

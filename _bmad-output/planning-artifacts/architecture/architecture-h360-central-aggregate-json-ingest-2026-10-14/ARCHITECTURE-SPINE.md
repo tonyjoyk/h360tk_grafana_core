@@ -205,8 +205,18 @@ The EHR developer often has some counts and not others. One EHR has blood pressu
 
 The central operator does not want the EHR to send percentages. The dashboard already divides. If the EHR sends a percentage code, the importer ignores that code and keeps the counts.
 
-Visit with no blood pressure is its own count, `visit_no_bp`. The three hypertension percentages are allowed to add up to less than 100.
+Visit with no blood pressure is its own count, `nb_patients_visit_no_bp`. The three hypertension percentages are allowed to add up to less than 100.
 
 The code list lives in one registry, `import_versions/aggregate_json.py`. A new dashboard count is a new row in that registry, not a new import path.
+
+## 11) Decision record, 2026-10-15, names
+
+Review of the short JSON codes against the toolkit column names. Full notes: `_bmad-output/planning-artifacts/reviews/central-aggregate-json-2026-10-15.md`.
+
+The registry stays. It is the allow-list, and it copies one EHR count onto every column the existing panels divide by. `nb_patients_under_care` fills both hypertension under-care columns. `nb_dm_patients_under_care` fills the diabetes under-care column, the three blood-sugar denominators, and the diabetes blood-pressure denominator.
+
+The short aliases go. The JSON code is the toolkit column name. `nb_patients_lost_to_follow_up` and `total_number_of_patients` exist on both the hypertension table and the diabetes table, so those four codes include the table name.
+
+The `extensions` block from the first sample is removed. It invented `total_number_of_patients` from three other numbers. Nothing outside this branch sent it. The file now sends that column directly.
 
 Section 8 is not the path we are building. There is no `v_external_aggregate_kpi_monthly` view.

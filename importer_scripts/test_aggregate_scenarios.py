@@ -274,7 +274,7 @@ def scenario_old_shape(conn):
         ''',
     )
     return check(
-        'the first JSON shape still fills the hypertension percent inputs',
+        'column names fill the hypertension percent inputs',
         values == (120, 180, 203, 14, 9),
         values,
     )

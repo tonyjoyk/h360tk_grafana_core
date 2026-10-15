@@ -19,15 +19,15 @@
       },
       "indicators": [
         {
-          "code": "bp_controlled",
+          "code": "nb_patients_controlled",
           "value": 40
         },
         {
-          "code": "bp_uncontrolled",
+          "code": "nb_patients_uncontrolled",
           "value": 20
         },
         {
-          "code": "missed_visit",
+          "code": "nb_patients_no_visit",
           "value": 10
         }
       ]

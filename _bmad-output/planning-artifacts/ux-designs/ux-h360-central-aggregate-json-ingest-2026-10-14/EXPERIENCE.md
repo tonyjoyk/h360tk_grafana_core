@@ -107,6 +107,6 @@ Recommended MVP reason codes.
 
 The charts do not change. A count the EHR sent shows on the chart that already uses that count. A count they did not send stays blank.
 
-The hypertension percentage can add up to less than 100 when some visits have no blood pressure. That gap is the `visit_no_bp` count. The screen does not rescale the other bars to 100.
+The hypertension percentage can add up to less than 100 when some visits have no blood pressure. That gap is the `nb_patients_visit_no_bp` count. The screen does not rescale the other bars to 100.
 
 A percentage sent by the EHR is not shown. The chart calculates its own percentage from the counts.
