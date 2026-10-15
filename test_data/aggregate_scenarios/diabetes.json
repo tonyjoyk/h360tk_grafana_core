@@ -1,0 +1,68 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "diabetes"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "bs_controlled",
+          "value": 40
+        },
+        {
+          "code": "bs_uncontrolled_moderate",
+          "value": 15
+        },
+        {
+          "code": "bs_uncontrolled_high",
+          "value": 5
+        },
+        {
+          "code": "bs_missed_visit",
+          "value": 10
+        },
+        {
+          "code": "dm_patients_under_care",
+          "value": 80
+        },
+        {
+          "code": "dm_new_registrations",
+          "value": 6
+        },
+        {
+          "code": "dm_bp_controlled",
+          "value": 24
+        },
+        {
+          "code": "dm_bp_controlled_130_80",
+          "value": 12
+        },
+        {
+          "code": "dm_total_registered",
+          "value": 100
+        },
+        {
+          "code": "dm_lost_to_follow_up",
+          "value": 8
+        }
+      ]
+    }
+  ],
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  }
+}

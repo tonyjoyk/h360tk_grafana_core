@@ -1,0 +1,36 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "percent_sent"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "bp_control_percent",
+          "value": 55
+        },
+        {
+          "code": "bp_controlled",
+          "value": 33
+        }
+      ]
+    }
+  ],
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  }
+}

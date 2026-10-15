@@ -16,7 +16,7 @@ Use this checklist when onboarding any EHR to send aggregate indicator data dire
 ## 3) Reporting period
 
 - [ ] Provide `period.start` and `period.end` in ISO date format (`YYYY-MM-DD`).
-- [ ] Ensure all entries in the file refer to that same period.
+- [ ] Put the period on the file for one month, or on each entry when the file covers more than one month.
 
 ## 4) Org unit mapping
 
@@ -29,10 +29,30 @@ If central ID is not available:
 
 ## 5) Indicator payload
 
-Required codes:
+Send the counts you have. The full list is in [Send your indicator counts to the national dashboard](ehr-aggregate-indicator-requirements.md).
+
+Hypertension codes you can send:
 - [ ] `bp_controlled`
 - [ ] `bp_uncontrolled`
 - [ ] `missed_visit`
+- [ ] `visit_no_bp`
+- [ ] `lost_to_follow_up`
+- [ ] `total_registered`
+- [ ] `newly_registered`
+- [ ] `patients_under_care`
+- [ ] `new_registrations`
+
+Diabetes codes you can send:
+- [ ] `bs_controlled`
+- [ ] `bs_uncontrolled_moderate`
+- [ ] `bs_uncontrolled_high`
+- [ ] `bs_missed_visit`
+- [ ] `dm_patients_under_care`
+- [ ] `dm_new_registrations`
+- [ ] `dm_total_registered`
+- [ ] `dm_lost_to_follow_up`
+- [ ] `dm_bp_controlled`
+- [ ] `dm_bp_controlled_130_80`
 
 Rules:
 - [ ] Values must be non-negative integers.
@@ -45,7 +65,8 @@ Optional:
 
 ## 6) Quality checks before sending
 
-- [ ] `bp_controlled + bp_uncontrolled + missed_visit` is internally consistent.
+- [ ] `bp_controlled`, `bp_uncontrolled`, and `missed_visit` are counts, not percentages, and they do not have to add up to 100.
+- [ ] Patients who visited with no blood pressure recorded are sent as `visit_no_bp`, not as zero.
 - [ ] No duplicate org unit entries for the same period unless intentionally split.
 - [ ] A test file has been validated in a non-production environment.
 

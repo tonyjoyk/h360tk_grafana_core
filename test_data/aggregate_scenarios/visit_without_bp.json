@@ -1,0 +1,64 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "visit_without_bp"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "bp_controlled",
+          "value": 50
+        },
+        {
+          "code": "bp_uncontrolled",
+          "value": 30
+        },
+        {
+          "code": "missed_visit",
+          "value": 10
+        },
+        {
+          "code": "visit_no_bp",
+          "value": 10
+        },
+        {
+          "code": "total_registered",
+          "value": 120
+        },
+        {
+          "code": "newly_registered",
+          "value": 10
+        },
+        {
+          "code": "lost_to_follow_up",
+          "value": 10
+        },
+        {
+          "code": "patients_under_care",
+          "value": 90
+        },
+        {
+          "code": "new_registrations",
+          "value": 8
+        }
+      ]
+    }
+  ],
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  }
+}

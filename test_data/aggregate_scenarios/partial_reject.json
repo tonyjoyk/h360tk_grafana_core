@@ -1,0 +1,43 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "partial_reject"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "display": "Unknown Clinic"
+      },
+      "indicators": [
+        {
+          "code": "bp_controlled",
+          "value": 4
+        }
+      ]
+    },
+    {
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "bp_controlled",
+          "value": 11
+        }
+      ]
+    }
+  ],
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  }
+}

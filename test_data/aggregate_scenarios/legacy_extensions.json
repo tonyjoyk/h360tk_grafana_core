@@ -1,0 +1,44 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "legacy-extensions"
+  },
+  "reporter": {
+    "identifier": {
+      "value": "demo-ehr"
+    }
+  },
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 1,
+        "code": "DEMO-FAC-001",
+        "display": "Demo Facility"
+      },
+      "indicators": [
+        {
+          "code": "bp_controlled",
+          "value": 120
+        },
+        {
+          "code": "bp_uncontrolled",
+          "value": 40
+        },
+        {
+          "code": "missed_visit",
+          "value": 20
+        }
+      ],
+      "extensions": {
+        "denominator_under_care": 180,
+        "newly_registered": 14,
+        "lost_to_follow_up": 9
+      }
+    }
+  ]
+}

@@ -45,11 +45,23 @@ Make it simple for EHR vendors that already compute HEARTS indicators to send mo
 
 ## Supported indicator codes
 
-- `bp_controlled`
-- `bp_uncontrolled`
-- `missed_visit`
+Send counts. A code ending in `_percent`, `_pct`, or `_rate` is ignored.
 
-Unknown indicator codes are ignored in MVP.
+Hypertension:
+
+- `bp_controlled`, `bp_uncontrolled`, `missed_visit`, `visit_no_bp`
+- `lost_to_follow_up`, `total_registered`, `newly_registered`
+- `patients_under_care`, `new_registrations`
+
+Diabetes:
+
+- `bs_controlled`, `bs_uncontrolled_moderate`, `bs_uncontrolled_high`, `bs_missed_visit`
+- `dm_patients_under_care`, `dm_new_registrations`, `dm_total_registered`, `dm_lost_to_follow_up`
+- `dm_bp_controlled`, `dm_bp_controlled_130_80`
+
+The plain-language list is in [Send your indicator counts](ehr-aggregate-indicator-requirements.md). Unknown codes are ignored. An entry can use its own `period` when one file covers more than one month.
+
+`extensions.denominator_under_care`, `extensions.newly_registered`, and `extensions.lost_to_follow_up` still work for files sent in the first shape. Prefer the codes above.
 
 ## Org unit resolution rules (in order)
 
@@ -63,21 +75,15 @@ If org unit cannot be resolved, the entry is rejected and logged.
 
 - File-level validation:
   - `resourceType` must be `AggregateIndicatorSubmission`
-  - `period.start` and `period.end` must be valid ISO dates
   - `entries` must be a non-empty array
 - Row-level validation:
-  - Rejects malformed entries and logs reason in `external_aggregate_rejection_log`
-  - Accepts valid rows even if some rows in the same file fail
+  - Skips a bad entry and logs the reason in `external_aggregate_rejection_log`
+  - Keeps the other entries in the same file
+  - Stores only the codes that were sent. A missing code stays null. It is not stored as zero.
 
 ## How data is shown on dashboards
 
-Accepted JSON aggregates are written into `heart360tk_reporting.heart360_patients_category` (same table already used by dashboard queries), so existing BP control, BP uncontrolled, and missed-visit panels can show these values without dashboard redesign.
-
-The hypertension panels use this denominator:
-
-`total patients - newly registered - lost to follow-up`
-
-Send `extensions.denominator_under_care` when the EHR's under-care count is not exactly `bp_controlled + bp_uncontrolled + missed_visit`. If it is omitted, the importer uses that sum.
+Each code is written to the reporting column the existing panel already reads. Hypertension percentages use `total_registered - newly_registered - lost_to_follow_up`. Diabetes blood sugar percentages use `dm_patients_under_care`. The dashboard does that division. The file does not include the percentage.
 
 ## Reload behavior
 
