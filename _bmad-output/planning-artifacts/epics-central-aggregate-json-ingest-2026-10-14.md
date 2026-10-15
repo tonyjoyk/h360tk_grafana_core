@@ -51,6 +51,21 @@ Exit criteria.
 - [ ] One partner successfully submits monthly payloads for the 3 core indicators.
 - [ ] Central admin confirms data confidence for pilot scope.
 
+## Epic 5. Counts the dashboards already show
+
+Goal. Let an EHR send any subset of the hypertension and diabetes counts, including registrations by month, and let the existing charts calculate the percentages.
+
+Stories.
+
+- [x] E5-S1 Registry of count codes mapped to the columns the panels already read.
+- [x] E5-S2 Store only the codes that were sent. Leave the others null.
+- [x] E5-S3 Accept `visit_no_bp` so the three hypertension percentages can add up to less than 100.
+- [x] E5-S4 Accept diabetes blood sugar, missed visit, under care, registrations, and blood pressure counts.
+- [x] E5-S5 Accept one file that covers several months.
+- [x] E5-S6 Ignore percentage codes.
+- [x] E5-S7 Plain-language vendor requirements, with the checklist and a link to the JSON note.
+- [x] E5-S8 Scenario tests for the shapes above.
+
 ## Epic 4. Optional extensions after MVP
 
 Goal. Expand without destabilizing the MVP path.

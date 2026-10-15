@@ -3,7 +3,7 @@ name: HEARTS360 central direct aggregate JSON ingest
 type: architecture-spine
 status: draft-for-implementation
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Architecture spine: direct aggregate indicator ingest
@@ -194,3 +194,19 @@ This view is the first dashboard entry point and can later join hierarchy views 
 4. Implement upsert + rejection writes.
 5. Add admin query surfaces for submission and rejection logs.
 6. Pilot with one vendor and one month.
+
+## 10) Decision record, 2026-10-15
+
+Party review of the first three-code file, from the people who have to use it.
+
+The district user needs the same charts they already open. A new dashboard view would hide the EHR numbers from those charts. The file therefore writes the reporting columns those charts already read.
+
+The EHR developer often has some counts and not others. One EHR has blood pressure results. Another has registrations by month. Another has diabetes. Forcing a complete row would turn a missing count into zero and would show a false percentage. A missing count stays null.
+
+The central operator does not want the EHR to send percentages. The dashboard already divides. If the EHR sends a percentage code, the importer ignores that code and keeps the counts.
+
+Visit with no blood pressure is its own count, `visit_no_bp`. The three hypertension percentages are allowed to add up to less than 100.
+
+The code list lives in one registry, `import_versions/aggregate_json.py`. A new dashboard count is a new row in that registry, not a new import path.
+
+Section 8 is not the path we are building. There is no `v_external_aggregate_kpi_monthly` view.

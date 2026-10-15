@@ -2,7 +2,7 @@
 name: HEARTS360 central aggregate JSON ingest
 status: draft-for-implementation
 created: 2026-10-14
-updated: 2026-10-14
+updated: 2026-10-15
 ---
 
 # Experience spine: vendor API and central admin flow
@@ -102,3 +102,11 @@ Recommended MVP reason codes.
 - No vendor self-service mapping UI in MVP.
 - No interactive payload builder.
 - No full FHIR validation UI.
+
+## 8) What the district user sees
+
+The charts do not change. A count the EHR sent shows on the chart that already uses that count. A count they did not send stays blank.
+
+The hypertension percentage can add up to less than 100 when some visits have no blood pressure. That gap is the `visit_no_bp` count. The screen does not rescale the other bars to 100.
+
+A percentage sent by the EHR is not shown. The chart calculates its own percentage from the counts.
