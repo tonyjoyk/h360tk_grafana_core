@@ -1,18 +1,23 @@
-# EHR Aggregate Indicator JSON Ingestion (MVP)
+# EHR aggregate indicator JSON ingest (MVP)
 
-This MVP allows the central node importer to accept **direct aggregate indicator JSON files** in addition to the existing ZIP export flow.
+The central importer accepts aggregate indicator JSON files. It also accepts the existing ZIP export files.
+
+The vendor text is in [Send your indicator counts](ehr-aggregate-indicator-requirements.md).
 
 ## Goal
 
-Make it simple for EHR vendors that already compute HEARTS indicators to send aggregate counts, at whatever frequency they already produce them, without sending patient line lists.
+An EHR that already calculates HEARTS indicators can send aggregate counts. Send the file when the counts change. Do not send a patient line list.
 
-## Transport (MVP)
+## Transport
 
-- Drop JSON files into the importer input folder (`IMPORT_FOLDER_PATH`) using the existing transport:
-  - `IMPORT_PROTOCOL=sftp` (current default), or
-  - `IMPORT_PROTOCOL=file` (local/demo mode)
+Put each JSON file in the importer input folder (`IMPORT_FOLDER_PATH`). Use the transport that the importer already uses:
 
-## Required JSON Shape (FHIR-inspired, lightweight)
+- `IMPORT_PROTOCOL=sftp` is the default.
+- `IMPORT_PROTOCOL=file` is for a local demo.
+
+## JSON shape
+
+The shape is small and follows FHIR field names.
 
 ```json
 {
@@ -41,11 +46,11 @@ Make it simple for EHR vendors that already compute HEARTS indicators to send ag
 }
 ```
 
-## Supported indicator codes
+## Indicator codes
 
-Send counts. A code ending in `_percent`, `_pct`, or `_rate` is ignored.
+Send counts. The importer ignores a code that ends with `_percent`, `_pct`, or `_rate`. The importer also ignores a code that contains `percentage`.
 
-The code is the toolkit column name. A code includes the table name only when that column exists on both the hypertension and diabetes tables.
+The code is the toolkit column name. Add the table name only when that column exists on the hypertension table and on the diabetes table.
 
 Hypertension:
 
@@ -60,42 +65,51 @@ Diabetes:
 - `heart360_dm_patients_catagory.total_number_of_patients`, `heart360_dm_patients_catagory.nb_patients_lost_to_follow_up`
 - `bp_controlled_140_90`, `bp_controlled_130_80`
 
-`nb_patients_under_care` is written to both under-care tables the hypertension dashboard reads. `nb_dm_patients_under_care` is copied onto the blood-sugar denominators and the diabetes blood-pressure denominator.
+The importer writes `nb_patients_under_care` to both hypertension under-care tables. The importer copies `nb_dm_patients_under_care` to the blood-sugar denominators and to the diabetes blood-pressure denominator.
 
-The plain-language list is in [Send your indicator counts](ehr-aggregate-indicator-requirements.md). Unknown codes are ignored. An entry can use its own `period` when one file covers more than one month. `period.start` selects the calendar month.
+The full list is in [Send your indicator counts](ehr-aggregate-indicator-requirements.md). The importer ignores an unknown code. Put `period` on an entry when one file has more than one month. `period.start` selects the calendar month.
 
-## Org unit resolution rules (in order)
+## Facility match
 
-1. `orgUnit.id` (central node org unit ID)
-2. `orgUnit.code` mapped in `heart360tk_reporting.external_org_unit_mapping`
-3. `orgUnit.display` (+ optional `orgUnit.level`) matched to central `org_units`
+The importer uses this order:
 
-If org unit cannot be resolved, the entry is rejected and logged.
+1. `orgUnit.id` is the central org unit id.
+2. `orgUnit.code` must exist in `heart360tk_reporting.external_org_unit_mapping`.
+3. `orgUnit.display` must match one name in `org_units`. You can also send `orgUnit.level`.
 
-## Validation and ingestion behavior
+If the importer cannot match the facility, it rejects that entry and writes a log row.
 
-- File-level validation:
-  - `resourceType` must be `AggregateIndicatorSubmission`
-  - `entries` must be a non-empty array
-- Row-level validation:
-  - Skips a bad entry and logs the reason in `external_aggregate_rejection_log`
-  - Keeps the other entries in the same file
-  - Stores only the codes that were sent. A missing code stays null. It is not stored as zero.
+## Validation
 
-## How data is shown on dashboards
+The file must have:
 
-Each code is the reporting column the existing panel already reads. Hypertension percentages use `heart360_patients_category.total_number_of_patients - nb_patients_newly_registered - heart360_patients_category.nb_patients_lost_to_follow_up`. Diabetes blood sugar percentages use `nb_dm_patients_under_care`. The dashboard does that division. The file does not include the percentage.
+- `resourceType` set to `AggregateIndicatorSubmission`
+- `entries` as an array with at least one entry
 
-## Reload behavior
+For each entry, the importer:
 
-Each import run reads every `.json` and `.zip` file still in the import folder, clears the reporting snapshot, and loads the folder again.
+- Skips a bad entry and writes the reason in `external_aggregate_rejection_log`
+- Keeps the other entries in the same file
+- Stores only the codes that the file sends. A missing code stays null. The importer does not store zero for a missing code.
 
-- Keep every month that should stay on the dashboard in the folder. Removing a file drops that source on the next run.
-- To correct a month, replace the file and wait for the next import (or run the importer once).
-- The same code for one facility and month inside one file is summed.
-- If two files in the same run mention the same facility and month, the later file replaces the columns it sends.
+## Dashboards
 
-## Audit tables added
+Each code is a reporting column that a current panel already reads. Hypertension percentages use this denominator:
+
+`heart360_patients_category.total_number_of_patients - nb_patients_newly_registered - heart360_patients_category.nb_patients_lost_to_follow_up`
+
+Diabetes blood sugar percentages use `nb_dm_patients_under_care`. The dashboard divides. Do not put the percentage in the file.
+
+## Reload
+
+Each import reads every `.json` file and every `.zip` file that is still in the import folder. The import clears the reporting snapshot. Then it loads the folder again.
+
+- Keep each month that must stay on the dashboard in the folder. If you remove a file, the next import removes that source.
+- To correct a month, replace the file. Wait for the next import, or run the importer once.
+- In one file, the importer adds values that have the same code, the same facility, and the same month.
+- If two files in one run have the same facility and the same month, the later file replaces the columns that it sends.
+
+## Log tables
 
 - `heart360tk_reporting.external_org_unit_mapping`
 - `heart360tk_reporting.external_aggregate_submission_log`

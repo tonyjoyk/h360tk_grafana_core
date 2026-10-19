@@ -40,9 +40,9 @@ HEARTS360 Toolkit supports three main use cases:
 
 ### Direct EHR aggregate ingestion (MVP)
 
-The central node importer can also ingest direct aggregate indicator JSON submissions from EHR systems (without line-list upload), using a lightweight FHIR-inspired payload.
+The central importer can read aggregate indicator JSON from an EHR. The EHR does not send a patient line list.
 
-Start with `docs/ehr-aggregate-indicator-requirements.md`. That document is the parent list: the vendor note, the JSON shape, the checklist, the code, the migration, the examples, and the branch.
+Start with `docs/ehr-aggregate-indicator-requirements.md`. That file is the parent list. It links the vendor text, the JSON shape, the checklist, the code, the migration, the examples, and the branch.
 
 ---
 

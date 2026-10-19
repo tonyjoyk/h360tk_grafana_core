@@ -1,37 +1,39 @@
-# EHR Vendor Checklist: Aggregate Indicator JSON (MVP)
+# EHR vendor checklist: aggregate indicator JSON
 
-Use this checklist when onboarding any EHR to send aggregate indicator data directly to the central node.
+Use this checklist when an EHR sends aggregate indicator counts to the central node.
+
+The full text is in [Send your indicator counts to the national dashboard](ehr-aggregate-indicator-requirements.md).
 
 ## 1) File and frequency
 
-- [ ] Send a JSON file whenever the counts change. Each entry is the full picture for one calendar month.
-- [ ] Use UTF-8 encoded `.json`.
-- [ ] Ensure `resourceType` is `AggregateIndicatorSubmission`.
+- [ ] Send a JSON file when the counts change. Each entry has all counts for one calendar month.
+- [ ] Save the file as UTF-8. End the file name with `.json`.
+- [ ] Set `resourceType` to `AggregateIndicatorSubmission`.
 
 ## 2) Source identity
 
-- [ ] Set a stable `reporter.identifier.value` (vendor/system key).
-- [ ] Set an `identifier.value` for the file, and reuse it when you correct that file.
+- [ ] Set `reporter.identifier.value` to the EHR name. Do not change this name.
+- [ ] Set `identifier.value` for the file. Use the same value when you correct that file.
 
 ## 3) Reporting period
 
-- [ ] Provide `period.start` and `period.end` in ISO date format (`YYYY-MM-DD`).
-- [ ] Put the period on the file for one month, or on each entry when the file covers more than one month.
+- [ ] Write `period.start` and `period.end` as `YYYY-MM-DD`.
+- [ ] Put the period on the file when the file has one month. Put the period on each entry when the file has more than one month.
 
-## 4) Org unit mapping
+## 4) Facility
 
-Preferred:
-- [ ] Provide central `orgUnit.id`.
+Use the first item that you can:
 
-If central ID is not available:
-- [ ] Provide stable `orgUnit.code` for mapping.
-- [ ] Provide `orgUnit.display` (and optional `orgUnit.level`) for fallback matching.
+- [ ] Send the central `orgUnit.id`.
+- [ ] If you do not have the id, send a stable `orgUnit.code` after it is mapped.
+- [ ] If you do not have a mapped code, send `orgUnit.display`. The name must match one national org unit. You can also send `orgUnit.level`.
 
-## 5) Indicator payload
+## 5) Counts
 
-Send the counts you have. The full list is in [Send your indicator counts to the national dashboard](ehr-aggregate-indicator-requirements.md).
+Send the counts that you have.
 
-Hypertension codes you can send:
+Hypertension:
+
 - [ ] `nb_patients_controlled`
 - [ ] `nb_patients_uncontrolled`
 - [ ] `nb_patients_no_visit`
@@ -42,7 +44,8 @@ Hypertension codes you can send:
 - [ ] `nb_patients_under_care`
 - [ ] `nb_new_patients`
 
-Diabetes codes you can send:
+Diabetes:
+
 - [ ] `diabetes_controlled`
 - [ ] `uncontrolled_moderate`
 - [ ] `uncontrolled_high`
@@ -55,18 +58,19 @@ Diabetes codes you can send:
 - [ ] `bp_controlled_130_80`
 
 Rules:
-- [ ] Values must be non-negative integers.
-- [ ] Unknown indicator codes are ignored.
 
-## 6) Quality checks before sending
+- [ ] Each value is a whole number. The number is zero or greater.
+- [ ] The importer ignores an unknown code.
 
-- [ ] `nb_patients_controlled`, `nb_patients_uncontrolled`, and `nb_patients_no_visit` are counts, and they do not have to add up to 100.
-- [ ] Patients who visited with no blood pressure recorded are sent as `nb_patients_visit_no_bp`. Send zero only when the real count is zero.
-- [ ] No duplicate org unit entries for the same period unless intentionally split.
-- [ ] A test file has been validated in a non-production environment.
+## 6) Checks before you send
 
-## 7) Operational readiness
+- [ ] `nb_patients_controlled`, `nb_patients_uncontrolled`, and `nb_patients_no_visit` are counts. They do not have to add up to 100.
+- [ ] Send patients who had a visit with no blood pressure as `nb_patients_visit_no_bp`. Send zero only when the real count is zero.
+- [ ] Do not repeat the same facility and the same month in one file, unless you want the importer to add those counts.
+- [ ] Test the file in an environment that is not production.
 
-- [ ] Vendor knows rejection reasons are logged per entry.
-- [ ] Vendor has a retry process for corrected files.
-- [ ] A named contact exists for mapping or semantic mismatches.
+## 7) Operations
+
+- [ ] The vendor can read the rejection reason for each entry.
+- [ ] The vendor can send a corrected file.
+- [ ] Name one contact for facility mapping and for count questions.
