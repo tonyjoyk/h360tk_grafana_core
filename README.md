@@ -44,6 +44,8 @@ The central importer can read aggregate indicator JSON from an EHR. The EHR does
 
 Start with `docs/ehr-aggregate-indicator-requirements.md`. That file is the parent list. It links the vendor text, the JSON shape, the checklist, the code, the migration, the examples, and the branch.
 
+The spike report is `docs/central-aggregate-ingest-investigation.md`. It combines the investigation, the examples, and the recommended path.
+
 ---
 
 ## Technical Documentation

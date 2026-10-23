@@ -8,6 +8,8 @@ Send only the counts that you have. If you do not send a count, the dashboard le
 
 The file shape is in [EHR aggregate JSON ingest](ehr-aggregate-json-ingest-mvp.md).
 
+The investigation report for the spike is [Ingesting aggregate data into the national dashboard](central-aggregate-ingest-investigation.md).
+
 Colleagues who build or review this feature use [Files, branch, and repo](#files-branch-and-repo).
 
 ## The problem
@@ -165,6 +167,7 @@ Use the codes in this document and in `importer_scripts/import_versions/aggregat
 
 ### Read these files to understand the design
 
+- [Ingesting aggregate data into the national dashboard](central-aggregate-ingest-investigation.md) — the single investigation report. It has the decision, the examples, the options, and the spike brief.
 - [Architecture spine](../_bmad-output/planning-artifacts/architecture/architecture-h360-central-aggregate-json-ingest-2026-10-14/ARCHITECTURE-SPINE.md) — where the importer stores the counts, and why one count goes to more than one column.
 - [Review, 15 October 2026](../_bmad-output/planning-artifacts/reviews/central-aggregate-json-2026-10-15.md) — what stayed, and why the short names were removed.
 - [Epics and stories](../_bmad-output/planning-artifacts/epics-central-aggregate-json-ingest-2026-10-14.md)
