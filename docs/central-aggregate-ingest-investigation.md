@@ -6,6 +6,8 @@ This is the single report for the spike. It gathers the JSON investigation, the 
 
 The code and this report are on [pull request 8](https://github.com/tonyjoyk/h360tk_grafana_core/pull/8), branch `cursor/aggregate-ingest-mvp-9630`.
 
+The three-way comparison of ZIP CSVs, one Master CSV, and JSON is [Compare three ways to send aggregate counts](compare-aggregate-ingest-approaches.md).
+
 ## How to read this
 
 | If you have | Read |

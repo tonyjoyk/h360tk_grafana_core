@@ -10,6 +10,8 @@ The file shape is in [EHR aggregate JSON ingest](ehr-aggregate-json-ingest-mvp.m
 
 The investigation report for the spike is [Ingesting aggregate data into the national dashboard](central-aggregate-ingest-investigation.md).
 
+The comparison of the ZIP, one Master CSV, and JSON is [Compare three ways to send aggregate counts](compare-aggregate-ingest-approaches.md).
+
 Colleagues who build or review this feature use [Files, branch, and repo](#files-branch-and-repo).
 
 ## The problem
