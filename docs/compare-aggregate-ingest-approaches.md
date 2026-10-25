@@ -137,7 +137,7 @@ A useful Master CSV still needs `metadata.json` if the file arrives in a ZIP. A 
 4. Send `orgunit.csv` if `org_unit_id` is a local id. Or send a national id that already exists.
 5. Send `metadata.json` if the transport stays a ZIP.
 
-The EHR must still compute `nb_patients_visit_no_bp`. It must still keep `nb_new_patients` (that month) separate from `nb_patients_newly_registered` (last 3 months).
+The EHR must still compute `nb_patients_visit_no_bp`. In the view that column is a blood-pressure row from the past 3 months with a null systolic or diastolic reading. It is not a visit that has no blood-pressure row. The EHR must still keep `nb_new_patients` (that month) separate from `nb_patients_newly_registered` (last 3 months). Those are different measures.
 
 ### What the central node must change
 
@@ -145,16 +145,16 @@ Write a new adapter. That adapter must:
 
 1. Accept a `.csv` file or a ZIP that holds one Master CSV.
 2. Parse UTF-8, a header row, and commas. Reject a title row, a `;` delimiter, `50%`, and `1,208`.
-3. Split one row into 12 `INSERT` statements. Map each prefixed column to `(table, column)`.
-4. Copy `diabetes_patients_under_care` and `nb_dm_patients_under_care` onto every diabetes denominator column if the EHR sends the count once.
-5. Remap `org_unit_id` or match a national facility.
+3. Split one row into 12 `INSERT` statements. Map each prefixed column to that one `(table, column)`.
+4. Skip a table when every measure for it is empty. Do not copy one count onto several denominator columns. `nb_dm_patients_under_care`, `diabetes_patients_under_care`, and `dm_patients_under_care` use different rules in the views. The JSON registry copies one number. A lossless Master CSV must not.
+5. Remap `org_unit_id` or match a national facility. The org tree still needs `orgunit.csv` or ids that already exist.
 6. Keep the snapshot rule. A later file replaces columns. A missing file disappears on the next run.
 
 That adapter is a second write path next to `aggregate_json.py`. Two write paths drift when a panel adds a column.
 
 ### A long Master CSV
 
-A long file is one row per count. The headers are `reporter`, `submission_id`, `period_start`, `period_end`, `org_unit_id`, `org_unit_code`, `org_unit_display`, `code`, `value`. That file is the JSON submission in CSV form. It is smaller than the wide row. It is not a new idea. Approach 3 already stores that shape.
+A long file is one row per count. The headers can be `org_unit_id`, `ref_month`, `code`, `value`. A lossless file uses 42 `table.column` codes, one for each measure in the 12 views. The JSON path has 19 codes and copies some of them onto more than one table. A long Master CSV is not Approach 3 with commas.
 
 ## Approach 3. One JSON file
 
@@ -240,7 +240,7 @@ JSON is the best mode for an EHR that only sends aggregate data.
 
 Use Approach 1 only when the site will install the leaf node, or when it already runs the HEARTS SQL and can emit the ZIP without a rewrite.
 
-Do not build Approach 2 now. A wide Master CSV is the 12 views in one line. A long Master CSV is Approach 3 with commas. Neither removes work from the EHR. The second one adds a parser we do not need.
+Do not build Approach 2 now. A wide Master CSV is the 12 views in one line. A lossless long file has 42 codes. The JSON path has 19 codes and copies some counts. Those are different contracts. Neither removes the HEARTS windows from the EHR. Approach 2 adds a parser we do not need.
 
 ## Where the files live
 
