@@ -12,7 +12,7 @@ The three-way comparison of ZIP CSVs, one Master CSV, and JSON is [Compare three
 
 | If you have | Read |
 | --- | --- |
-| Ten minutes, and you need the recommendation | [The decision](#the-decision), [The problem](#the-problem), [Options for the spike](#options-for-the-spike) |
+| Ten minutes, and you need the recommendation | [The decision](#the-decision), [Flag. JSON must create clinics](#flag-json-must-create-clinics), [The problem](#the-problem) |
 | A Jira spike to scope | [Spike brief](#spike-brief) |
 | An implementation to review | [From file to dashboard](#from-file-to-dashboard) through [Rules that are easy to get wrong](#rules-that-are-easy-to-get-wrong), then [Where the work lives](#where-the-work-lives) |
 
@@ -32,9 +32,21 @@ Use two readers and one way to write a count.
 2. An EHR that does not install the leaf node sends one JSON file into the same folder. This investigation built and tested that path.
 3. The dashboard calculates every percentage. The EHR sends counts.
 4. A CSV of the same counts is possible later. Build it only when a named EHR will send CSV and will not send JSON. The CSV parser must call the JSON importer. It must not have its own write path.
-5. The national org tree stays owned by the central node. An external file matches a facility. It does not create the hierarchy.
+5. This investigation matches a clinic. It does not create one. That is not enough for the product. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
 
-That is option A in [Options for the spike](#options-for-the-spike). The spike should pressure-test it. The spike should not reopen the choices in [Already decided](#already-decided).
+That is option A in [Options for the spike](#options-for-the-spike), with the clinic-create gap called out. The spike should not reopen the choices in [Already decided](#already-decided).
+
+## Flag. JSON must create clinics
+
+Today the JSON file does not add a clinic. It only matches a clinic that is already on the central node. If the name does not match one existing clinic, those counts are skipped.
+
+That is a gap. Flag it before the product build.
+
+Some EHRs send a ZIP. Other EHRs send JSON. They serve different locations. A JSON-only clinic is not in any ZIP. If JSON cannot create that clinic, the counts never land. Someone would have to add every clinic by hand.
+
+The ZIP path already creates clinics from `orgunit.csv`. It uses name, level, and parent. The finished JSON path must do the same job for its own sites. The JSON `orgUnit` will need the clinic name, the level, and the parent, not only an id or a display name.
+
+Keep one producer per clinic. A ZIP site and a JSON site must not create the same place twice.
 
 ## The problem
 
@@ -137,7 +149,7 @@ Facility match, in this order:
 2. `orgUnit.code` must already exist in `heart360tk_reporting.external_org_unit_mapping`.
 3. `orgUnit.display` must match one name in `org_units`. `orgUnit.level` may be sent with the name.
 
-If a facility cannot be matched, that entry is skipped and a row is written to the rejection log. The other facilities in the file are saved.
+If a facility cannot be matched, that entry is skipped and a row is written to the rejection log. The other facilities in the file are saved. The investigation does not create the clinic. The product build must. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
 
 To correct a month, send the file again with the same `identifier.value`. The new counts replace the old counts for the columns in the new file. The importer does not add the two files together.
 
@@ -337,14 +349,14 @@ Treat these as fixed unless the spike finds a defect in the running code.
 
 1. Confirm option A, or name the option that replaces it, using the pros and cons above.
 2. Decide whether a future leaf release should emit the same JSON, and what must join the registry first. The overdue tables are the known gap.
-3. Decide who creates org units. The recommendation is that the central node owns the tree, and an external file only matches a facility.
+3. Clinic create for JSON is decided. The product build must add clinics from the JSON file the way the ZIP adds clinics from `orgunit.csv`. The investigation code does not do this yet.
 4. Decide the rule when two files claim the same facility and month. The recommendation is one producer per facility.
 5. Decide whether any named EHR needs CSV in this spike. If none does, leave `.csv` unread.
 6. Confirm the behaviour on a real central node, where the line-list refresh job is off and the folder is the source of the national snapshot.
 
 ### Done when
 
-The spike returns a one-page choice, a yes or no on CSV, a yes or no on a future leaf JSON export, and a note on org-unit ownership. It points at this report and at [pull request 8](https://github.com/tonyjoyk/h360tk_grafana_core/pull/8).
+The spike returns a one-page choice, a yes or no on CSV, a yes or no on a future leaf JSON export, and a plan for JSON clinic create. It points at this report and at [pull request 8](https://github.com/tonyjoyk/h360tk_grafana_core/pull/8).
 
 ## The September demo
 
