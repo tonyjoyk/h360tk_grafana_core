@@ -46,6 +46,8 @@ Start with `docs/ehr-aggregate-indicator-requirements.md`. That file is the pare
 
 The spike report is `docs/central-aggregate-ingest-investigation.md`. It combines the investigation, the examples, and the recommended path.
 
+The comparison of 13 ZIP CSVs, one Master CSV, and JSON is `docs/compare-aggregate-ingest-approaches.md`.
+
 ---
 
 ## Technical Documentation
