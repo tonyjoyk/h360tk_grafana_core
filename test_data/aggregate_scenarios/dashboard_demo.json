@@ -1,0 +1,162 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "dashboard_demo"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "period": {
+        "start": "2026-07-01",
+        "end": "2026-07-31"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_new_patients",
+          "value": 5
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 70
+        },
+        {
+          "code": "nb_new_dm_patients",
+          "value": 5
+        },
+        {
+          "code": "nb_dm_patients_under_care",
+          "value": 70
+        }
+      ]
+    },
+    {
+      "period": {
+        "start": "2026-08-01",
+        "end": "2026-08-31"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_new_patients",
+          "value": 7
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 80
+        },
+        {
+          "code": "nb_new_dm_patients",
+          "value": 7
+        },
+        {
+          "code": "nb_dm_patients_under_care",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "period": {
+        "start": "2026-09-01",
+        "end": "2026-09-30"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_patients_controlled",
+          "value": 50
+        },
+        {
+          "code": "nb_patients_uncontrolled",
+          "value": 30
+        },
+        {
+          "code": "nb_patients_no_visit",
+          "value": 10
+        },
+        {
+          "code": "nb_patients_visit_no_bp",
+          "value": 10
+        },
+        {
+          "code": "heart360_patients_category.total_number_of_patients",
+          "value": 120
+        },
+        {
+          "code": "nb_patients_newly_registered",
+          "value": 10
+        },
+        {
+          "code": "heart360_patients_category.nb_patients_lost_to_follow_up",
+          "value": 10
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 90
+        },
+        {
+          "code": "nb_new_patients",
+          "value": 8
+        },
+        {
+          "code": "diabetes_controlled",
+          "value": 40
+        },
+        {
+          "code": "uncontrolled_moderate",
+          "value": 15
+        },
+        {
+          "code": "uncontrolled_high",
+          "value": 5
+        },
+        {
+          "code": "missed_visit",
+          "value": 10
+        },
+        {
+          "code": "nb_dm_patients_under_care",
+          "value": 80
+        },
+        {
+          "code": "nb_new_dm_patients",
+          "value": 6
+        },
+        {
+          "code": "bp_controlled_140_90",
+          "value": 24
+        },
+        {
+          "code": "bp_controlled_130_80",
+          "value": 12
+        },
+        {
+          "code": "heart360_dm_patients_catagory.total_number_of_patients",
+          "value": 100
+        },
+        {
+          "code": "heart360_dm_patients_catagory.nb_patients_lost_to_follow_up",
+          "value": 8
+        }
+      ]
+    }
+  ]
+}

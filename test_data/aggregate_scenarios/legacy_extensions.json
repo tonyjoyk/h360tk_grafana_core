@@ -1,0 +1,55 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "legacy-extensions"
+  },
+  "reporter": {
+    "identifier": {
+      "value": "demo-ehr"
+    }
+  },
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 1,
+        "code": "DEMO-FAC-001",
+        "display": "Demo Facility"
+      },
+      "indicators": [
+        {
+          "code": "nb_patients_controlled",
+          "value": 120
+        },
+        {
+          "code": "nb_patients_uncontrolled",
+          "value": 40
+        },
+        {
+          "code": "nb_patients_no_visit",
+          "value": 20
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 180
+        },
+        {
+          "code": "nb_patients_newly_registered",
+          "value": 14
+        },
+        {
+          "code": "heart360_patients_category.nb_patients_lost_to_follow_up",
+          "value": 9
+        },
+        {
+          "code": "heart360_patients_category.total_number_of_patients",
+          "value": 203
+        }
+      ]
+    }
+  ]
+}

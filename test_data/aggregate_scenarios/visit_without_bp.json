@@ -1,0 +1,64 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "visit_without_bp"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_patients_controlled",
+          "value": 50
+        },
+        {
+          "code": "nb_patients_uncontrolled",
+          "value": 30
+        },
+        {
+          "code": "nb_patients_no_visit",
+          "value": 10
+        },
+        {
+          "code": "nb_patients_visit_no_bp",
+          "value": 10
+        },
+        {
+          "code": "heart360_patients_category.total_number_of_patients",
+          "value": 120
+        },
+        {
+          "code": "nb_patients_newly_registered",
+          "value": 10
+        },
+        {
+          "code": "heart360_patients_category.nb_patients_lost_to_follow_up",
+          "value": 10
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 90
+        },
+        {
+          "code": "nb_new_patients",
+          "value": 8
+        }
+      ]
+    }
+  ],
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  }
+}

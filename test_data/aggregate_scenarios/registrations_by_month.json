@@ -1,0 +1,78 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "registrations_by_month"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "entries": [
+    {
+      "period": {
+        "start": "2026-07-01",
+        "end": "2026-07-31"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_new_patients",
+          "value": 5
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 70
+        }
+      ]
+    },
+    {
+      "period": {
+        "start": "2026-08-01",
+        "end": "2026-08-31"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_new_patients",
+          "value": 7
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 80
+        }
+      ]
+    },
+    {
+      "period": {
+        "start": "2026-09-01",
+        "end": "2026-09-30"
+      },
+      "orgUnit": {
+        "id": 3,
+        "code": "H360-AUDIT-PHC",
+        "display": "H360_AUDIT_PHC"
+      },
+      "indicators": [
+        {
+          "code": "nb_new_patients",
+          "value": 8
+        },
+        {
+          "code": "nb_patients_under_care",
+          "value": 90
+        }
+      ]
+    }
+  ]
+}

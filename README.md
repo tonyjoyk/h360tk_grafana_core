@@ -38,6 +38,16 @@ HEARTS360 Toolkit supports three main use cases:
 
 **District-Level Oversight:** Each facility uploads their data, and district team views the district-level dashboard to monitor hypertension care across all facilities. This enables district-wide visibility without compromising patient privacy, supports data-driven decision making, and helps allocate resources based on need.
 
+### Direct EHR aggregate ingestion (MVP)
+
+The central importer can read aggregate indicator JSON from an EHR. The EHR does not send a patient line list.
+
+Start with `docs/ehr-aggregate-indicator-requirements.md`. That file is the parent list. It links the vendor text, the JSON shape, the checklist, the code, the migration, the examples, and the branch.
+
+The spike report is `docs/central-aggregate-ingest-investigation.md`. It combines the investigation, the examples, and the recommended path.
+
+The comparison of 13 ZIP CSVs, one Master CSV, and JSON is `docs/compare-aggregate-ingest-approaches.md`.
+
 ---
 
 ## Technical Documentation
