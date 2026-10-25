@@ -64,9 +64,9 @@ Two other views exist in the schema and are not in the default ZIP. They are `HE
 
 The importer does not check `source_key` against a list of system names. It only requires a non-empty `source_key`. It requires `import_export_version`. Version `1` is the only registered version. A new EHR does not need a central-node code change to use a new name.
 
-The importer copies each reporting CSV into the table with the same file name. `COPY` uses `FORMAT CSV, HEADER TRUE` without `HEADER MATCH`. PostgreSQL 16 then skips the header and loads columns by position. The EHR must keep the same column order as the view.
+The importer copies each reporting CSV into the table with the same file name. `COPY` uses `FORMAT CSV, HEADER TRUE` without `HEADER MATCH`. PostgreSQL 16 then skips the header and loads columns by position. The EHR must keep the same column order and the same field count as the view. A wrong field count fails that ZIP after the reporting tables are already cleared.
 
-`org_unit_id` in those CSVs is the leaf id. The importer remaps it through `import_facility_mapping` after it reads `orgunit.csv`.
+`org_unit_id` in those CSVs is the leaf id. The importer remaps it through `import_facility_mapping` after it reads `orgunit.csv`. Validation does not require `orgunit.csv`. Import does. A ZIP that passes the gate and then lacks `orgunit.csv` leaves the indicator tables empty.
 
 ## Approach 1. Mimic the 13 CSVs
 
@@ -75,12 +75,12 @@ Ask the EHR to produce the same ZIP the leaf already produces.
 ### What the EHR must do
 
 1. Recreate the HEARTS definitions. The views use a 3-month new-registration window, a 12-month lost-to-follow-up window, hypertension-relevant encounters, and diabetes-relevant encounters. Those rules live in `pg_init_scripts/01_heart360_tables.sql`. A wrong window changes the national percentage.
-2. Write 12 reporting views or queries. Each output must use the same column names and the same column order as the HEARTS view.
-3. Write `orgunit.csv` with `id`, `name`, `level`, and `parent_id`. Parent rows must appear before child rows. The importer creates national org units from this file.
+2. Write a query for each indicator file the EHR will send. Each output must use the same column names, the same column order, and the same field count as the HEARTS view.
+3. Write `orgunit.csv` with `id`, `name`, `level`, and `parent_id`. The importer sorts by level, then id. A parent must have a lower level, or the same level and a smaller id. The importer creates national org units from this file.
 4. Write `metadata.json` with a non-empty `source_key` and `import_export_version` set to `1`.
-5. Pack the 13 CSVs and `metadata.json` into a ZIP. Put the ZIP in the importer folder.
+5. Pack `orgunit.csv`, `metadata.json`, and the indicator CSVs into a ZIP. Put the ZIP in the importer folder.
 
-The EHR must also produce the three overdue CSVs if those panels must stay filled. Those counts need scheduled visits, call results, and phone numbers. An EHR that only has hypertension and diabetes totals still has to emit empty overdue files or accept blank overdue panels.
+The three overdue CSVs are optional. `ImportVersion1` loads only the reporting files that are present. A missing overdue file leaves that table empty after the job-wide clear. Overdue counts need scheduled visits, call results, and phone numbers. An EHR that only sends hypertension and diabetes counts can omit those three files. The overdue panels then stay blank for every source in that run, unless another ZIP in the same folder still sends them.
 
 ### What the central node must change
 
@@ -118,7 +118,7 @@ A header that uses the short name once cannot fill those tables. The Master CSV 
 
 ### Master CSV format
 
-One row is one facility and one calendar month. Column types come from the views. `ref_month` is `date`. `org_unit_id` is `integer`. Every count is `bigint` from `COUNT` or `SUM`. Send an empty cell when the EHR does not have that count. Do not send `0` for a missing count.
+One row is one facility and one calendar month. Column types come from the views. `ref_month` is `date`. `org_unit_id` is `integer`. Most counts are `bigint` from `COUNT` or `SUM`. `heart360_patients_registered.cumulative_number_of_patients` and `heart360_patients_registered.nb_new_patients` are `numeric`, because that view sums a `count(*)`. Send an empty cell when the EHR does not have that count. Do not send `0` for a missing count.
 
 ```csv
 org_unit_id,ref_month,org_unit_code,org_unit_display,heart360_patients_category.total_number_of_patients,heart360_patients_category.nb_patients_under_care,heart360_patients_category.nb_patients_newly_registered,heart360_patients_category.nb_patients_under_care_registered_before_the_past_3_months,heart360_patients_category.nb_patients_lost_to_follow_up,heart360_patients_category.nb_patients_no_visit,heart360_patients_category.nb_patients_under_care_registered_before_3m_incl_visits,heart360_patients_category.nb_patients_uncontrolled,heart360_patients_category.nb_patients_controlled,heart360_patients_category.nb_patients_visit_no_bp,heart360_patients_under_care.nb_patients_lost_to_follow_up,heart360_patients_under_care.nb_patients_under_care,heart360_patients_under_care.cumulative_number_of_patients,heart360_patients_registered.cumulative_number_of_patients,heart360_patients_registered.nb_new_patients,heart360_blood_sugar_controlled.diabetes_patients_under_care,heart360_blood_sugar_controlled.diabetes_controlled,heart360_blood_sugar_severity.diabetes_patients_under_care,heart360_blood_sugar_severity.uncontrolled_moderate,heart360_blood_sugar_severity.uncontrolled_high,heart360_blood_sugar_missed_visits.diabetes_patients_under_care,heart360_blood_sugar_missed_visits.missed_visit,heart360_dm_patients_under_care.nb_dm_patients_under_care,heart360_dm_patients_under_care.cumulative_dm_patients,heart360_dm_patients_under_care.nb_new_dm_patients,heart360_dm_patients_under_care.nb_patients_lost_to_follow_up,heart360_dm_bp_control.dm_patients_under_care,heart360_dm_bp_control.bp_controlled_140_90,heart360_dm_bp_control.bp_controlled_130_80,heart360_dm_patients_catagory.total_number_of_patients,heart360_dm_patients_catagory.nb_patients_under_care,heart360_dm_patients_catagory.nb_patients_newly_registered,heart360_dm_patients_catagory.nb_patients_under_care_registered_before_the_past_3_months,heart360_dm_patients_catagory.nb_patients_lost_to_follow_up,heart360_dm_patients_catagory.nb_patients_no_visit,heart360_dm_patients_catagory.nb_patients_under_care_registered_before_3m_incl_visits,heart360_dm_patients_catagory.nb_patients_uncontrolled,heart360_dm_patients_catagory.nb_patients_controlled,heart360_dm_patients_catagory.nb_patients_visit_no_bs,heart360_overdue_start_of_month.overdue_on_first,heart360_overdue_patients_called.overdue_patients_called,heart360_overdue_returned_to_care.overdue_returned_to_care
