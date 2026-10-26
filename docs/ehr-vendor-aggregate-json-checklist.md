@@ -26,7 +26,9 @@ Use the first item that you can:
 
 - [ ] Send the central `orgUnit.id`.
 - [ ] If you do not have the id, send a stable `orgUnit.code` after it is mapped.
-- [ ] If you do not have a mapped code, send `orgUnit.display`. The name must match one national org unit. You can also send `orgUnit.level`.
+- [ ] If the clinic is new, send `orgUnit.display`, `orgUnit.level`, and `orgUnit.parents` for region and district.
+- [ ] If the clinic already exists and the name is unique, send `orgUnit.display`. You can also send `orgUnit.level`.
+- [ ] If you omit `parents` on a new clinic, accept `UNKNOWN (your-ehr-name)` as the region and district labels.
 
 ## 5) Counts
 

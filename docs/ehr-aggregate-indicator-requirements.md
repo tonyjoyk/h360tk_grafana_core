@@ -103,9 +103,12 @@ Give the facility name in this order:
 
 1. Use `orgUnit.id` when you have the national org unit id.
 2. Use `orgUnit.code` when the code is already mapped.
-3. Use `orgUnit.display` when the facility name matches one national org unit.
+3. Use `orgUnit.display` plus `orgUnit.parents` when you are sending a clinic that is not yet on the national tree. Put the region at level 1 and the district at level 2.
+4. Use `orgUnit.display` alone when the facility name already matches one national org unit.
 
-If the importer cannot match a facility, it does not save that facility. It saves the other facilities in the file.
+If the clinic is new and you omit `parents`, the importer still creates it. Missing region and district names become `UNKNOWN (your-ehr-name)`. Send the real parent names on the first file when you have them.
+
+If the importer cannot match or create a facility, it does not save that facility. It saves the other facilities in the file. A row with no display name, no mapped code, and no existing id is skipped.
 
 ## Corrections
 
@@ -122,7 +125,7 @@ Replace the file. Send it again with the same `identifier.value`. The new counts
 - Send counts. Do not send percentages.
 - Use a code from the tables above. The importer ignores any other code.
 - Send a number that is zero or greater.
-- Use `orgUnit.id` when you have it. If you do not have it, use `orgUnit.code` or a unique `orgUnit.display`.
+- Use `orgUnit.id` when you have it. If you do not have it, use `orgUnit.code` or a unique `orgUnit.display`. For a new clinic, send `orgUnit.parents` with the region and district names.
 - Omit a count that you do not have. Send zero only when the real count is zero.
 - If controlled, uncontrolled, and no visit do not add up to the denominator, send `nb_patients_visit_no_bp`.
 - Keep each month that must stay on the dashboard in the import folder. The next import reads the files that are still in the folder.
@@ -163,7 +166,9 @@ Use the codes in this document and in `importer_scripts/import_versions/aggregat
 | [dashboard_demo.json](../test_data/aggregate_scenarios/dashboard_demo.json) | July, August, and September for the live dashboards. |
 | [percent_sent.json](../test_data/aggregate_scenarios/percent_sent.json) | The importer ignores a percentage. It keeps the count in the same entry. |
 | [correction_first.json](../test_data/aggregate_scenarios/correction_first.json) and [correction_second.json](../test_data/aggregate_scenarios/correction_second.json) | The same file id replaces 120 with 100. |
-| [partial_reject.json](../test_data/aggregate_scenarios/partial_reject.json) | The importer skips an unknown facility. It saves the known facility. |
+| [partial_reject.json](../test_data/aggregate_scenarios/partial_reject.json) | A new display name creates a clinic. A row with no display is skipped. The known facility is saved. |
+| [create_with_parents.json](../test_data/aggregate_scenarios/create_with_parents.json) | A new clinic is created under the region and district names in the file. |
+| [create_without_parents.json](../test_data/aggregate_scenarios/create_without_parents.json) | A new clinic with no parents sits under `UNKNOWN (scenario-ehr)`. |
 | [negative_value.json](../test_data/aggregate_scenarios/negative_value.json) | The importer ignores a negative count. |
 | [legacy_extensions.json](../test_data/aggregate_scenarios/legacy_extensions.json) | Hypertension percentage inputs sent with column names. |
 
@@ -171,9 +176,12 @@ Use the codes in this document and in `importer_scripts/import_versions/aggregat
 
 - [Ingesting aggregate data into the national dashboard](central-aggregate-ingest-investigation.md) — the single investigation report. It has the decision, the examples, the options, and the spike brief.
 - [Architecture spine](../_bmad-output/planning-artifacts/architecture/architecture-h360-central-aggregate-json-ingest-2026-10-14/ARCHITECTURE-SPINE.md) — where the importer stores the counts, and why one count goes to more than one column.
+- [JSON org unit create PRD](../_bmad-output/planning-artifacts/prds/prd-h360-json-org-unit-create-2026-10-26/prd.md) — how ZIP creates clinics, and how JSON now copies that job.
+- [JSON org unit create architecture](../_bmad-output/planning-artifacts/architecture/architecture-h360-json-org-unit-create-2026-10-26/ARCHITECTURE-SPINE.md)
+- [Party mode, 26 October 2026](../_bmad-output/planning-artifacts/reviews/json-org-unit-create-party-mode-2026-10-26.md)
 - [Review, 15 October 2026](../_bmad-output/planning-artifacts/reviews/central-aggregate-json-2026-10-15.md) — what stayed, and why the short names were removed.
-- [Epics and stories](../_bmad-output/planning-artifacts/epics-central-aggregate-json-ingest-2026-10-14.md)
-- [Experience notes](../_bmad-output/planning-artifacts/ux-designs/ux-h360-central-aggregate-json-ingest-2026-10-14/EXPERIENCE.md)
+- [Epics and stories](../_bmad-output/planning-artifacts/epics-json-org-unit-create-2026-10-26.md)
+- [Experience notes](../_bmad-output/planning-artifacts/ux-designs/ux-h360-json-org-unit-create-2026-10-26/EXPERIENCE.md)
 - [Feature map](../.cursor/skills/verify-h360tk-grafana-core/features/central-aggregate-json.md) — how to run the importer, and which numbers the dashboards show. The index is [features/README.md](../.cursor/skills/verify-h360tk-grafana-core/features/README.md).
 
 ### Use these files to implement the feature
@@ -184,7 +192,7 @@ Use the codes in this document and in `importer_scripts/import_versions/aggregat
 - [docker-compose.yml](../docker-compose.yml) — mounts `./data/export` at `/export` for the importer.
 - [pg_init_scripts/migrations/0.5.6_to_0.6.0.sql](../pg_init_scripts/migrations/0.5.6_to_0.6.0.sql) — facility-code mapping, submission log, and rejection log.
 - [pg_init_scripts/01_heart360_tables.sql](../pg_init_scripts/01_heart360_tables.sql) — applies that migration on a new database.
-- [importer_scripts/test_aggregate_scenarios.py](../importer_scripts/test_aggregate_scenarios.py) — the nine scenarios. The test rolls back. It does not keep the rows.
+- [importer_scripts/test_aggregate_scenarios.py](../importer_scripts/test_aggregate_scenarios.py) — the 14 scenarios. The test rolls back. It does not keep the rows.
 
 The dashboards did not change. These panels read the columns:
 
@@ -203,8 +211,9 @@ docker run --rm --network h360tk_grafana_core_default --entrypoint python3 \
   -e FIXTURE_DIR=/fixtures \
   -v "$PWD/test_data/aggregate_scenarios:/fixtures:ro" \
   -v "$PWD/importer_scripts/test_aggregate_scenarios.py:/test_aggregate_scenarios.py:ro" \
+  -v "$PWD/importer_scripts/import_versions:/importer/import_versions:ro" \
   h360tk_grafana_core-importer:latest \
   /test_aggregate_scenarios.py
 ```
 
-A pass prints `9/9 scenarios passed`.
+A pass prints `14/14 scenarios passed`.

@@ -332,7 +332,7 @@ You send one `AggregateIndicatorSubmission` file. The national importer already 
 
 You build one export query or a small script. The script reads `ehr.monthly_indicators`. It writes one JSON file. It puts that file in the same SFTP folder.
 
-You do not write 12 views. You do not write `orgunit.csv`. You do not write `metadata.json`. You do not create the national org tree.
+You do not write 12 views. You do not write `orgunit.csv`. You do not write `metadata.json`. You send `orgUnit.parents` when the clinic is new. The importer creates the national org units.
 
 ### Data you need
 
@@ -430,7 +430,7 @@ The path is already on this branch. `git diff --stat` against `feature/drug-stoc
 
 The Grafana dashboard JSON did not change. The ZIP reader did not change. The leaf exporter did not change.
 
-The JSON path does not write the overdue tables. It does not create org units. The facility must already exist. A folder that holds only JSON still clears all 12 reporting tables first. Overdue panels then go blank unless a ZIP stays in that folder.
+The JSON path does not write the overdue tables. It creates org units from `orgUnit.display` and optional `orgUnit.parents`, using the same name, level, and parent key as the ZIP path. A folder that holds only JSON still clears all 12 reporting tables first. Overdue panels then go blank unless a ZIP stays in that folder.
 
 ### Time estimate
 
@@ -456,9 +456,9 @@ Assumptions for the time column: one junior EHR developer, indicators already st
 | Skills on the EHR side | SQL, exact CSV column order, ZIP, SFTP, org hierarchy. | SQL, wide CSV, empty-versus-zero rules. | SQL or a small script, JSON, SFTP. |
 | Complexity | High. 13 files and positional `COPY`. | High. 42 cells and name collisions. | Low. 19 codes. Omit what you do not have. |
 | Maintenance | Every new column changes a file position. Every EHR updates together. | The wide header and the adapter grow together. | One registry line. One optional JSON field. |
-| Risks | Wrong column order writes the wrong number. A missing `orgunit.csv` clears the tables. | The adapter does not exist. Excel breaks the file. A third reader shares the truncate loop. | Unknown facility is skipped. Overdue panels stay blank. |
+| Risks | Wrong column order writes the wrong number. A missing `orgunit.csv` clears the tables. | The adapter does not exist. Excel breaks the file. A third reader shares the truncate loop. | A new clinic without parents sits under `UNKNOWN (ehr-name)`. Overdue panels stay blank. |
 | Missing counts | A missing CSV field shifts the row. | An empty cell can stay null. | Omit the code. The cell stays null. |
-| Org tree | You send `orgunit.csv`. You can create national units. | You still need ids or a second file. | You match a facility that already exists. |
+| Org tree | You send `orgunit.csv`. You can create national units. | You still need ids or a second file. | You send `orgUnit.parents`, or the importer fills `UNKNOWN (ehr-name)`. |
 | Overdue panels | Filled if you send those three CSVs. | Filled only if those columns are in the row. | Blank until those codes join the registry. |
 | File a person can check | 13 files. Hard to review. | One very wide row. | One short list. Easy to review. |
 | Works today | Yes, if the ZIP is exact. | No. | Yes, on this branch. |

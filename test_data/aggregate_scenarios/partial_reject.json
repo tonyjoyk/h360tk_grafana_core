@@ -13,12 +13,21 @@
   "entries": [
     {
       "orgUnit": {
-        "display": "Unknown Clinic"
+        "display": "JSON Partial Clinic"
       },
       "indicators": [
         {
           "code": "nb_patients_controlled",
           "value": 4
+        }
+      ]
+    },
+    {
+      "orgUnit": {},
+      "indicators": [
+        {
+          "code": "nb_patients_controlled",
+          "value": 1
         }
       ]
     },
