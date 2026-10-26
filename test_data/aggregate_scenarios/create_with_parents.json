@@ -1,0 +1,33 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "create_with_parents"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "scenario-ehr"
+    }
+  },
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "code": "JSON-CREATE-CLINIC",
+        "display": "JSON Create Clinic",
+        "level": 3,
+        "parents": [
+          { "display": "JSON Create Region", "level": 1 },
+          { "display": "JSON Create District", "level": 2 }
+        ]
+      },
+      "indicators": [
+        { "code": "nb_patients_controlled", "value": 17 }
+      ]
+    }
+  ]
+}

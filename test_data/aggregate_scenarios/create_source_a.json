@@ -1,0 +1,27 @@
+{
+  "resourceType": "AggregateIndicatorSubmission",
+  "identifier": {
+    "system": "urn:hearts360:source-system",
+    "value": "create_source_a"
+  },
+  "reporter": {
+    "identifier": {
+      "system": "urn:hearts360:vendor",
+      "value": "source-ehr-a"
+    }
+  },
+  "period": {
+    "start": "2026-09-01",
+    "end": "2026-09-30"
+  },
+  "entries": [
+    {
+      "orgUnit": {
+        "display": "Source A Clinic"
+      },
+      "indicators": [
+        { "code": "nb_patients_controlled", "value": 5 }
+      ]
+    }
+  ]
+}

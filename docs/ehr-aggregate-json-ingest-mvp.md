@@ -69,15 +69,29 @@ The importer writes `nb_patients_under_care` to both hypertension under-care tab
 
 The full list is in [Send your indicator counts](ehr-aggregate-indicator-requirements.md). The importer ignores an unknown code. Put `period` on an entry when one file has more than one month. `period.start` selects the calendar month.
 
-## Facility match
+## Facility match and create
 
 The importer uses this order:
 
-1. `orgUnit.id` is the central org unit id.
+1. `orgUnit.id` is the central org unit id when that id already exists.
 2. `orgUnit.code` must exist in `heart360tk_reporting.external_org_unit_mapping`.
-3. `orgUnit.display` must match one name in `org_units`. You can also send `orgUnit.level`.
+3. `orgUnit.parents` plus `orgUnit.display` upserts the chain. The importer calls the same `upsert_org_unit_chain` function the ZIP path uses for name, level, and parent.
+4. `orgUnit.display` matches one name in `org_units`. You can also send `orgUnit.level`.
+5. A new `orgUnit.display` creates the clinic. Missing ancestor levels become `UNKNOWN ({source_key})`. Default clinic level is 3.
 
-If the importer cannot match the facility, it rejects that entry and writes a log row.
+If the importer cannot match or create the facility, it rejects that entry and writes a log row. Other entries in the file still load.
+
+```json
+"orgUnit": {
+  "code": "FACILITY-001",
+  "display": "Example Health Centre",
+  "level": 3,
+  "parents": [
+    { "display": "Example Region", "level": 1 },
+    { "display": "Example District", "level": 2 }
+  ]
+}
+```
 
 ## Validation
 

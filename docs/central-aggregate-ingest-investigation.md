@@ -32,21 +32,19 @@ Use two readers and one way to write a count.
 2. An EHR that does not install the leaf node sends one JSON file into the same folder. This investigation built and tested that path.
 3. The dashboard calculates every percentage. The EHR sends counts.
 4. A CSV of the same counts is possible later. Build it only when a named EHR will send CSV and will not send JSON. The CSV parser must call the JSON importer. It must not have its own write path.
-5. This investigation matches a clinic. It does not create one. That is not enough for the product. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
+5. JSON ingest creates a clinic the same way the ZIP path does, with name, level, and parent. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
 
 That is option A in [Options for the spike](#options-for-the-spike), with the clinic-create gap called out. The spike should not reopen the choices in [Already decided](#already-decided).
 
 ## Flag. JSON must create clinics
 
-Today the JSON file does not add a clinic. It only matches a clinic that is already on the central node. If the name does not match one existing clinic, those counts are skipped.
+This is now the product rule, not only a gap. The ZIP path creates clinics from `orgunit.csv` with name, level, and parent. JSON ingest does the same job from `orgUnit.display`, `orgUnit.level`, and `orgUnit.parents`.
 
-That is a gap. Flag it before the product build.
+The ZIP importer does not invent unknown parents. A ZIP row with a missing parent fails. JSON entries are one clinic each, so a missing ancestor becomes `UNKNOWN ({source_key})` so Grafana still has a region and a district. Two EHRs do not share one unknown node.
 
-Some EHRs send a ZIP. Other EHRs send JSON. They serve different locations. A JSON-only clinic is not in any ZIP. If JSON cannot create that clinic, the counts never land. Someone would have to add every clinic by hand.
+Match stays first. An existing id, mapped code, or unique display name is reused. Keep one producer per clinic.
 
-The ZIP path already creates clinics from `orgunit.csv`. It uses name, level, and parent. The finished JSON path must do the same job for its own sites. The JSON `orgUnit` will need the clinic name, the level, and the parent, not only an id or a display name.
-
-Keep one producer per clinic. A ZIP site and a JSON site must not create the same place twice.
+The planning artifacts are in `_bmad-output/planning-artifacts/` under `prd-h360-json-org-unit-create-2026-10-26`.
 
 ## The problem
 
@@ -149,7 +147,7 @@ Facility match, in this order:
 2. `orgUnit.code` must already exist in `heart360tk_reporting.external_org_unit_mapping`.
 3. `orgUnit.display` must match one name in `org_units`. `orgUnit.level` may be sent with the name.
 
-If a facility cannot be matched, that entry is skipped and a row is written to the rejection log. The other facilities in the file are saved. The investigation does not create the clinic. The product build must. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
+If a facility cannot be matched, JSON ingest creates it from `orgUnit.display` and optional `orgUnit.parents`. A row with no name still goes to the rejection log. The other facilities in the file are saved. See [Flag. JSON must create clinics](#flag-json-must-create-clinics).
 
 To correct a month, send the file again with the same `identifier.value`. The new counts replace the old counts for the columns in the new file. The importer does not add the two files together.
 

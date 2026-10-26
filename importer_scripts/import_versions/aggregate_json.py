@@ -103,6 +103,9 @@ def _extract_submission_id(submission: dict, fallback: str) -> str:
     return fallback
 
 
+DEFAULT_FACILITY_LEVEL = 3
+
+
 def validate_aggregate_json(json_path: str) -> tuple[bool, str]:
     try:
         with open(json_path, 'r', encoding='utf-8') as handle:
@@ -120,10 +123,162 @@ def validate_aggregate_json(json_path: str) -> tuple[bool, str]:
     return True, ''
 
 
+def _parent_name(item) -> str | None:
+    if not isinstance(item, dict):
+        return None
+    for key in ('display', 'name'):
+        value = item.get(key)
+        if isinstance(value, str) and value.strip():
+            return value.strip()
+    return None
+
+
+def _as_level(raw) -> int | None:
+    if raw is None:
+        return None
+    try:
+        return int(raw)
+    except Exception:
+        return None
+
+
+def _parents_from_payload(org_unit_payload: dict) -> tuple[list[tuple[int, str]] | None, str | None]:
+    raw = org_unit_payload.get('parents')
+    if raw is None:
+        return [], None
+    if not isinstance(raw, list):
+        return None, 'orgUnit.parents must be an array when provided'
+    parents: list[tuple[int, str]] = []
+    seen_levels: set[int] = set()
+    for item in raw:
+        name = _parent_name(item)
+        level = _as_level(item.get('level') if isinstance(item, dict) else None)
+        if name is None or level is None:
+            return None, 'orgUnit.parents entries must include display and level'
+        if level < 1:
+            return None, 'orgUnit.parents level must be 1 or greater'
+        if level in seen_levels:
+            return None, 'orgUnit.parents must not repeat a level'
+        seen_levels.add(level)
+        parents.append((level, name))
+    return parents, None
+
+
+def _target_level(org_unit_payload: dict, parents: list[tuple[int, str]]) -> tuple[int | None, str | None]:
+    raw = org_unit_payload.get('level')
+    if raw is not None:
+        level = _as_level(raw)
+        if level is None:
+            return None, 'orgUnit.level must be an integer when provided'
+        if level < 1:
+            return None, 'orgUnit.level must be 1 or greater'
+        return level, None
+    if parents:
+        return max(level for level, _ in parents) + 1, None
+    return DEFAULT_FACILITY_LEVEL, None
+
+
+def _chain_for_create(
+    source_key: str, org_unit_payload: dict
+) -> tuple[list[str] | None, list[int] | None, str | None]:
+    display = org_unit_payload.get('display')
+    if not isinstance(display, str) or not display.strip():
+        return None, None, 'orgUnit.display is required to create a clinic'
+    parents, parent_error = _parents_from_payload(org_unit_payload)
+    if parent_error:
+        return None, None, parent_error
+    target_level, level_error = _target_level(org_unit_payload, parents or [])
+    if level_error:
+        return None, None, level_error
+    named: dict[int, str] = {}
+    for level, name in parents or []:
+        if level >= target_level:
+            return None, None, 'orgUnit.parents level must be less than the clinic level'
+        named[level] = name
+    unknown = f'UNKNOWN ({source_key})'
+    names: list[str] = []
+    levels: list[int] = []
+    for level in range(1, target_level):
+        names.append(named.get(level, unknown))
+        levels.append(level)
+    names.append(display.strip())
+    levels.append(target_level)
+    return names, levels, None
+
+
+def _upsert_org_unit_chain(conn, names: list[str], levels: list[int]) -> int | None:
+    with conn.cursor() as cur:
+        cur.execute(
+            'SELECT heart360tk_schema.upsert_org_unit_chain(%s::varchar[], %s::integer[])',
+            (names, levels),
+        )
+        row = cur.fetchone()
+    if row is None or row[0] is None:
+        return None
+    return int(row[0])
+
+
+def _create_org_unit(
+    conn, source_key: str, org_unit_payload: dict
+) -> tuple[int | None, str | None]:
+    names, levels, error = _chain_for_create(source_key, org_unit_payload)
+    if error:
+        return None, error
+    org_unit_id = _upsert_org_unit_chain(conn, names, levels)
+    if org_unit_id is None:
+        return None, 'could not create org unit chain'
+    _remember_code(
+        conn,
+        source_key,
+        org_unit_payload.get('code'),
+        org_unit_id,
+        org_unit_payload.get('display'),
+    )
+    log.info(
+        '  Created org unit central_id=%d (%s) for source_key=%s',
+        org_unit_id,
+        ' > '.join(names),
+        source_key,
+    )
+    return org_unit_id, None
+
+
+def _match_display(conn, org_unit_payload: dict) -> tuple[list[int] | None, str | None]:
+    display = org_unit_payload.get('display')
+    if not isinstance(display, str) or not display.strip():
+        return [], None
+    level = org_unit_payload.get('level')
+    with conn.cursor() as cur:
+        if level is not None:
+            parsed_level = _as_level(level)
+            if parsed_level is None:
+                return None, 'orgUnit.level must be an integer when provided'
+            cur.execute(
+                '''
+                SELECT id FROM heart360tk_schema.org_units
+                WHERE name = %s AND level = %s
+                ORDER BY id
+                ''',
+                (display.strip(), parsed_level),
+            )
+        else:
+            cur.execute(
+                '''
+                SELECT id FROM heart360tk_schema.org_units
+                WHERE name = %s
+                ORDER BY id
+                ''',
+                (display.strip(),),
+            )
+        return [int(row[0]) for row in cur.fetchall()], None
+
+
 def _resolve_org_unit_id(conn, source_key: str, org_unit_payload: dict) -> tuple[int | None, str | None]:
     org_unit_id = org_unit_payload.get('id')
     code = org_unit_payload.get('code')
     display = org_unit_payload.get('display')
+    parents = org_unit_payload.get('parents')
+    has_parents = isinstance(parents, list) and len(parents) > 0
 
     if org_unit_id is not None:
         try:
@@ -150,40 +305,26 @@ def _resolve_org_unit_id(conn, source_key: str, org_unit_payload: dict) -> tuple
             if row:
                 return int(row[0]), None
 
-    if isinstance(display, str) and display.strip():
-        level = org_unit_payload.get('level')
-        with conn.cursor() as cur:
-            if level is not None:
-                try:
-                    level = int(level)
-                except Exception:
-                    return None, 'orgUnit.level must be an integer when provided'
-                cur.execute(
-                    '''
-                    SELECT id FROM heart360tk_schema.org_units
-                    WHERE name = %s AND level = %s
-                    ORDER BY id
-                    ''',
-                    (display.strip(), level),
-                )
-            else:
-                cur.execute(
-                    '''
-                    SELECT id FROM heart360tk_schema.org_units
-                    WHERE name = %s
-                    ORDER BY id
-                    ''',
-                    (display.strip(),),
-                )
-            rows = cur.fetchall()
-            if len(rows) == 1:
-                resolved_id = int(rows[0][0])
-                _remember_code(conn, source_key, code, resolved_id, display)
-                return resolved_id, None
-            if len(rows) > 1:
-                return None, 'orgUnit.display matched multiple central org units; provide orgUnit.id or orgUnit.code mapping'
+    if has_parents:
+        return _create_org_unit(conn, source_key, org_unit_payload)
 
-    return None, 'could not resolve org unit by id/code/display'
+    matched_ids, match_error = _match_display(conn, org_unit_payload)
+    if match_error:
+        return None, match_error
+    if matched_ids is not None and len(matched_ids) == 1:
+        resolved_id = matched_ids[0]
+        _remember_code(conn, source_key, code, resolved_id, display)
+        return resolved_id, None
+    if matched_ids is not None and len(matched_ids) > 1:
+        return None, (
+            'orgUnit.display matched multiple central org units; '
+            'provide orgUnit.id, orgUnit.code, or orgUnit.parents'
+        )
+
+    if isinstance(display, str) and display.strip():
+        return _create_org_unit(conn, source_key, org_unit_payload)
+
+    return None, 'orgUnit.display is required to create a clinic'
 
 
 def _remember_code(conn, source_key: str, code, org_unit_id: int, display) -> None:

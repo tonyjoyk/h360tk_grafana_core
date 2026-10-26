@@ -12,7 +12,7 @@ import psycopg2
 
 from psycopg2 import sql
 
-from import_versions.aggregate_json import import_aggregate_json_file
+from import_versions.aggregate_json import _chain_for_create, import_aggregate_json_file
 
 DB = {
     'host': os.getenv('POSTGRES_HOST', 'postgres'),
@@ -72,7 +72,9 @@ def reset(conn):
         cur.execute(
             '''
             DELETE FROM heart360tk_reporting.external_aggregate_rejection_log
-            WHERE source_key IN ('scenario-ehr', 'demo-ehr')
+            WHERE source_key IN (
+                'scenario-ehr', 'demo-ehr', 'source-ehr-a', 'source-ehr-b'
+            )
             '''
         )
 
@@ -192,10 +194,22 @@ def scenario_partial(conn):
         LIMIT 1
         ''',
     )
+    created = one(
+        conn,
+        '''
+        SELECT nb_patients_controlled
+        FROM heart360tk_reporting.heart360_patients_category c
+        JOIN heart360tk_schema.org_units ou ON ou.id = c.org_unit_id
+        WHERE ou.name = 'JSON Partial Clinic' AND c.ref_month = DATE '2026-09-01'
+        ''',
+    )
     return check(
-        'unknown clinic is skipped and the known facility is kept',
-        kept == 11 and reason and reason.startswith('org unit resolution failed'),
-        (kept, reason),
+        'a clinic with a display name is created and a row with no display is skipped',
+        kept == 11
+        and created == 4
+        and reason
+        and 'orgUnit.display is required to create a clinic' in reason,
+        (kept, created, reason),
     )
 
 
@@ -262,6 +276,180 @@ def scenario_negative(conn):
     )
 
 
+def scenario_chain_helpers(conn):
+    names, levels, error = _chain_for_create('infokes', {'display': 'Clinic A'})
+    named_parents = _chain_for_create(
+        'infokes',
+        {
+            'display': 'Clinic A',
+            'level': 3,
+            'parents': [
+                {'display': 'Central', 'level': 1},
+                {'name': 'South', 'level': 2},
+            ],
+        },
+    )
+    return check(
+        'missing parents become source-scoped unknown ancestors',
+        error is None
+        and names == ['UNKNOWN (infokes)', 'UNKNOWN (infokes)', 'Clinic A']
+        and levels == [1, 2, 3]
+        and named_parents[0] == ['Central', 'South', 'Clinic A']
+        and named_parents[1] == [1, 2, 3]
+        and named_parents[2] is None,
+        (names, levels, error, named_parents),
+    )
+
+
+def _org_unit_row(conn, name):
+    return row(
+        conn,
+        '''
+        SELECT id, level, parent_id
+        FROM heart360tk_schema.org_units
+        WHERE name = %s
+        ORDER BY id
+        LIMIT 1
+        ''',
+        (name,),
+    )
+
+
+def scenario_create_with_parents(conn):
+    load(conn, 'create_with_parents.json')
+    clinic = _org_unit_row(conn, 'JSON Create Clinic')
+    district = _org_unit_row(conn, 'JSON Create District')
+    region = _org_unit_row(conn, 'JSON Create Region')
+    stored = one(
+        conn,
+        '''
+        SELECT nb_patients_controlled
+        FROM heart360tk_reporting.heart360_patients_category
+        WHERE org_unit_id = %s AND ref_month = DATE '2026-09-01'
+        ''',
+        (clinic[0] if clinic else None,),
+    )
+    mapped = one(
+        conn,
+        '''
+        SELECT central_org_unit_id
+        FROM heart360tk_reporting.external_org_unit_mapping
+        WHERE source_key = 'scenario-ehr' AND external_code = 'JSON-CREATE-CLINIC'
+        ''',
+    )
+    return check(
+        'a new clinic is created under the parents in the file',
+        clinic is not None
+        and district is not None
+        and region is not None
+        and region[1] == 1
+        and region[2] is None
+        and district[1] == 2
+        and district[2] == region[0]
+        and clinic[1] == 3
+        and clinic[2] == district[0]
+        and stored == 17
+        and mapped == clinic[0],
+        (clinic, district, region, stored, mapped),
+    )
+
+
+def scenario_create_without_parents(conn):
+    load(conn, 'create_without_parents.json')
+    clinic = _org_unit_row(conn, 'JSON Fallback Clinic')
+    parent = row(
+        conn,
+        '''
+        SELECT id, name, level, parent_id
+        FROM heart360tk_schema.org_units
+        WHERE id = %s
+        ''',
+        (clinic[2] if clinic else None,),
+    )
+    region = row(
+        conn,
+        '''
+        SELECT id, name, level, parent_id
+        FROM heart360tk_schema.org_units
+        WHERE id = %s
+        ''',
+        (parent[3] if parent else None,),
+    )
+    stored = one(
+        conn,
+        '''
+        SELECT nb_patients_controlled
+        FROM heart360tk_reporting.heart360_patients_category
+        WHERE org_unit_id = %s AND ref_month = DATE '2026-09-01'
+        ''',
+        (clinic[0] if clinic else None,),
+    )
+    return check(
+        'a new clinic without parents sits under UNKNOWN (source_key)',
+        clinic is not None
+        and clinic[1] == 3
+        and parent is not None
+        and parent[1] == 'UNKNOWN (scenario-ehr)'
+        and parent[2] == 2
+        and region is not None
+        and region[1] == 'UNKNOWN (scenario-ehr)'
+        and region[2] == 1
+        and region[3] is None
+        and stored == 9,
+        (clinic, parent, region, stored),
+    )
+
+
+def scenario_create_two_sources(conn):
+    load(conn, 'create_source_a.json')
+    load(conn, 'create_source_b.json')
+    region_a = one(
+        conn,
+        '''
+        SELECT COUNT(*) FROM heart360tk_schema.org_units
+        WHERE name = 'UNKNOWN (source-ehr-a)' AND level = 1 AND parent_id IS NULL
+        ''',
+    )
+    region_b = one(
+        conn,
+        '''
+        SELECT COUNT(*) FROM heart360tk_schema.org_units
+        WHERE name = 'UNKNOWN (source-ehr-b)' AND level = 1 AND parent_id IS NULL
+        ''',
+    )
+    clinic_a = _org_unit_row(conn, 'Source A Clinic')
+    clinic_b = _org_unit_row(conn, 'Source B Clinic')
+    return check(
+        'two EHRs get separate unknown regions',
+        region_a == 1
+        and region_b == 1
+        and clinic_a is not None
+        and clinic_b is not None
+        and clinic_a[0] != clinic_b[0]
+        and clinic_a[2] != clinic_b[2],
+        (region_a, region_b, clinic_a, clinic_b),
+    )
+
+
+def scenario_create_idempotent(conn):
+    load(conn, 'create_with_parents.json')
+    first = _org_unit_row(conn, 'JSON Create Clinic')
+    load(conn, 'create_with_parents.json')
+    second = _org_unit_row(conn, 'JSON Create Clinic')
+    copies = one(
+        conn,
+        '''
+        SELECT COUNT(*) FROM heart360tk_schema.org_units
+        WHERE name = 'JSON Create Clinic'
+        ''',
+    )
+    return check(
+        'replaying the same JSON file keeps one clinic id',
+        first is not None and first == second and copies == 1,
+        (first, second, copies),
+    )
+
+
 def scenario_old_shape(conn):
     load(conn, 'legacy_extensions.json')
     values = row(
@@ -290,6 +478,11 @@ SCENARIOS = [
     scenario_correction,
     scenario_negative,
     scenario_old_shape,
+    scenario_chain_helpers,
+    scenario_create_with_parents,
+    scenario_create_without_parents,
+    scenario_create_two_sources,
+    scenario_create_idempotent,
 ]
 
 
