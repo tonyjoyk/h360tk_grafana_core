@@ -34,3 +34,16 @@ Decisions made overnight on 2026-11-04 without the owner. Each one is reversible
 | A29 | Statin definition | "On a statin" = atorvastatin, simvastatin or rosuvastatin in the latest prescription. `cvd_history` is a new flag table, filled by fake data. | We have no CVD data. | Load real CVD history. |
 | A32 | Planted demo facilities | The fake data plants one facility that looks fine on control but is flagged by fudging and titration, one with low second-visit return, and one with low phone capture. | So the two-sided rule and the chat have something to find. | Edit the seed. |
 | A33 | Drug stock submitter | Comes from the Google Form's collected email column. | Forms can collect email without a login. | n/a |
+| A34 | Reporting month on the Reports dashboard | A `Reporting Month` variable, default the latest completed month. The time picker only sets how far back trends reach (default 12 months). | Same rule as the HTN tab headlines. | n/a |
+| A35 | Facility table order | Flagged first, then number of flags, then patients. Never by control %. | Two-sided rule (context section 7). | n/a |
+| A36 | "Looks fine, check readings" | A facility at 60% control or more that has any flag keeps its green number and gets an orange marker and pill. | Makes the Kolfe pattern visible. | Edit the 60% line. |
+| A37 | "Too few" minimums | 20 patients (adherence), 10 high-BP visits (titration), 20 readings (fudging), 10 eligible (statins), 10 overdue with a phone (calling). | Small numbers mislead. | Edit the flag table. |
+| A38 | Flag thresholds | Off protocol 20% or more; mostly one medicine 60% or more; titration under 40%; fudging 2.0 or more; statins under 25%; called under 10%; early calls under 50%; phone captured under 50%. One editable table. | No source gives these; picked to make the demo readable. | Edit `report_flag_thresholds`. |
+| A39 | Fudging chart | Histogram of systolic bands 120 to 154 in 5s, with 135-139 and 140-144 highlighted. | Shows the bunching directly. | n/a |
+| A40 | Chat widget look | Light theme. `Ask HEARTS360` pill at bottom right, 380x560 panel. | Matches the existing light theme. | n/a |
+| A41 | Chat chips | 5 at facility scope, 6 at district scope, 1 ("Pick a district") nationwide. Typed text maps to the nearest chip. | Chips, not a blank box. | n/a |
+| A42 | Adherence labels | Plain row labels like "2 medicines, one at full dose" and an indigo step ramp. | Managers do not know "Step 4". | n/a |
+| A43 | Facility tables | Business Text HTML tables, like the overdue list. | One look across the toolkit. | n/a |
+| A44 | Strict or lenient | A `Patients counted` variable on the adherence tab. | The tool has both variants. | n/a |
+| A47 | Chat honesty line | Every answer and every plan card ends with the 2 to 12% line. | FR-48. | n/a |
+| A48 | Report window | Each report's 90-day window ends on the last day of the Reporting Month. With the default month this is close to the tool's "newest visit" anchor. | One period across all five tabs. | Edit the window in `report_window()`. |
