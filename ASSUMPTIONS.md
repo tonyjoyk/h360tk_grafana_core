@@ -47,3 +47,23 @@ Decisions made overnight on 2026-11-04 without the owner. Each one is reversible
 | A44 | Strict or lenient | A `Patients counted` variable on the adherence tab. | The tool has both variants. | n/a |
 | A47 | Chat honesty line | Every answer and every plan card ends with the 2 to 12% line. | FR-48. | n/a |
 | A48 | Report window | Each report's 90-day window ends on the last day of the Reporting Month. With the default month this is close to the tool's "newest visit" anchor. | One period across all five tabs. | Edit the window in `report_window()`. |
+| A49 | Ladder data | Steps: amlodipine 5, amlodipine 10, add ACEi/ARB standard dose, ACEi/ARB max dose, add thiazide 12.5, thiazide 25. Stored as rows in `protocol_drug_steps` (CR-1). Replaces the drug order given in A18; A18's Step 5 wording still holds. | WHO HEARTS order, CCB first. | Edit the seed rows. |
+| A50 | Blank strength | The medicine category becomes unknown. It is not counted as zero. | Bug 5. | n/a |
+| A51 | Patient-days N | Counts patients in the whole org subtree. | Matches the All row. | n/a |
+| A52 | Facility attribution | `patients.org_unit_id`. | Same as the HTN tab. | n/a |
+| A53 | New-patient cohort | First visit 179 to 90 days before the window end. | Leaves time for a second visit. | n/a |
+| A54 | Usable phone | 8 or more digits and never marked "Wrong phone number". | Simple and checkable. | n/a |
+| A55 | Seeds | Insert only. Never update or delete. | Hard rule (PR 5). | n/a |
+| A56 | Planted patterns | PHC-E Kolfe-like; PHC-D loses patients before the second visit; PHC-C few phones; PHC-B low CCB stock; PHC-F low statins and unknown thiazide strength. | Every report and chat answer has something to show. | Edit `test_data/demo/seeds`. |
+| A57 | Chat levers | Loss over 25%, usable phone under 90%, called under 10% or early under 50%, titration under 40%, stock under 30 days. | Mirrors A38. | Edit the ranker table. |
+| A58 | Claude model | `claude-sonnet-5-5`, 8 s timeout, override with `ANTHROPIC_MODEL`. | Fast enough for chat. | Env var. |
+| A59 | Overdue full table | `panel-ov-1` becomes read-only; saving happens in the quick panel through h360-api. | Business Table can only write through a datasource. | n/a |
+| A60 | Grants | A one-shot `db-grants` compose service applies role grants. | Reruns on every `up`. | n/a |
+| A61 | Central purge | Treated as broken and left alone. | Out of scope. | n/a |
+| A62 | Demo users | `district.d` (district scope) and `nurse.phc-a` (one facility), password `demo`. | Shows the access scoping. | n/a |
+| A63 | Call return window | First calls in the window whose 30 days have passed by the newest encounter. | Avoids counting calls too new to judge. | n/a |
+| A64 | Report source files | One JSON per report, assembled into the single Reports dashboard by `build_reports_dashboard.py`. | Reports can be edited separately while A22 still holds. | n/a |
+| A65 | Reports links | One `spec.links` entry each on home, the program dashboard and drug stock. No tab content changes. | Hard rule on HTN/DM tabs. | Remove the link. |
+| A66 | Grafana defaults | New users get Viewer; the `GrafanaApi` datasource is deleted. | Closes write paths. | n/a |
+| A67 | Odd prescriptions | Lines for the same drug are summed. Two drugs from one class, or a dose below the starting dose, count as Other Protocol. | Simple classification. | n/a |
+| A68 | Off-ladder step-up | Judged by drug count first, then by dose units. | Titration needs an order. | n/a |
