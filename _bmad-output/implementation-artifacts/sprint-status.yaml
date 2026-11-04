@@ -49,8 +49,8 @@ development_status:
   2-6-dashboard-query-verifier: backlog
   2-7-verify_security-sh-part-1-g1a-checks: backlog
   2-8-gate-g1a: backlog
-  2-9-h360-api-skeleton-auth-and-compose-service: backlog
-  2-10-write-endpoint-and-overdue-save-through-h360-api: backlog
+  2-9-h360-api-skeleton-auth-and-compose-service: done
+  2-10-write-endpoint-and-overdue-save-through-h360-api: done
   2-11-verify_security-sh-part-2-write-path-checks: backlog
   2-12-gate-g1b: backlog
   epic-2-retrospective: optional
