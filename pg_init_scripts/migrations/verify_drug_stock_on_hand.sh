@@ -42,6 +42,7 @@ assert panel["type"] == "table", panel["type"]
 assert panel["title"] == "Stock on hand"
 assert "drug_stock_on_hand_matrix" in panel["targets"][0]["rawSql"]
 assert "NULLIF('${org_unit}', '')::integer" in panel["targets"][0]["rawSql"]
+assert "WHERE '${isAllowed}' = '1'" in panel["targets"][0]["rawSql"]
 assert "dose_factor" not in panel["targets"][0]["rawSql"]
 assert panel["options"]["frozenColumns"]["left"] == 1
 assert panel["options"]["sortBy"][0]["displayName"] == "Facility"
@@ -50,7 +51,8 @@ for color in ("#E02F44", "#FF9830", "#F2CC0C", "#56A64B", "#EFEFEF"):
     assert color in blob, color
 assert "\u2014" in blob
 names = [item["name"] for item in doc["templating"]["list"]]
-assert names == ["reporting_month", "org_unit"], names
+assert names[:2] == ["reporting_month", "org_unit"], names
+assert names[2:] == ["isAdmin", "isAllowed", "requiredGroups"], names
 org = doc["templating"]["list"][1]
 assert org["hide"] == 2
 assert org["type"] == "textbox"
