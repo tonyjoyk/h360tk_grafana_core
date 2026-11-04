@@ -41,10 +41,10 @@ development_status:
   epic-1-retrospective: optional
 
   epic-2: in-progress
-  2-1-read-only-roles-grant-matrix-and-function-privilege-hygiene: in-progress
-  2-2-h360_access_allows-access-rule: in-progress
-  2-3-save_call_result-and-call_results_audit: in-progress
-  2-4-datasource-flip-grafana-defaults-and-db-grants: in-progress
+  2-1-read-only-roles-grant-matrix-and-function-privilege-hygiene: done
+  2-2-h360_access_allows-access-rule: done
+  2-3-save_call_result-and-call_results_audit: done
+  2-4-datasource-flip-grafana-defaults-and-db-grants: done
   2-5-demo-viewers-for-access-tests: backlog
   2-6-dashboard-query-verifier: backlog
   2-7-verify_security-sh-part-1-g1a-checks: backlog
@@ -56,16 +56,16 @@ development_status:
   epic-2-retrospective: optional
 
   epic-3: in-progress
-  3-1-latest-wins-by-submitted_at-submitter-and-history: in-progress
-  3-2-patient-days-with-blank-strength-a-correct-all-row-and-subtr: in-progress
+  3-1-latest-wins-by-submitted_at-submitter-and-history: done
+  3-2-patient-days-with-blank-strength-a-correct-all-row-and-subtr: done
   3-3-wide-form-sheet-puller: done
   3-4-drug-stock-board-access-gate-coverage-line-and-reports-link: backlog
   epic-3-retrospective: optional
 
   epic-4: in-progress
-  4-1-medicines-catalogue-and-protocol-drug-link: in-progress
-  4-2-prescription-storage-parse_obat-and-cvd-history: in-progress
-  4-3-htn-ladder-and-the-visit-classifier: in-progress
+  4-1-medicines-catalogue-and-protocol-drug-link: done
+  4-2-prescription-storage-parse_obat-and-cvd-history: done
+  4-3-htn-ladder-and-the-visit-classifier: done
   4-4-seed-10-visits-phones-and-cvd-history: backlog
   4-5-seed-20-prescriptions-and-statin-use: backlog
   4-6-seed-30-overdue-calls: backlog
