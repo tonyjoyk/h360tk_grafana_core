@@ -66,6 +66,25 @@ services:
     volumes:
       - ./db_grants:/db_grants:ro
 
+  # The only runtime write path (AD-16). Chat routes mount from h360_api/routes/ later.
+  h360-api:
+    build:
+      context: ./h360_api
+      dockerfile: Dockerfile
+    container_name: h360-api
+    ports:
+      - "8090:8090"
+    restart: unless-stopped
+    depends_on:
+      - postgres
+      - grafana
+    environment:
+      - DATABASE_URL=postgresql://h360_api:${H360_API_DB_PASSWORD:-h360_api_mvp}@postgres:5432/heart360tk_database
+      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
+      - H360_ALLOWED_ORIGINS=${H360_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
+      - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}
+
   pgadmin:
     image: dpage/pgadmin4:9.14
     container_name: pgadmin
