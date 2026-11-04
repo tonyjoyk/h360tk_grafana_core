@@ -18,7 +18,20 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": true,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Reports",
+      "tooltip": "Reports",
+      "type": "link",
+      "url": "/d/heart360_reports"
+    }
+  ],
   "panels": [
     {
       "collapsed": false,
@@ -110,6 +123,55 @@
       "title": "",
       "transparent": true,
       "type": "equansdatahub-tree-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 11,
+      "options": {
+        "afterRender": "",
+        "content": "{{#if (eq isAllowed \"1\")}}\n{{#if coverage}}\n<div class=\"h360-cov\">Coverage: {{coverage}}</div>\n{{/if}}\n{{else}}\n<div class=\"ovq-warn\"><span>\u26a0\ufe0f</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: {{{requiredGroups}}}</span></div>\n{{/if}}",
+        "contentPartials": [],
+        "defaultContent": "",
+        "editor": {
+          "format": "auto",
+          "language": "html"
+        },
+        "editors": [],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "everyRow",
+        "styles": ".ovq-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n.h360-cov { font-family: Inter, Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.4; color: #6E6E6E; padding: 4px 2px; }",
+        "wrap": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT\n  flags.\"isAllowed\",\n  flags.\"requiredGroups\",\n  cov.coverage\nFROM (\n  SELECT '${isAllowed}'::text AS \"isAllowed\",\n         '${requiredGroups}'::text AS \"requiredGroups\"\n) flags\nLEFT JOIN (\n  SELECT * FROM (\n    SELECT CASE\n      WHEN COUNT(*) = 0 THEN NULL\n      WHEN COUNT(DISTINCT reporting_n) = 1 AND COUNT(DISTINCT cohort_n) = 1\n        THEN MIN(reporting_n)::text || ' of ' || MIN(cohort_n)::text || ' facilities'\n      ELSE string_agg(\n        drug_category || ' ' || reporting_n::text || ' of ' || cohort_n::text || ' facilities',\n        ' \u00b7 ' ORDER BY CASE drug_category\n          WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4\n        END, drug_category\n      )\n    END AS coverage\n    FROM heart360tk_reporting.drug_stock_patient_days_all(\n      NULLIF('${reporting_month}', '')::date,\n      NULLIF('${org_unit}', '')::integer\n    )\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n    AND coverage IS NOT NULL\n) cov ON true",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
     },
     {
       "datasource": {
@@ -282,7 +344,7 @@
         "h": 14,
         "w": 24,
         "x": 0,
-        "y": 13
+        "y": 15
       },
       "id": 10,
       "options": {
@@ -307,7 +369,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)",
+          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT * FROM (\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)\n) AS master_access_control WHERE '${isAllowed}' = '1'",
           "refId": "A"
         }
       ],
@@ -367,6 +429,75 @@
         "query": "",
         "skipUrlSync": false,
         "type": "textbox"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT CASE WHEN is_admin = true THEN 1 ELSE 0 END AS __value FROM grafana_schema.user WHERE id = ${__user.id} LIMIT 1",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "isAdmin",
+        "options": [],
+        "query": "SELECT CASE WHEN is_admin = true THEN 1 ELSE 0 END AS __value FROM grafana_schema.user WHERE id = ${__user.id} LIMIT 1",
+        "refresh": 2,
+        "regex": "",
+        "regexApplyTo": "value",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name IN (\n                  'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                  'heart360tk_' || hc.var_name || '_view_patients_ALL'\n              )\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'aggregated') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                  UNION\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name IN (\n                      'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                      'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                  )\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "isAllowed",
+        "options": [],
+        "query": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name IN (\n                  'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                  'heart360tk_' || hc.var_name || '_view_patients_ALL'\n              )\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'aggregated') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                  UNION\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name IN (\n                      'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                      'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                  )\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+        "refresh": 2,
+        "regex": "",
+        "regexApplyTo": "value",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) \u2014 admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "requiredGroups",
+        "options": [],
+        "query": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) \u2014 admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+        "refresh": 2,
+        "regex": "",
+        "regexApplyTo": "value",
+        "skipUrlSync": true,
+        "sort": 0,
+        "type": "query"
       }
     ]
   },
@@ -378,6 +509,6 @@
   "timezone": "browser",
   "title": "Drug Stock",
   "uid": "heart360_drug_stock",
-  "version": 1,
+  "version": 2,
   "weekStart": ""
 }
