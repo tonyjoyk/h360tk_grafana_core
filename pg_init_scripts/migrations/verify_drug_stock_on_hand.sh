@@ -2,11 +2,11 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
-MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.5.2_to_0.5.3.sql"
-MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.5.3_to_0.5.4.sql"
-MIGRATION_21="$ROOT/pg_init_scripts/migrations/0.5.4_to_0.5.5.sql"
-MIGRATION_23="$ROOT/pg_init_scripts/migrations/0.5.5_to_0.5.6.sql"
+MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
+MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
+MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.6.2_to_0.6.3.sql"
+MIGRATION_21="$ROOT/pg_init_scripts/migrations/0.6.3_to_0.6.4.sql"
+MIGRATION_23="$ROOT/pg_init_scripts/migrations/0.6.4_to_0.6.5.sql"
 DASHBOARD="$ROOT/grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.drug.stock.json"
 DB_NAME="${DRUG_STOCK_ON_HAND_VERIFY_DB:-drug_stock_on_hand_verify}"
 

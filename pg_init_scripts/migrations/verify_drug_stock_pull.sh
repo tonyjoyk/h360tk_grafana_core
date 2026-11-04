@@ -2,9 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
-MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.5.2_to_0.5.3.sql"
-MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.5.3_to_0.5.4.sql"
+MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
+MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
+MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.6.2_to_0.6.3.sql"
 TABLES="$ROOT/pg_init_scripts/01_heart360_tables.sql"
 PULL="$ROOT/drug_stock/pull/pull.py"
 FIXTURE="$ROOT/drug_stock/pull/fixture_long_rows.json"
@@ -639,11 +639,11 @@ fi
 python3 - "$TABLES" <<'PY'
 import sys
 lines = open(sys.argv[1]).read().splitlines()
-second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.2_to_0.5.3.sql")
-third = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.3_to_0.5.4.sql")
+second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.1_to_0.6.2.sql")
+third = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.2_to_0.6.3.sql")
 if third != second + 1:
     raise SystemExit(f"include order is line {second + 1} then line {third + 1}")
-print("include line follows 0.5.2_to_0.5.3.sql")
+print("include line follows 0.6.1_to_0.6.2.sql")
 PY
 
 rm -f "$EMPTY_SA" "$SECOND" "$THIRD" "$BAD_JSON" "$SNAPSHOT" "$AFTER"

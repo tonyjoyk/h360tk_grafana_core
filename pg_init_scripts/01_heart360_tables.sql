@@ -2254,8 +2254,17 @@ $$;
 GRANT SELECT ON heart360tk_schema.HEART360_DM_PATIENTS_CATAGORY TO heart360tk_cached;
 GRANT SELECT ON heart360tk_schema.HEART360_DM_PATIENTS_CATAGORY TO heart360tk;
 
-\ir migrations/0.5.1_to_0.5.2.sql
-\ir migrations/0.5.2_to_0.5.3.sql
-\ir migrations/0.5.3_to_0.5.4.sql
-\ir migrations/0.5.4_to_0.5.5.sql
-\ir migrations/0.5.5_to_0.5.6.sql
+\ir migrations/0.6.0_to_0.6.1.sql
+\ir migrations/0.6.1_to_0.6.2.sql
+\ir migrations/0.6.2_to_0.6.3.sql
+\ir migrations/0.6.3_to_0.6.4.sql
+\ir migrations/0.6.4_to_0.6.5.sql
+\ir migrations/0.6.5_to_0.6.6.sql
+\ir migrations/0.6.6_to_0.6.7.sql
+\ir migrations/0.6.7_to_0.6.8.sql
+\ir migrations/0.6.8_to_0.6.9.sql
+\ir migrations/0.6.9_to_0.6.10.sql
+\ir migrations/0.6.10_to_0.6.11.sql
+\ir migrations/0.6.11_to_0.6.12.sql
+\ir migrations/0.6.12_to_0.6.13.sql
+\ir migrations/0.6.13_to_0.6.14.sql
