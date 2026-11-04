@@ -5,6 +5,7 @@ ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
 MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
 MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
 MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.6.2_to_0.6.3.sql"
+MIGRATION_FIX="$ROOT/pg_init_scripts/migrations/0.6.6_to_0.6.7.sql"
 TABLES="$ROOT/pg_init_scripts/01_heart360_tables.sql"
 PULL="$ROOT/drug_stock/pull/pull.py"
 FIXTURE="$ROOT/drug_stock/pull/fixture_long_rows.json"
@@ -16,7 +17,7 @@ if [[ ! "$DB_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
     exit 1
 fi
 
-for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$TABLES" "$PULL" "$FIXTURE" "$CONTRACT"; do
+for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$MIGRATION_FIX" "$TABLES" "$PULL" "$FIXTURE" "$CONTRACT"; do
     if [[ ! -f "$required" ]]; then
         echo "missing file: $required" >&2
         exit 1
@@ -646,5 +647,141 @@ if third != second + 1:
 print("include line follows 0.6.1_to_0.6.2.sql")
 PY
 
-rm -f "$EMPTY_SA" "$SECOND" "$THIRD" "$BAD_JSON" "$SNAPSHOT" "$AFTER"
+# 0.6.6_to_0.6.7 (AD-19). Before it, "repeat fixture" above let the
+# 2026-09-20 fixture row overwrite a newer value. After it, an older row never
+# replaces a newer one, and the submitter and history are stored.
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+    "UPDATE heart360tk_schema.deploy_setting SET country_code = 'India', programme_code = 'IHCI' WHERE setting_name = 'active_programme';" >/dev/null
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 >/dev/null <<'SQL'
+CREATE SCHEMA heart360tk_reporting AUTHORIZATION heart360tk;
+SET ROLE heart360tk;
+CREATE TABLE heart360tk_reporting.heart360_patients_registered (
+    ref_month date,
+    org_unit_id integer,
+    cumulative_number_of_patients numeric,
+    nb_new_patients numeric
+);
+CREATE OR REPLACE FUNCTION heart360tk_schema.get_descendant_ids(p_parent_id INTEGER)
+RETURNS TABLE(id INTEGER)
+LANGUAGE sql STABLE
+AS $$
+    WITH RECURSIVE descendants AS (
+        SELECT ou.id FROM heart360tk_schema.org_units ou
+        WHERE COALESCE(p_parent_id, 0) <> 0 AND ou.id = p_parent_id
+        UNION ALL
+        SELECT o.id FROM heart360tk_schema.org_units o JOIN descendants d ON o.parent_id = d.id
+    )
+    SELECT d.id FROM descendants d
+    UNION ALL
+    SELECT ou.id FROM heart360tk_schema.org_units ou WHERE COALESCE(p_parent_id, 0) = 0;
+$$;
+SQL
+for step in 0.6.3_to_0.6.4 0.6.4_to_0.6.5; do
+    echo "apply $step"
+    "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$ROOT/pg_init_scripts/migrations/$step.sql" >/dev/null
+done
+echo "apply 0.6.6_to_0.6.7"
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_FIX" >/dev/null
+echo "apply 0.6.6_to_0.6.7 again"
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_FIX" >/dev/null
+
+history_count() {
+    "${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -tA -c \
+        "SELECT COUNT(*) FROM heart360tk_schema.drug_stock_submission_history;"
+}
+if [[ "$(history_count)" != "3" ]]; then
+    echo "upgrade did not copy the 3 stored rows into history" >&2
+    exit 1
+fi
+
+echo "fixture pull after the fix"
+expect_ok "fixture pull after the fix" "accepted=3 rejected=2" \
+    pull_env DRUG_STOCK_FIXTURE_PATH="$FIXTURE"
+
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+SET search_path TO heart360tk_schema;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM drug_stock_submission
+        WHERE rxnorm_code = '329528'
+          AND (in_stock IS DISTINCT FROM 2 OR submitted_at IS DISTINCT FROM TIMESTAMPTZ '2026-09-28T08:00:00Z')
+    ) THEN
+        RAISE EXCEPTION 'the older 2026-09-20 fixture row replaced the 2026-09-28 value';
+    END IF;
+    IF (SELECT COUNT(*) FROM drug_stock_submission_history) <> 4 THEN
+        RAISE EXCEPTION 'history is % rows, expected 4 (3 copied + the older 329528 row)',
+            (SELECT COUNT(*) FROM drug_stock_submission_history);
+    END IF;
+END $$;
+SQL
+
+WIDE="$(mktemp)"
+cat > "$WIDE" <<'JSON'
+[
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-01",
+    "drug_code": "329526",
+    "in_stock": "5",
+    "submitted_at": "2026-09-29T10:00:00Z",
+    "submitted_by": "Nurse.A@Example.org",
+    "sheet_row": 7
+  },
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-01",
+    "drug_code": "329526",
+    "in_stock": "6",
+    "submitted_at": "2026-09-29T09:00:00Z",
+    "submitted_by": "nurse.b@example.org",
+    "sheet_row": 8
+  }
+]
+JSON
+
+echo "two submissions for one cell"
+expect_ok "two submissions" "accepted=2 rejected=0" \
+    pull_env DRUG_STOCK_FIXTURE_PATH="$WIDE"
+expect_ok "two submissions again" "accepted=2 rejected=0" \
+    pull_env DRUG_STOCK_FIXTURE_PATH="$WIDE"
+
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+SET search_path TO heart360tk_schema;
+DO $$
+BEGIN
+    IF EXISTS (
+        SELECT 1 FROM drug_stock_submission
+        WHERE rxnorm_code = '329526'
+          AND (in_stock IS DISTINCT FROM 5
+               OR submitted_by IS DISTINCT FROM 'nurse.a@example.org'
+               OR sheet_row IS DISTINCT FROM 7)
+    ) THEN
+        RAISE EXCEPTION 'the newest submission (sheet row 7) did not win';
+    END IF;
+    IF (
+        SELECT string_agg(in_stock::text || '/' || submitted_by, ',' ORDER BY submitted_at)
+        FROM drug_stock_submission_history
+        WHERE rxnorm_code = '329526' AND submitted_by IS NOT NULL
+    ) IS DISTINCT FROM '6/nurse.b@example.org,5/nurse.a@example.org' THEN
+        RAISE EXCEPTION 'history does not hold both submissions with their submitters';
+    END IF;
+    IF (SELECT COUNT(*) FROM drug_stock_submission WHERE rxnorm_code = '329526') <> 1 THEN
+        RAISE EXCEPTION 'more than one displayed value for 329526';
+    END IF;
+END $$;
+SQL
+
+set +e
+GRAFANA_HIST="$("${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+    "SET ROLE grafana; SELECT COUNT(*) FROM heart360tk_schema.drug_stock_submission_history;" 2>&1)"
+GRAFANA_HIST_STATUS=$?
+set -e
+if [[ $GRAFANA_HIST_STATUS -eq 0 || "$GRAFANA_HIST" != *"permission denied"* ]]; then
+    echo "grafana read drug_stock_submission_history: $GRAFANA_HIST" >&2
+    exit 1
+fi
+echo "after 0.6.6_to_0.6.7: older rows never replace newer ones; submitter and history stored"
+
+rm -f "$EMPTY_SA" "$SECOND" "$THIRD" "$BAD_JSON" "$SNAPSHOT" "$AFTER" "$WIDE"
 echo "drug stock pull verified"

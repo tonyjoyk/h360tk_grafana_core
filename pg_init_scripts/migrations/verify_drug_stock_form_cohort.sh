@@ -56,8 +56,12 @@ drop_db() {
 
 drop_db
 "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 <<SQL
-DROP ROLE IF EXISTS heart360tk;
-CREATE ROLE heart360tk LOGIN;
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'heart360tk') THEN
+        CREATE ROLE heart360tk LOGIN;
+    END IF;
+END \$\$;
 CREATE DATABASE ${DB_NAME} OWNER heart360tk;
 SQL
 
@@ -507,6 +511,5 @@ print("include line follows 0.6.0_to_0.6.1.sql")
 PY
 
 drop_db
-"${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS heart360tk;" >/dev/null
 
 echo "drug stock form cohort verified"

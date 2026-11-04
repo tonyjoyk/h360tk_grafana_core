@@ -7,6 +7,7 @@ MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
 MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.6.2_to_0.6.3.sql"
 MIGRATION_21="$ROOT/pg_init_scripts/migrations/0.6.3_to_0.6.4.sql"
 MIGRATION_23="$ROOT/pg_init_scripts/migrations/0.6.4_to_0.6.5.sql"
+MIGRATION_FIX="$ROOT/pg_init_scripts/migrations/0.6.6_to_0.6.7.sql"
 DASHBOARD="$ROOT/grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.drug.stock.json"
 DB_NAME="${DRUG_STOCK_ON_HAND_VERIFY_DB:-drug_stock_on_hand_verify}"
 
@@ -15,7 +16,7 @@ if [[ ! "$DB_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
     exit 1
 fi
 
-for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$MIGRATION_21" "$MIGRATION_23" "$DASHBOARD"; do
+for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$MIGRATION_21" "$MIGRATION_23" "$MIGRATION_FIX" "$DASHBOARD"; do
     if [[ ! -f "$required" ]]; then
         echo "missing file: $required" >&2
         exit 1
@@ -453,3 +454,90 @@ SQL
 echo "cached reader sees 5 nationwide rows"
 echo "golden CCB patient days is the view value 200/140"
 echo "All CCB patient days is 200/336"
+
+# 0.6.6_to_0.6.7 (AD-22): facility cells stay; the All row sums only the
+# facilities with a number (Golden N 100, Zero N 10), not Blank or Missing.
+echo "apply 0.6.6_to_0.6.7"
+apply_file "$DB_NAME" "$MIGRATION_FIX" >/dev/null
+echo "apply 0.6.6_to_0.6.7 again"
+apply_file "$DB_NAME" "$MIGRATION_FIX" >/dev/null
+
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+DECLARE
+    v_golden json;
+    v_missing json;
+    v_blank json;
+    v_zero json;
+    v_all json;
+BEGIN
+    IF (SELECT COUNT(*) FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)) <> 5 THEN
+        RAISE EXCEPTION 'fixed nationwide row count changed';
+    END IF;
+    SELECT matrix INTO v_golden FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)
+    WHERE matrix->>'Facility' = 'Golden Facility';
+    SELECT matrix INTO v_missing FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)
+    WHERE matrix->>'Facility' = 'Missing Facility';
+    SELECT matrix INTO v_blank FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)
+    WHERE matrix->>'Facility' = 'Blank Facility';
+    SELECT matrix INTO v_zero FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)
+    WHERE matrix->>'Facility' = 'Zero Facility';
+    SELECT matrix INTO v_all FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)
+    WHERE matrix->>'Facility' = 'All';
+
+    IF abs((v_golden->>'CCB Patient days')::numeric - (200::numeric / 140)) >= 0.001
+       OR abs((v_golden->>'ARB Patient days')::numeric - 45) >= 0.001
+       OR abs((v_golden->>'Diuretic Patient days')::numeric - 75) >= 0.001
+       OR (v_zero->>'CCB Patient days')::numeric IS DISTINCT FROM 0
+       OR abs((v_zero->>'ARB Patient days')::numeric - 90) >= 0.001
+       OR (v_blank->>'CCB Patient days')::numeric IS DISTINCT FROM -1
+       OR v_missing->>'CCB Patient days' IS NOT NULL
+       OR v_missing->>'Amlodipine 5 mg' IS DISTINCT FROM '?' THEN
+        RAISE EXCEPTION 'fixed facility cells changed: % % % %', v_golden, v_zero, v_blank, v_missing;
+    END IF;
+
+    IF v_all->>'Telmisartan 40 mg' IS DISTINCT FROM '1998'
+       OR abs((v_all->>'CCB Patient days')::numeric - (200::numeric / 154)) >= 0.001
+       OR abs((v_all->>'ARB Patient days')::numeric - (1998::numeric / 40.7)) >= 0.001
+       OR abs((v_all->>'Diuretic Patient days')::numeric - (450::numeric / 6.6)) >= 0.001 THEN
+        RAISE EXCEPTION 'fixed All row is %', v_all;
+    END IF;
+
+    IF (
+        SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(v_golden::jsonb) AS k
+    ) IS DISTINCT FROM (
+        SELECT array_agg(k ORDER BY k) FROM jsonb_object_keys(v_all::jsonb) AS k
+    ) THEN
+        RAISE EXCEPTION 'fixed display rows do not share columns';
+    END IF;
+
+    IF NOT EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days_all(DATE '2026-09-01', NULL) a
+        WHERE a.drug_category = 'CCB' AND a.reporting_n = 2 AND a.cohort_n = 4
+    ) THEN
+        RAISE EXCEPTION 'fixed All coverage is not 2 of 4';
+    END IF;
+
+    IF (
+        SELECT string_agg(matrix->>'Facility', ',' ORDER BY matrix->>'Facility')
+        FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', 2)
+    ) IS DISTINCT FROM 'Blank Facility,Golden Facility,Missing Facility,Zero Facility'
+       OR (
+        SELECT matrix->>'Facility'
+        FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', 3)
+    ) IS DISTINCT FROM 'No facilities for this location.' THEN
+        RAISE EXCEPTION 'fixed scoping changed';
+    END IF;
+END $$;
+
+SET ROLE heart360tk_cached;
+DO $$
+BEGIN
+    IF (SELECT COUNT(*) FROM heart360tk_reporting.drug_stock_on_hand_matrix(DATE '2026-09-01', NULL)) <> 5 THEN
+        RAISE EXCEPTION 'cached reader lost the fixed matrix';
+    END IF;
+END $$;
+RESET ROLE;
+SQL
+
+echo "after 0.6.6_to_0.6.7: facility cells unchanged; All CCB 200/154, ARB 1998/40.7, Diuretic 450/6.6 over 2 of 4 facilities"

@@ -6,6 +6,7 @@ MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
 MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
 MIGRATION_13="$ROOT/pg_init_scripts/migrations/0.6.2_to_0.6.3.sql"
 MIGRATION_21="$ROOT/pg_init_scripts/migrations/0.6.3_to_0.6.4.sql"
+MIGRATION_FIX="$ROOT/pg_init_scripts/migrations/0.6.6_to_0.6.7.sql"
 TABLES="$ROOT/pg_init_scripts/01_heart360_tables.sql"
 DB_NAME="${DRUG_STOCK_PATIENT_DAYS_VERIFY_DB:-drug_stock_patient_days_verify}"
 
@@ -14,7 +15,7 @@ if [[ ! "$DB_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
     exit 1
 fi
 
-for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$MIGRATION_21" "$TABLES"; do
+for required in "$MIGRATION_11" "$MIGRATION_12" "$MIGRATION_13" "$MIGRATION_21" "$MIGRATION_FIX" "$TABLES"; do
     if [[ ! -f "$required" ]]; then
         echo "missing file: $required" >&2
         exit 1
@@ -88,6 +89,20 @@ CREATE TABLE org_units (
     level       INTEGER NOT NULL,
     parent_id   INTEGER REFERENCES org_units(id)
 );
+CREATE OR REPLACE FUNCTION get_descendant_ids(p_parent_id INTEGER)
+RETURNS TABLE(id INTEGER)
+LANGUAGE sql STABLE
+AS \$\$
+    WITH RECURSIVE descendants AS (
+        SELECT ou.id FROM org_units ou
+        WHERE COALESCE(p_parent_id, 0) <> 0 AND ou.id = p_parent_id
+        UNION ALL
+        SELECT o.id FROM org_units o JOIN descendants d ON o.parent_id = d.id
+    )
+    SELECT d.id FROM descendants d
+    UNION ALL
+    SELECT ou.id FROM org_units ou WHERE COALESCE(p_parent_id, 0) = 0;
+\$\$;
 CREATE TABLE heart360tk_reporting.heart360_patients_registered (
     ref_month date,
     org_unit_id integer,
@@ -549,6 +564,89 @@ if [[ "$CACHED_WRITE" != *"permission denied"* ]]; then
     printf '%s\n' "$CACHED_WRITE" >&2
     exit 1
 fi
+
+# 0.6.6_to_0.6.7 (AD-22). The ARB category above (blank Telmisartan 40 mg,
+# Telmisartan 80 mg = 0) read 0 before; it is unknown now. Facilities here have
+# no children, so subtree N equals the facility's own N.
+echo "apply 0.6.6_to_0.6.7"
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_FIX" >/dev/null
+echo "apply 0.6.6_to_0.6.7 again"
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$MIGRATION_FIX" >/dev/null
+
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
+DO $$
+DECLARE
+    v_columns text;
+    v_def text;
+BEGIN
+    SELECT string_agg(column_name, ',' ORDER BY ordinal_position)
+    INTO v_columns
+    FROM information_schema.columns
+    WHERE table_schema = 'heart360tk_reporting'
+      AND table_name = 'drug_stock_patient_days';
+    IF v_columns IS DISTINCT FROM
+        'org_unit_id,facility_name,reporting_month,drug_category,rxnorm_code,drug_name,dosage,submission_present,in_stock,dose_factor,patients_n,load_factor,category_coeff,normalized_stock,category_patient_days,category_known,category_normalized_stock'
+    THEN
+        RAISE EXCEPTION 'fixed patient-days columns are [%]', v_columns;
+    END IF;
+
+    SELECT pg_get_viewdef('heart360tk_reporting.drug_stock_patient_days'::regclass, true)
+    INTO v_def;
+    IF v_def ILIKE '%under_care%'
+       OR v_def NOT ILIKE '%heart360tk_reporting.heart360_patients_registered%'
+       OR v_def NOT ILIKE '%coeff_config%' THEN
+        RAISE EXCEPTION 'fixed patient-days view does not read registered N and coeff_config';
+    END IF;
+
+    IF (SELECT COUNT(*) FROM heart360tk_reporting.drug_stock_patient_days) <> 48 THEN
+        RAISE EXCEPTION 'fixed patient-days row count changed';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days
+        WHERE org_unit_id = 11 AND reporting_month = DATE '2026-09-01' AND drug_category = 'CCB'
+          AND (NOT category_known OR abs(category_patient_days - (200::numeric / 140)) >= 0.001)
+    ) THEN
+        RAISE EXCEPTION 'fixed Alpha CCB is not 200/140';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days
+        WHERE org_unit_id = 11 AND reporting_month = DATE '2026-09-01' AND drug_category = 'ARB'
+          AND (category_known OR category_patient_days IS NOT NULL OR category_normalized_stock IS NOT NULL)
+    ) THEN
+        RAISE EXCEPTION 'fixed Alpha ARB with a blank strength is not unknown';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days
+        WHERE org_unit_id = 11 AND reporting_month = DATE '2026-09-01' AND rxnorm_code = '316765'
+          AND (in_stock IS DISTINCT FROM 0 OR normalized_stock IS DISTINCT FROM 0)
+    ) THEN
+        RAISE EXCEPTION 'fixed explicit zero Telmisartan 80 mg did not stay 0';
+    END IF;
+
+    IF EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days
+        WHERE reporting_month = DATE '2026-09-01'
+          AND (
+              (org_unit_id = 12 AND patients_n IS DISTINCT FROM 80)
+              OR (org_unit_id = 14 AND patients_n IS DISTINCT FROM 0)
+              OR (org_unit_id = 15 AND patients_n IS NOT NULL)
+              OR (org_unit_id IN (14, 15) AND category_patient_days IS NOT NULL)
+          )
+    ) OR EXISTS (
+        SELECT 1 FROM heart360tk_reporting.drug_stock_patient_days
+        WHERE reporting_month = DATE '2026-07-01' AND org_unit_id = 11
+          AND (patients_n IS DISTINCT FROM 90 OR category_patient_days IS NOT NULL)
+    ) THEN
+        RAISE EXCEPTION 'fixed registered N changed for a facility without children';
+    END IF;
+END $$;
+SQL
+"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 -c \
+    "SET ROLE heart360tk_cached; SELECT COUNT(*) FROM heart360tk_reporting.drug_stock_patient_days;" >/dev/null
+echo "after 0.6.6_to_0.6.7: Alpha CCB 200/140 kept; Alpha ARB (blank 40 mg + 0 for 80 mg) is unknown, not 0"
 
 python3 - "$TABLES" <<'PY'
 import sys

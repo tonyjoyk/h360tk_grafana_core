@@ -290,7 +290,8 @@ BEGIN
     ) OR to_regclass('heart360tk_schema.drug_stock_submission_history') IS NOT NULL THEN
         RAISE EXCEPTION 'before: submitter or history already present';
     END IF;
-    RAISE NOTICE 'before: drug_stock_submission has no submitted_by; no history table; 10 rows sent, 4 stored';
+    RAISE NOTICE 'before: no submitted_by column, no history table; 10 rows accepted, % kept',
+        (SELECT COUNT(*) FROM heart360tk_schema.drug_stock_submission);
 END $$;
 SQL
 
