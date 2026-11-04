@@ -1,0 +1,2 @@
+grafana:200
+upload:200

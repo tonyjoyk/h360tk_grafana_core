@@ -1,0 +1,7 @@
+login: ok (admin/admin from README)
+home-dashboard: titleOk=true hasError=false titleText="" url=http://127.0.0.1:3000/d/heart360-home/
+hypertension-program: titleOk=true hasError=false titleText="" url=http://127.0.0.1:3000/d/heart360_drilldown/hearts360-hypertension-dashboard
+diabetes-program: titleOk=true hasError=false titleText="" url=http://127.0.0.1:3000/d/heart360_drilldown_diabetes/
+overdue-patients: titleOk=true hasError=false titleText="" url=http://127.0.0.1:3000/d/heart360_drilldown_overdue/
+upload-ui: loaded; bodySnippet="search\nview_module\nAn update is available!\nclose\nperson\nadmin\nsettings\nexit_to_app\nads_click\ndark_mode\npush_pin\nadd\nFile actions\nhome\nLinks\nedit\nsrv\ninfo\n0.0 bytes / 231.6 TB (0%)\nbuild\nTools\nHelp\nFil"
+upload-file: uploaded=true listed=true

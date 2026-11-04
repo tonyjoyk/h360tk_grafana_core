@@ -1,0 +1,31 @@
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SOURCE_VERSION\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SOURCE_KEY\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"EXPORT_CRON\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"UPLOAD_PROTOCOL\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"UPLOAD_DEST_PATH\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_HOST\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_DB\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_USER\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"IMPORT_CRON\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"IMPORT_AGGREGATE_DATA\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"IMPORT_FOLDER_PATH\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"IMPORT_PROTOCOL\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SFTP_HOST\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SFTP_PORT\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SFTP_USER\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SFTP_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"SFTP_TIMEOUT\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_HOST\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_DB\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_USER\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="The \"POSTGRES_PASSWORD\" variable is not set. Defaulting to a blank string."
+time="2026-09-21T20:50:36+05:30" level=warning msg="/Users/tony/Documents/GitHub/h360tk_grafana_core/docker-compose.yml: the attribute `version` is obsolete, it will be ignored, please remove it to avoid potential confusion"
+NAME                  IMAGE                            COMMAND                  SERVICE          CREATED              STATUS                          PORTS
+file-upload-trigger   devodev/inotify                  "/bin/sh /scripts/in…"   file-processor   About a minute ago   Up About a minute               
+filebrowser-quantum   gtstef/filebrowser:stable-slim   "./filebrowser"          filebrowser      About a minute ago   Up About a minute (healthy)     0.0.0.0:8080->80/tcp, [::]:8080->80/tcp
+grafana               h360tk_grafana_core-grafana      "/run.sh"                grafana          About a minute ago   Up About a minute               0.0.0.0:3000->3000/tcp, [::]:3000->3000/tcp
+h360tk-exporter       h360tk_grafana_core-exporter     "python3 ./exporter.…"   exporter         About a minute ago   Restarting (1) 34 seconds ago   
+h360tk-importer       h360tk_grafana_core-importer     "python3 ./importer.…"   importer         About a minute ago   Restarting (1) 34 seconds ago   
+pgadmin               dpage/pgadmin4:9.14              "/bin/sh -c 'cp /pga…"   pgadmin          About a minute ago   Up About a minute               0.0.0.0:5050->80/tcp, [::]:5050->80/tcp
+postgres              h360tk_grafana_core-postgres     "docker-entrypoint.s…"   postgres         About a minute ago   Up About a minute               0.0.0.0:5432->5432/tcp, [::]:5432->5432/tcp

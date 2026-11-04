@@ -1,0 +1,5 @@
+{
+  "url": "http://127.0.0.1:3000/d/heart360-admin-refresh/admin-c2b7-dashboard-refresh?from=now-4h&to=now&timezone=browser&var-UserIsAdmin=1&var-IsCentralNode=false&refresh=5s",
+  "adminOk": true,
+  "hasAccessDenied": false
+}

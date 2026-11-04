@@ -1,0 +1,4 @@
+{
+  "earlyUrl": "http://127.0.0.1:3000/d/heart360_drilldown?orgId=1",
+  "lateUrl": "http://127.0.0.1:3000/d/heart360_drilldown/hypertension-program?orgId=1&from=now-1y&to=now&timezone=browser&var-region=1&var-district=$__all&var-facility=0&var-sub_facility=0&var-village=$__all&var-level_6=$__all&var-level_7=$__all&var-level_8=$__all&var-level_9=$__all&var-level_10=$__all"
+}

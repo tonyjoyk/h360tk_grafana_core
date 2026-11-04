@@ -1,0 +1,78 @@
+{
+  "story": "2.2",
+  "result": "PASS",
+  "branch": "cursor/story-2-2-dashboard-chrome-3ccb",
+  "base": "7cdfcdc610010aad7167e557d6a00282d0b36a1b",
+  "dashboard": {
+    "uid": "heart360_drug_stock",
+    "title": "Drug Stock",
+    "folder": "HEARTS360 Dashboards",
+    "url": "http://127.0.0.1:3000/d/heart360_drug_stock/drug-stock"
+  },
+  "namedDataShape": {
+    "uid": "heart360_drug_stock",
+    "title": "Drug Stock",
+    "standalone": true,
+    "verticalOrder": [
+      "title",
+      "reporting_month",
+      "Change location row",
+      "Stock on hand panel id 10"
+    ],
+    "reporting_month": {
+      "label": "Reporting Month",
+      "text": "FMMon-YYYY",
+      "value": "YYYY-MM-01",
+      "count": 6
+    },
+    "org_unit": {
+      "hidden": true,
+      "emptyMeans": "nationwide",
+      "writer": "equansdatahub-tree-panel"
+    },
+    "cascades": "none"
+  },
+  "saw": {
+    "title": "Drug Stock",
+    "breadcrumb": "Home / Dashboards / HEARTS360 Dashboards / Drug Stock",
+    "visibleVariableLabels": ["Reporting Month"],
+    "reportingMonthOptions": [
+      "Sep-2026",
+      "Aug-2026",
+      "Jul-2026",
+      "Jun-2026",
+      "May-2026",
+      "Apr-2026"
+    ],
+    "reportingMonthDefaultValue": "2026-09-01",
+    "changeLocationRow": "Change location",
+    "tree": {
+      "plugin": "equansdatahub-tree-panel @ 1.7.7",
+      "search": true,
+      "nodes": ["Demo Region", "AUDIT_DIST"],
+      "panelTitle": ""
+    },
+    "stockOnHand": {
+      "panelId": 10,
+      "title": "Stock on hand",
+      "description": "Reporting Month is the stock month and is not the Grafana time picker."
+    },
+    "monthChangeKeepsOrgUnit": {
+      "before": "var-org_unit=1&var-reporting_month=2026-09-01",
+      "after": "var-org_unit=1&var-reporting_month=2026-04-01",
+      "displayedMonth": "Apr-2026",
+      "demoRegionStillSelected": true
+    }
+  },
+  "baselineDashboardsUnchanged": [
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.hypertension.program.json",
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.diabetes.program.json",
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.overdue.patients.json"
+  ],
+  "baselineGitDiff": "empty against 7cdfcdc610010aad7167e557d6a00282d0b36a1b",
+  "screenshots": [
+    "drug-stock.png",
+    "month-open.png",
+    "after-month-keeps-org.png"
+  ]
+}

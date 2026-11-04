@@ -1,0 +1,75 @@
+{
+  "story": "2.3",
+  "result": "PASS",
+  "branch": "cursor/story-2-3-stock-table-3ccb",
+  "base": "876a240063dbda59de2bc1b61963447d5f91aec7",
+  "codeHead": "f9406e8871b9dc0f790db9dfbf06376b6edefb0c",
+  "namedDataShape": "StockOnHandMatrix",
+  "shape": {
+    "source": "heart360tk_reporting.drug_stock_patient_days",
+    "reader": "heart360tk_reporting.drug_stock_on_hand_matrix(date, integer)",
+    "row": "one JSON object per facility, plus All when org_unit is empty",
+    "groups": ["CCB", "ARB", "Diuretic", "Other"],
+    "hideEmptyCategory": true,
+    "drugHeader": "drug_name + dosage",
+    "patientDays": "category_patient_days copied from the view",
+    "allPatientDays": "sum(normalized_stock) / (sum(patients_n) * load_factor * category_coeff)",
+    "missingGlyph": "?",
+    "unknownGlyph": "—",
+    "zeroGlyph": "0",
+    "sort": "facility_name"
+  },
+  "dashboard": {
+    "uid": "heart360_drug_stock",
+    "panelId": 10,
+    "title": "Stock on hand",
+    "url": "http://127.0.0.1:3000/d/heart360_drug_stock/drug-stock"
+  },
+  "saw": {
+    "nationwideSeptember": {
+      "rows": ["All", "Blank Facility", "Golden Facility", "Missing Facility", "Zero Facility"],
+      "goldenCcbPatientDays": "1.43",
+      "goldenCcbBackground": "rgb(224, 47, 68)",
+      "goldenArbPatientDays": "45.00",
+      "goldenArbBackground": "rgb(255, 152, 48)",
+      "goldenDiureticPatientDays": "75.00",
+      "goldenDiureticBackground": "rgb(242, 204, 12)",
+      "zeroArbPatientDays": "90.00",
+      "zeroArbBackground": "rgb(86, 166, 75)",
+      "missingGlyph": "?",
+      "missingBackground": "rgb(239, 239, 239)",
+      "blankGlyph": "—",
+      "explicitZero": "0"
+    },
+    "emptyLocation": {
+      "orgUnit": "3",
+      "text": "No facilities for this location."
+    },
+    "monthChangeKeepsOrgUnit": {
+      "before": "var-org_unit=2&var-reporting_month=2026-09-01",
+      "after": "var-org_unit=2&var-reporting_month=2026-08-01",
+      "displayedMonth": "Aug-2026",
+      "seedDistrictStillSelected": true,
+      "allRowHidden": true,
+      "goldenAmlodipine5mg": "20"
+    }
+  },
+  "verifier": {
+    "script": "pg_init_scripts/migrations/verify_drug_stock_on_hand.sh",
+    "mode": "docker exec postgres",
+    "result": "PASS",
+    "goldenCcb": "200/140",
+    "allCcb": "200/336"
+  },
+  "baselineDashboardsUnchanged": [
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.hypertension.program.json",
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.diabetes.program.json",
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.overdue.patients.json",
+    "grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.home.json"
+  ],
+  "screenshots": [
+    "drug-stock-table.png",
+    "drug-stock-month-keeps-location.png",
+    "drug-stock-empty-location.png"
+  ]
+}

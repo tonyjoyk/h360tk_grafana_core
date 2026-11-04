@@ -1,0 +1,37 @@
+[
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-18",
+    "drug_code": "329528",
+    "in_stock": "",
+    "submitted_at": "2026-09-20T01:00:00Z"
+  },
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-01",
+    "drug_code": "329526",
+    "in_stock": "0",
+    "submitted_at": ""
+  },
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-01",
+    "drug_code": "316764",
+    "in_stock": "?",
+    "submitted_at": ""
+  },
+  {
+    "org_unit_id": "999",
+    "reporting_month": "2026-09-01",
+    "drug_code": "329528",
+    "in_stock": "3",
+    "submitted_at": "2026-09-20T01:00:00Z"
+  },
+  {
+    "org_unit_id": "11",
+    "reporting_month": "2026-09-01",
+    "drug_code": "999999",
+    "in_stock": "4",
+    "submitted_at": ""
+  }
+]

@@ -1,0 +1,9 @@
+{
+  "key": "overdue-patients",
+  "url": "http://127.0.0.1:3000/d/heart360_drilldown_overdue/overdue-patients?from=now-1y&to=now&timezone=browser&var-region=&var-district=$__all&var-facility=0&var-sub_facility=0",
+  "titleText": "Home\nDashboards\nHEARTS360 Dashboards\nOverdue Patients",
+  "titleOk": true,
+  "hasError": false,
+  "shot": "overdue-patients.png",
+  "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nHEARTS360 Dashboards\nOverdue Patients\nSearch...\n⌘+k\nLast year\nRefresh\nEdit\nRegion\nDistrict\nAll\nFacility\nAll\nSub-Facility\nAll\n⚠️\nOverdue patient list is available only at the facility and sub-facility levels.\nHypertension Dashboard\nDiabetes Dashboard\nOverdue Patie"
+}

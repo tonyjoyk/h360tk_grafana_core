@@ -1,0 +1,8 @@
+{
+  "key": "overdue-patients",
+  "url": "http://127.0.0.1:3000/d/heart360_drilldown_overdue/",
+  "titleText": "",
+  "titleOk": true,
+  "hasError": false,
+  "shot": "overdue-patients.png"
+}

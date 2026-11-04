@@ -1,0 +1,12 @@
+{
+  "key": "file-upload",
+  "url": "http://127.0.0.1:8080/",
+  "uploaded": true,
+  "listed": true,
+  "conflict_on_duplicate_set": true,
+  "filename": "H360_VERIFY_20260921T152036Z.xlsx",
+  "onDisk": true,
+  "shot": "file-upload-after.png",
+  "ui": "file-upload-ui.png",
+  "note": "Logged in admin/admin; ACKNOWLEDGE welcome; add\u2192Upload; setInputFiles on dialog input; unique file listed just now and present under data/upload/. Duplicate setInputFiles in same drive showed Conflicts detected."
+}

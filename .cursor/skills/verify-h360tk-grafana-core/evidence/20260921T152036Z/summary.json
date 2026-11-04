@@ -1,0 +1,62 @@
+[
+  {
+    "key": "home-dashboard",
+    "urlEarly": "http://127.0.0.1:3000/d/heart360_drilldown?orgId=1",
+    "urlAfter": "http://127.0.0.1:3000/d/heart360_drilldown/hypertension-program?orgId=1&from=now-1y&to=now&timezone=browser&var-region=&var-district=$__all&var-facility=0&var-sub_facility=0&var-village=$__all&var-level_6=$__all&var-level_7=$__all&var-level_8=$__all&var-level_9=$__all&var-level_10=$__all",
+    "redirected": true,
+    "titleText": "Home\nDashboards\nHEARTS360 Dashboards\nHypertension Program",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "home-dashboard.png",
+    "early": "home-dashboard-early.png",
+    "after": "home-dashboard-after-redirect.png"
+  },
+  {
+    "key": "hypertension-program",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown/hypertension-program?from=now-1y&to=now&timezone=browser&var-region=&var-district=$__all&var-facility=0&var-sub_facility=0&var-village=$__all&var-level_6=$__all&var-level_7=$__all&var-level_8=$__all&var-level_9=$__all&var-level_10=$__all",
+    "titleText": "Home\nDashboards\nHEARTS360 Dashboards\nHypertension Program",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "hypertension-program.png",
+    "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nHEARTS360 Dashboards\nHypertension Program\nSearch...\n\u2318+k\nLast year\nRefresh\nEdit\nRegion\nDistrict\nAll\nFacility\nAll\nSub-Facility\nAll\nHypertension Dashboard\nDiabetes Dashboard\nOverdue Patient List\nOverview indicators\nPatients protected from heart attacks and strokes w"
+  },
+  {
+    "key": "diabetes-program",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown_diabetes/diabetes-program?from=now-1y&to=now&timezone=browser&var-region=&var-district=$__all&var-facility=0&var-sub_facility=0&var-village=$__all&var-level_6=$__all&var-level_7=$__all&var-level_8=$__all&var-level_9=$__all&var-level_10=$__all",
+    "titleText": "Home\nDashboards\nHEARTS360 Dashboards\nDiabetes Program",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "diabetes-program.png",
+    "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nHEARTS360 Dashboards\nDiabetes Program\nSearch...\n\u2318+k\nLast year\nRefresh\nEdit\nRegion\nDistrict\nAll\nFacility\nAll\nSub-Facility\nAll\nHypertension Dashboard\nDiabetes Dashboard\nOverdue Patient List\nCardiovascular disease + DM indicators\n% DM patients with controlled BP\nNo "
+  },
+  {
+    "key": "overdue-patients",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown_overdue/overdue-patients?from=now-1y&to=now&timezone=browser&var-region=&var-district=$__all&var-facility=0&var-sub_facility=0",
+    "titleText": "Home\nDashboards\nHEARTS360 Dashboards\nOverdue Patients",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "overdue-patients.png",
+    "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nHEARTS360 Dashboards\nOverdue Patients\nSearch...\n\u2318+k\nLast year\nRefresh\nEdit\nRegion\nDistrict\nAll\nFacility\nAll\nSub-Facility\nAll\n\u26a0\ufe0f\nOverdue patient list is available only at the facility and sub-facility levels.\nHypertension Dashboard\nDiabetes Dashboard\nOverdue Patie"
+  },
+  {
+    "key": "admin-dashboard-refresh",
+    "url": "http://127.0.0.1:3000/d/heart360-admin-refresh/admin-c2b7-dashboard-refresh?from=now-4h&to=now&timezone=browser&var-UserIsAdmin=1&var-IsCentralNode=false&refresh=5s",
+    "titleText": "Home\nDashboards\nAdmin\nAdmin \u00b7 Dashboard Refresh",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "admin-dashboard-refresh.png",
+    "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nAdmin\nAdmin \u00b7 Dashboard Refresh\nSearch...\n\u2318+k\nLast 4 hours\nRefresh\n5s\nEdit\nDashboard Refresh\nReal-time overview of dashboard refresh and performance\nOVERALL STATUS\nIdle\nWaiting for first run\nLAST REFRESHED\nLoading\u2026\nLAST REFRESH DURATION\n0 s\nGood performance\nSUCCE"
+  },
+  {
+    "key": "file-upload",
+    "url": "http://127.0.0.1:8080/",
+    "uploaded": true,
+    "listed": true,
+    "conflict_on_duplicate_set": true,
+    "filename": "H360_VERIFY_20260921T152036Z.xlsx",
+    "onDisk": true,
+    "shot": "file-upload-after.png",
+    "ui": "file-upload-ui.png",
+    "note": "Logged in admin/admin; ACKNOWLEDGE welcome; add\u2192Upload; setInputFiles on dialog input; unique file listed just now and present under data/upload/. Duplicate setInputFiles in same drive showed Conflicts detected."
+  }
+]

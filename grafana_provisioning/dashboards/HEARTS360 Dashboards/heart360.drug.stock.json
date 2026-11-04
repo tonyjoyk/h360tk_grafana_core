@@ -1,0 +1,383 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "panels": [],
+      "title": "Change location",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 2,
+      "options": {
+        "additionalColumns": "",
+        "clickMode": "SetVariable",
+        "compactMode": true,
+        "dashboardVariableName": "org_unit",
+        "dataLinkNewTab": false,
+        "dataLinkUrl": "",
+        "disabledColumn": "disabled",
+        "displayedTreeDepth": 1,
+        "enableSelectDeselectAll": false,
+        "iconClickMode": "doNothing",
+        "iconClickTooltip": "",
+        "iconColorColumn": "",
+        "iconColorMappings": {
+          "valueMappings": []
+        },
+        "iconColumn": "",
+        "iconMappings": {
+          "valueMappings": []
+        },
+        "idColumn": "id",
+        "includeDisabled": false,
+        "labelColumn": "name",
+        "multiSelect": false,
+        "orderLevels": "asc",
+        "parentIconColorColumn": "",
+        "parentIconColorMappings": {
+          "valueMappings": []
+        },
+        "parentIconColumn": "",
+        "parentIconMappings": {
+          "valueMappings": []
+        },
+        "parentIdColumn": "parent_id",
+        "searchPlaceholder": "Search",
+        "showCheckbox": false,
+        "showColumnHeaders": false,
+        "showGridLines": false,
+        "showIconFilter": false,
+        "showItemCount": false,
+        "showSearch": true,
+        "supportsDisabled": false,
+        "toggleSelectMode": "chevronOnly",
+        "valueMappings": {}
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT name, id, parent_id FROM heart360tk_schema.org_units",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "equansdatahub-tree-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension-cached"
+      },
+      "description": "Reporting Month is the stock month and is not the Grafana time picker.",
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "mode": "basic",
+              "type": "color-background"
+            },
+            "filterable": false,
+            "inspect": false,
+            "minWidth": 120,
+            "wrapHeaderText": true
+          },
+          "mappings": [
+            {
+              "options": {
+                "?": {
+                  "color": "#EFEFEF",
+                  "index": 0,
+                  "text": "?"
+                }
+              },
+              "type": "value"
+            }
+          ],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "#FFFFFF",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Facility"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "left"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 180
+              },
+              {
+                "id": "custom.width",
+                "value": 280
+              },
+              {
+                "id": "mappings",
+                "value": []
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byRegexp",
+              "options": "/Patient days$/"
+            },
+            "properties": [
+              {
+                "id": "decimals",
+                "value": 2
+              },
+              {
+                "id": "noValue",
+                "value": "?"
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "mode": "basic",
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "custom.minWidth",
+                "value": 110
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "thresholds"
+                }
+              },
+              {
+                "id": "thresholds",
+                "value": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "#E02F44",
+                      "value": null
+                    },
+                    {
+                      "color": "#FF9830",
+                      "value": 30
+                    },
+                    {
+                      "color": "#F2CC0C",
+                      "value": 60
+                    },
+                    {
+                      "color": "#56A64B",
+                      "value": 90
+                    }
+                  ]
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "match": "null",
+                      "result": {
+                        "color": "#EFEFEF",
+                        "index": 0,
+                        "text": "?"
+                      }
+                    },
+                    "type": "special"
+                  },
+                  {
+                    "options": {
+                      "-1": {
+                        "color": "#FFFFFF",
+                        "index": 1,
+                        "text": "\u2014"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 13
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "frozenColumns": {
+          "left": 1
+        },
+        "showHeader": true,
+        "sortBy": [
+          {
+            "desc": false,
+            "displayName": "Facility"
+          }
+        ]
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)",
+          "refId": "A"
+        }
+      ],
+      "title": "Stock on hand",
+      "transformations": [
+        {
+          "id": "extractFields",
+          "options": {
+            "format": "json",
+            "keepTime": false,
+            "replace": true,
+            "source": "matrix"
+          }
+        }
+      ],
+      "type": "table"
+    }
+  ],
+  "preload": false,
+  "schemaVersion": 42,
+  "tags": [],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-hypertension-cached"
+        },
+        "definition": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "hide": 0,
+        "includeAll": false,
+        "label": "Reporting Month",
+        "multi": false,
+        "name": "reporting_month",
+        "options": [],
+        "query": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "refresh": 1,
+        "regex": "",
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {
+          "text": "",
+          "value": ""
+        },
+        "hide": 2,
+        "name": "org_unit",
+        "options": [
+          {
+            "selected": true,
+            "text": "",
+            "value": ""
+          }
+        ],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6M",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Drug Stock",
+  "uid": "heart360_drug_stock",
+  "version": 1,
+  "weekStart": ""
+}

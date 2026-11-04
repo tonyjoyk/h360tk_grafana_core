@@ -1,0 +1,41 @@
+[
+  {
+    "key": "home-dashboard",
+    "url": "http://127.0.0.1:3000/d/heart360-home/",
+    "titleText": "",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "home-dashboard.png"
+  },
+  {
+    "key": "hypertension-program",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown/hearts360-hypertension-dashboard",
+    "titleText": "",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "hypertension-program.png"
+  },
+  {
+    "key": "diabetes-program",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown_diabetes/",
+    "titleText": "",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "diabetes-program.png"
+  },
+  {
+    "key": "overdue-patients",
+    "url": "http://127.0.0.1:3000/d/heart360_drilldown_overdue/",
+    "titleText": "",
+    "titleOk": true,
+    "hasError": false,
+    "shot": "overdue-patients.png"
+  },
+  {
+    "key": "file-upload",
+    "url": "http://127.0.0.1:8080/",
+    "uploaded": true,
+    "listed": true,
+    "shot": "file-upload-after.png"
+  }
+]

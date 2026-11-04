@@ -1,0 +1,9 @@
+{
+  "key": "admin-dashboard-refresh",
+  "url": "http://127.0.0.1:3000/d/heart360-admin-refresh/admin-c2b7-dashboard-refresh?from=now-4h&to=now&timezone=browser&var-UserIsAdmin=1&var-IsCentralNode=false&refresh=5s",
+  "titleText": "Home\nDashboards\nAdmin\nAdmin · Dashboard Refresh",
+  "titleOk": true,
+  "hasError": false,
+  "shot": "admin-dashboard-refresh.png",
+  "bodySnippet": "Skip to main content\nGrafana\n\nBookmarks\n\nStarred\n\nDashboards\n\nExplore\n\nDrilldown\n\nAlerting\n\nConnections\n\nAdministration\n\nHome\nDashboards\nAdmin\nAdmin · Dashboard Refresh\nSearch...\n⌘+k\nLast 4 hours\nRefresh\n5s\nEdit\nDashboard Refresh\nReal-time overview of dashboard refresh and performance\nOVERALL STATUS\nIdle\nWaiting for first run\nLAST REFRESHED\nLoading…\nLAST REFRESH DURATION\n0 s\nGood performance\nSUCCE"
+}
