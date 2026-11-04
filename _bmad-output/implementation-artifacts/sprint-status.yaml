@@ -45,13 +45,13 @@ development_status:
   2-2-h360_access_allows-access-rule: done
   2-3-save_call_result-and-call_results_audit: done
   2-4-datasource-flip-grafana-defaults-and-db-grants: done
-  2-5-demo-viewers-for-access-tests: backlog
-  2-6-dashboard-query-verifier: backlog
-  2-7-verify_security-sh-part-1-g1a-checks: backlog
+  2-5-demo-viewers-for-access-tests: done
+  2-6-dashboard-query-verifier: done
+  2-7-verify_security-sh-part-1-g1a-checks: done
   2-8-gate-g1a: backlog
   2-9-h360-api-skeleton-auth-and-compose-service: done
   2-10-write-endpoint-and-overdue-save-through-h360-api: done
-  2-11-verify_security-sh-part-2-write-path-checks: backlog
+  2-11-verify_security-sh-part-2-write-path-checks: done
   2-12-gate-g1b: backlog
   epic-2-retrospective: optional
 
