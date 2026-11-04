@@ -16,6 +16,7 @@ services:
       - GF_PANELS_DISABLE_SANITIZE_HTML=true
       - GF_AUTH_ANONYMOUS_ENABLED=false
       - GF_USERS_ALLOW_SIGN_UP=false
+      - GF_USERS_AUTO_ASSIGN_ORG_ROLE=Viewer
       - GF_INSTALL_PLUGINS=volkovlabs-table-panel,yesoreyeram-infinity-datasource,marcusolsson-dynamictext-panel,volkovlabs-echarts-panel,equansdatahub-tree-panel
       - GF_TIME_PICKER_QUICK_RANGES=[{"from":"now-6M","to":"now","display":"Last 6 months"},{"from":"now-1y","to":"now","display":"Last year"},{"from":"now-2y","to":"now","display":"Last 2 years"},{"from":"now-5y","to":"now","display":"Last 5 years"}]
       - GF_DATE_FORMATS_INTERVAL_MONTH=MMM-YYYY
@@ -44,6 +45,26 @@ services:
     volumes:
       - ./pg_init_scripts:/docker-entrypoint-initdb.d:ro
       - ./data:/var/lib/postgresql/import:ro
+
+  # One-shot: grafana_reader column grants on Grafana's tables, which exist only after Grafana's
+  # first start, and the h360_api password. Re-applied on every `up` (AD-14, A60).
+  db-grants:
+    image: postgres:16-alpine
+    container_name: db-grants
+    restart: "no"
+    depends_on:
+      - postgres
+      - grafana
+    entrypoint: ["/bin/sh", "/db_grants/apply.sh"]
+    environment:
+      - PGHOST=postgres
+      - PGPORT=5432
+      - PGUSER=h360tk_root
+      - PGPASSWORD=NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0
+      - PGDATABASE=heart360tk_database
+      - H360_API_DB_PASSWORD=${H360_API_DB_PASSWORD:-h360_api_mvp}
+    volumes:
+      - ./db_grants:/db_grants:ro
 
   pgadmin:
     image: dpage/pgadmin4:9.14
