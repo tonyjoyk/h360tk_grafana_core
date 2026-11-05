@@ -11,6 +11,12 @@
 # It also checks that exactly one facility, PHC-E, carries the "Looks fine" pill
 # (looks_fine_check) on both BP readings check and Stepping up.
 #
+# BP Fudging PRD check (UX-25, seed 50): for the last 4 completed quarters before
+# the end of MONTH, ratio = visits with systolic 130-139 / visits with systolic
+# 140-149, over all visits of the PHC's patients (SHCs included). PHC-E must be
+# at 2.0 or more in the last two quarters and rising; every other PHC must be at
+# or below 1.8 in all 4. Worked out here with its own SQL, not report_fudging_*.
+#
 #   PSQL   command that reads SQL on stdin
 #          (default: docker exec -i postgres psql -U h360tk_root -d heart360tk_database)
 #   MONTH  reporting month (default 2026-10-01)
@@ -65,11 +71,48 @@ if ! out="$(printf '%s\n' "$sql" | $PSQL -X -v ON_ERROR_STOP=1 -qtA 2>&1)"; then
   exit 1
 fi
 
-MONTH="$MONTH" python3 - "$out" <<'PY'
+qsql=$(cat <<SQL
+SET search_path TO heart360tk_schema, public;
+WITH f AS (
+    SELECT DISTINCT ON (name) id, name
+    FROM org_units
+    WHERE level = 3 AND name IN ('PHC-A','PHC-B','PHC-C','PHC-D','PHC-E','PHC-F')
+    ORDER BY name, id
+),
+q AS (
+    SELECT gs::date AS q_start
+    FROM generate_series(
+        date_trunc('quarter', DATE '$MONTH' + INTERVAL '1 month') - INTERVAL '12 months',
+        date_trunc('quarter', DATE '$MONTH' + INTERVAL '1 month') - INTERVAL '3 months',
+        INTERVAL '3 months') AS gs
+)
+SELECT concat_ws(E'\t', f.name, to_char(q.q_start, 'YYYY-"Q"Q'),
+    count(bp.encounter_id) FILTER (WHERE bp.systolic_bp >= 130 AND bp.systolic_bp < 140),
+    count(bp.encounter_id) FILTER (WHERE bp.systolic_bp >= 140 AND bp.systolic_bp < 150))
+FROM f
+CROSS JOIN q
+LEFT JOIN patients p ON p.org_unit_id IN (SELECT id FROM get_descendant_ids(f.id))
+LEFT JOIN encounters e ON e.patient_id = p.patient_id
+                      AND e.encounter_date >= q.q_start
+                      AND e.encounter_date <  q.q_start + INTERVAL '3 months'
+LEFT JOIN blood_pressures bp ON bp.encounter_id = e.id
+GROUP BY f.name, q.q_start
+ORDER BY f.name, q.q_start;
+SQL
+)
+
+if ! qout="$(printf '%s\n' "$qsql" | $PSQL -X -v ON_ERROR_STOP=1 -qtA 2>&1)"; then
+  echo "FAIL verify_seed_targets: quarterly query failed" >&2
+  echo "$qout" >&2
+  exit 1
+fi
+
+MONTH="$MONTH" python3 - "$out" "$qout" <<'PY'
 import os
 import sys
 
 rows = [line.split("\t") for line in sys.argv[1].splitlines() if line.strip()]
+qrows = [line.split("\t") for line in sys.argv[2].splitlines() if line.strip()]
 month = os.environ["MONTH"]
 
 # CLINICAL-RULES section 7, targets for October 2026. (lo, hi) inclusive;
@@ -168,6 +211,37 @@ if "CUT" not in (rows[0][4], rows[0][6]):
     if pill_steps != ["PHC-E"]:
         failures.append(f"'Looks fine' pill on Stepping up: {pill_steps or 'none'}, expected exactly PHC-E")
 print(f"Pill: BP readings check {pill_bp or 'none'}; Stepping up {pill_steps or 'none'}")
+
+# BP Fudging PRD (UX-25): green < 1.8, yellow >= 1.8, flag >= 2.0.
+PRD_FLAG, PRD_WARN = 2.0, 1.8
+quarters = sorted({q for _, q, _, _ in qrows})
+ratios = {}
+for name, q, a, b in qrows:
+    a, b = int(a), int(b)
+    ratios[(name, q)] = (a, b, round(a / b, 2) if b else None)
+print("")
+print("BP Fudging PRD ratio, 130-139 / 140-149, all visits (flag >= 2.0, warn >= 1.8, others must be <= 1.8)")
+print(f"{'Facility':<8}" + "".join(f"{q:>20}" for q in quarters))
+for name in sorted({n for n, _, _, _ in qrows}):
+    cells = []
+    for q in quarters:
+        a, b, r = ratios[(name, q)]
+        mark = ""
+        if name == "PHC-E":
+            if q in quarters[-2:] and (r is None or r < PRD_FLAG):
+                failures.append(f"PHC-E PRD ratio {q}: {r} below {PRD_FLAG:g}")
+                mark = " !"
+        elif r is None or r > PRD_WARN:
+            failures.append(f"{name} PRD ratio {q}: {r} above {PRD_WARN:g}")
+            mark = " !"
+        cells.append(f"{a}/{b}=" + ("-" if r is None else f"{r:.2f}") + mark)
+    print(f"{name:<8}" + "".join(f"{c:>20}" for c in cells))
+if len(quarters) == 4:
+    e_last = [ratios[("PHC-E", q)][2] for q in quarters[-2:]]
+    if None not in e_last and not e_last[1] > e_last[0]:
+        failures.append(f"PHC-E PRD ratio not rising: {quarters[-2]} {e_last[0]}, {quarters[-1]} {e_last[1]}")
+else:
+    failures.append(f"expected 4 completed quarters, found {quarters}")
 
 if failures:
     print("")
