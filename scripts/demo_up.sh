@@ -58,7 +58,7 @@ docker compose up -d --build
 say "Waiting for Postgres to accept TCP connections and finish its init scripts (up to ${PG_TIMEOUT}s)..."
 deadline=$((SECONDS + PG_TIMEOUT))
 until docker exec "${P}postgres" pg_isready -q -h 127.0.0.1 -p 5432 >/dev/null 2>&1 \
-  && [[ "$(q "select to_regclass('heart360tk_schema.org_units') is not null and exists (select 1 from heart360tk_schema.org_units)" 2>/dev/null)" == "t" ]]; do
+  && [[ "$(q "select to_regclass('heart360tk_schema.org_units') is not null" 2>/dev/null)" == "t" ]]; do
   (( SECONDS < deadline )) || fail "Postgres was not ready over TCP after ${PG_TIMEOUT}s." \
     "Run 'docker logs ${P}postgres' and look for an error in the init scripts. Then re-run this script."
   sleep 3
