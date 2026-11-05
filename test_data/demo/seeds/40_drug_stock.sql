@@ -106,10 +106,14 @@ BEGIN
     months AS (
         SELECT *
         FROM (VALUES
-            (DATE '2026-09-01', TIMESTAMPTZ '2026-09-12 09:00:00+00', FALSE),
-            (DATE '2026-10-01', TIMESTAMPTZ '2026-10-08 09:00:00+00', FALSE),
-            (DATE '2026-11-01', TIMESTAMPTZ '2026-11-18 11:30:00+00', FALSE),
-            (DATE '2026-11-01', TIMESTAMPTZ '2026-11-03 08:00:00+00', TRUE)
+            -- submitted_at is an offset from the anchor (2026-10-13), never later
+            -- than the demo "now" (anchor + 23 days = 2026-11-05), so a form
+            -- save for November wins under Latest Wins. With anchor 2026-10-13:
+            -- 2026-09-12 09:00, 2026-10-08 09:00, 2026-11-04 11:30, 2026-11-03 08:00.
+            (DATE '2026-09-01', (v_anchor - 31 + TIME '09:00') AT TIME ZONE 'UTC', FALSE),
+            (DATE '2026-10-01', (v_anchor -  5 + TIME '09:00') AT TIME ZONE 'UTC', FALSE),
+            (DATE '2026-11-01', (v_anchor + 22 + TIME '11:30') AT TIME ZONE 'UTC', FALSE),
+            (DATE '2026-11-01', (v_anchor + 21 + TIME '08:00') AT TIME ZONE 'UTC', TRUE)
         ) AS m(month_start, submitted_at, earlier_november)
     ),
     fac AS (

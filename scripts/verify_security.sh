@@ -486,7 +486,13 @@ def grafana_api_absent(jar):
 
 
 def psql(sql):
+    import shutil
     command = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t"]
+    if not shutil.which("psql"):
+        # No host psql (a stock Mac): run psql inside the postgres container instead.
+        passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
+                       if os.environ.get(key) for arg in ("-e", key)]
+        command = ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, "postgres", *command]
     dsn = resolve_dsn()
     if dsn:
         command.append(dsn)
@@ -544,7 +550,10 @@ def snapshot():
 
 
 def patients():
+    # get_descendant_ids (base 0.6.0, LANGUAGE sql) names org_units unqualified, so the
+    # superuser session needs the app search_path that every product role already has.
     text = psql("""
+SET search_path TO heart360tk_schema, public;
 WITH target AS (
   SELECT ou.id
   FROM heart360tk_schema.org_units ou
@@ -565,7 +574,7 @@ SELECT
             WHERE p.org_unit_id IS NOT NULL
               AND p.org_unit_id NOT IN (SELECT id FROM tree)
             ORDER BY p.patient_id LIMIT 1), 0)
-""")
+""").splitlines()[-1]  # last line: the SET prints its own tag first
     parts = re.split(r"[\t|]", text)
     if len(parts) != 3:
         raise RuntimeError(f"unexpected patient lookup {text!r}")

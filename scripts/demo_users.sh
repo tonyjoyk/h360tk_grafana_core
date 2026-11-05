@@ -13,6 +13,7 @@ cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PY'
 import json
 import os
+import shutil
 import subprocess
 import sys
 import urllib.parse
@@ -128,8 +129,18 @@ def require(http, parsed, body, what):
     return parsed
 
 
+def psql_command():
+    # No host psql (a stock Mac): run psql inside the postgres container instead.
+    base = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t"]
+    if shutil.which("psql"):
+        return base
+    passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
+                   if os.environ.get(key) for arg in ("-e", key)]
+    return ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, "postgres", *base]
+
+
 def org_rows():
-    command = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t"]
+    command = psql_command()
     dsn = resolve_dsn()
     if dsn:
         command.append(dsn)
@@ -140,6 +151,8 @@ def org_rows():
         proc = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
     except subprocess.TimeoutExpired:
         return None, "database lookup timed out"
+    except FileNotFoundError as exc:
+        return None, f"{exc.filename} not found"
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or "psql failed").strip().splitlines()
         return None, detail[-1]

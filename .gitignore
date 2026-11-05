@@ -8,3 +8,4 @@ _bmad/config.user.toml
 .env
 
 
+data/.h360_ingested/
