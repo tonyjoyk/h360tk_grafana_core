@@ -9,6 +9,13 @@
  *   GET  /chat/chips?org_unit_id&reporting_month -> {scope, place, month, mode, chips:[{id,label}]}
  *   POST /chat {chip_id|text, org_unit_id, reporting_month}
  *        -> {mode, place, month, reasons, also_check, stock_line, nudge, plan, honesty, links}
+ *           plus (story 7.9) title, control_line, control_figure, control_evidence, stock_evidence;
+ *           each reason may carry tag, figure and evidence.
+ *
+ * Evidence (UX-10, after the hearts360ai supervision prototype): a reason's figure is drawn with a
+ * dashed underline. Hovering or focusing it opens a card beside the panel with the chart or table
+ * behind the number, the place and month, and `See this in Reports: <tab>`. The figure is a
+ * button: Enter or Space pins the card, Tab moves into its link, Escape closes it.
  *
  * H360_API defaults to <page protocol>//<page hostname>:8090. To point it elsewhere:
  *   - set window.H360_API = 'http://host:port' (console or another script), or
@@ -35,9 +42,12 @@
     // Grafana 13 dashboard scroll container (dashboard scene with sidebar splitter).
     '[data-testid="data-testid DashboardSidebarSplitter body container"]'
   ];
-  var ROW_TOGGLE = '[data-testid="data-testid dashboard-row-toggle-for-Change location"], button[aria-label="Expand row Change location"], button[aria-label="Collapse row Change location"]';
-  var ROW_WRAPPER = '[data-testid="data-testid dashboard-row-wrapper-for-Change location"]';
+  // The row is titled `Change location · <place>` on the boards (UX-18): match by prefix.
+  var ROW_TOGGLE = '[data-testid^="data-testid dashboard-row-toggle-for-Change location"], button[aria-label^="Expand row Change location"], button[aria-label^="Collapse row Change location"]';
+  var ROW_WRAPPER = '[data-testid^="data-testid dashboard-row-wrapper-for-Change location"]';
+  var ICON_ONLY_BELOW = 1440; // UX-22: the full pill covers panel content on smaller screens
   var TAB_NAMES = {
+    'Start-here': 'Start here',
     'Right-medicines': 'Right medicines',
     'Stepping-up': 'Stepping up',
     'BP-readings-check': 'BP readings check',
@@ -53,6 +63,8 @@
     htnOnly: 'Hypertension only',
     intro: 'Pick a question. I answer from your reports.',
     national: 'Pick a district or a facility to ask a question.',
+    nationalViewer: 'Pick your facility or district in Change location above to ask a question.',
+    pickPlace: 'Pick a place',
     chipsGroup: 'Questions you can ask',
     placeholder: 'Or type a question',
     ask: 'Ask',
@@ -72,9 +84,11 @@
     whatToDo: 'What to do',
     seeIn: 'See this in Reports: ',
     alsoCheck: 'Also check: ',
-    planStart: 'Start with the patients overdue longest.',
     planOpen: 'Open the overdue list',
-    planUnit: 'overdue and have a phone',
+    planUnit: 'a week',
+    planTotal: ' overdue with a phone',
+    showData: 'Show the data',
+    closeCard: 'Close',
     emptyChips: 'No questions are ready for this place yet.'
   };
 
@@ -150,8 +164,9 @@
     try { q = new URLSearchParams(location.search); } catch (e) { q = null; }
     var org = q ? (q.get('var-org_unit') || '') : '';
     if (org === '$__all' || org === 'All') { org = ''; }
-    var onReports = /\/d\/heart360_reports(\/|$)/.test(location.pathname);
-    var month = (onReports && q) ? (q.get('var-reporting_month') || '') : '';
+    // UX-20: the month carries on every board that names it.
+    var month = q ? (q.get('var-reporting_month') || '') : '';
+    if (!/^\d{4}-\d{2}-01$/.test(month)) { month = ''; }
     return { org: org, month: month };
   }
 
@@ -237,6 +252,39 @@
     '#h360-chat-root .h360c-input::placeholder{color:#6E6E6E;}',
     '#h360-chat-root .h360c-ask{flex:none;height:40px;min-width:56px;padding:0 12px;border:1px solid #D8D9DA;border-radius:4px;background:#fff;color:#111217;font-size:14px;}',
     '#h360-chat-root .h360c-ask:disabled{opacity:0.55;cursor:default;}',
+    // tags, figures and evidence cards (story 7.9, after the hearts360ai supervision prototype)
+    '#h360-chat-root .h360c-tag{display:inline-block;margin:0 6px 2px 0;padding:1px 8px;border-radius:9999px;background:#FDECEC;color:#8A1C1C;font-size:11px;font-weight:600;line-height:18px;vertical-align:1px;}',
+    '#h360-chat-root .h360c-fig{display:inline;padding:0 1px;margin:0;border:0;border-radius:2px;background:transparent;color:inherit;font:inherit;font-weight:700;cursor:help;text-decoration:underline 1px dashed #6C737A;text-underline-offset:4px;}',
+    '#h360-chat-root .h360c-fig:hover,#h360-chat-root .h360c-fig[aria-expanded="true"]{background:#E9F3FF;}',
+    '#h360-chat-root .h360c-showdata{display:inline-block;margin-top:2px;padding:0;border:0;background:transparent;color:#2B57B3;font-size:12px;cursor:help;text-decoration:underline 1px dashed #6C737A;text-underline-offset:3px;}',
+    '#h360-chat-root .h360c-ev{position:fixed;z-index:1001;width:340px;max-width:calc(100vw - 16px);padding:16px 16px 0;background:#fff;border-radius:8px;box-shadow:0 2px 6px rgba(17,18,23,0.12),0 8px 24px rgba(17,18,23,0.18);color:#111217;font-size:13px;line-height:1.35;}',
+    '#h360-chat-root .h360c-ev[hidden]{display:none;}',
+    '#h360-chat-root .h360c-ev::after{content:"";position:absolute;right:-7px;top:var(--h360c-arrow-y,24px);width:14px;height:14px;background:#fff;transform:rotate(45deg);border-radius:2px;box-shadow:3px -3px 4px rgba(17,18,23,0.06);}',
+    '#h360-chat-root .h360c-ev.h360c-below::after{display:none;}',
+    '#h360-chat-root .h360c-ev h4{margin:0 24px 2px 0;font-size:15px;font-weight:700;line-height:1.2;}',
+    '#h360-chat-root .h360c-ev .h360c-def{margin:0 0 10px;font-size:12px;color:#6E6E6E;}',
+    '#h360-chat-root .h360c-ev .h360c-rate{margin:0 0 2px;font-size:28px;font-weight:700;line-height:1;}',
+    '#h360-chat-root .h360c-ev .h360c-detail{font-size:12px;color:#6E6E6E;min-height:32px;}',
+    '#h360-chat-root .h360c-ev svg{display:block;width:100%;height:132px;margin-top:6px;overflow:visible;}',
+    '#h360-chat-root .h360c-ev svg:focus-visible{outline:2px solid #3D71D9;outline-offset:2px;}',
+    '#h360-chat-root .h360c-ev .h360c-x{position:absolute;top:8px;right:8px;width:28px;height:28px;border:0;border-radius:4px;background:transparent;color:#6E6E6E;font-size:18px;line-height:1;}',
+    '#h360-chat-root .h360c-ev .h360c-x:hover{background:#F4F5F5;}',
+    '#h360-chat-root .h360c-ev table{width:100%;border-collapse:collapse;margin:4px 0 4px;font-size:12px;}',
+    '#h360-chat-root .h360c-ev th{padding:0 6px 4px;text-align:right;font-weight:600;color:#6E6E6E;}',
+    '#h360-chat-root .h360c-ev td{padding:3px 6px;text-align:right;color:#4E545A;border-top:1px solid #ECEEEF;}',
+    '#h360-chat-root .h360c-ev th:first-child,#h360-chat-root .h360c-ev td:first-child{text-align:left;padding-left:4px;}',
+    '#h360-chat-root .h360c-ev tr.h360c-target td{background:#E9F3FF;color:#0C3966;border-top:0;}',
+    '#h360-chat-root .h360c-ev tr.h360c-focus td{background:#E9F3FF;color:#111217;font-weight:700;}',
+    '#h360-chat-root .h360c-ev td.h360c-bad{color:#B42318;font-weight:700;}',
+    '#h360-chat-root .h360c-ev .h360c-band{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:10px -16px 0;padding:8px 16px;background:#E9F3FF;color:#0C3966;font-size:12px;font-weight:500;border-radius:0 0 8px 8px;}',
+    '#h360-chat-root .h360c-ev .h360c-band a{color:#0075EB;text-decoration:none;white-space:nowrap;}',
+    '#h360-chat-root .h360c-ev .h360c-band a:hover{text-decoration:underline;}',
+    '#h360-chat-root .h360c-ev .h360c-band span{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}',
+    '#h360-chat-root .h360c-legend{display:flex;gap:12px;margin-top:2px;font-size:11px;color:#6E6E6E;}',
+    '#h360-chat-root .h360c-legend i{display:inline-block;width:14px;height:0;margin-right:4px;vertical-align:3px;border-top:2px solid #3D71D9;}',
+    '#h360-chat-root .h360c-legend i.h360c-avg{border-top:2px dashed #8E9399;}',
+    '#h360-chat-root .h360c-plan-basis{font-size:13px;color:#4E545A;margin:0;}',
+    '@media (max-width:' + (ICON_ONLY_BELOW - 1) + 'px){#h360-chat-root .h360c-pill{width:48px;padding:0;justify-content:center;}#h360-chat-root .h360c-pill-label{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);}}',
     // clearance for Grafana's scroll container (PD-15)
     '.h360c-clearance{padding-bottom:72px!important;}'
   ].join('\n');
@@ -298,6 +346,7 @@
     head.appendChild(closeBtn);
 
     body = el('div', 'h360c-body');
+    body.addEventListener('scroll', function () { if (openCard) { placeCard(openCard.card, openCard.anchor); } });
     chipsWrap = el('div', 'h360c-chipswrap');
     chipsIntro = el('p', 'h360c-p', TXT.intro);
     chipsGroup = el('div', 'h360c-chips');
@@ -362,6 +411,7 @@
   }
 
   function closePanel(returnFocus) {
+    if (openCard) { openCard.pinned = false; hideCard(false); }
     root.classList.remove('h360c-open');
     pill.setAttribute('aria-expanded', 'false');
     ssSet(STORE_OPEN, '0');
@@ -482,7 +532,8 @@
     setBadge(d.mode);
     chipsGroup.innerHTML = '';
     var national = d.scope === 'national';
-    chipsIntro.textContent = national ? TXT.national : TXT.intro;
+    var admin = !!(boot.user && (boot.user.isGrafanaAdmin || boot.user.orgRole === 'Admin'));
+    chipsIntro.textContent = national ? (admin ? TXT.national : TXT.nationalViewer) : TXT.intro;
     var chips = Array.isArray(d.chips) ? d.chips : [];
     if (!chips.length) {
       chipsGroup.appendChild(el('p', 'h360c-p', TXT.emptyChips));
@@ -490,7 +541,7 @@
     }
     chips.forEach(function (c) {
       if (!c || !c.label) { return; }
-      var b = el('button', 'h360c-chip', c.label);
+      var b = el('button', 'h360c-chip', (national || c.id === 'pick_district') ? TXT.pickPlace : c.label);
       b.type = 'button';
       b.setAttribute('data-chip', c.id || '');
       b.disabled = S.busy;
@@ -657,6 +708,7 @@
   }
 
   function resetThread() {
+    if (openCard) { openCard.pinned = false; hideCard(false); }
     S.reqSeq++;
     setBusy(false);
     log.innerHTML = '';
@@ -710,6 +762,289 @@
     return a;
   }
 
+
+  // ---------------------------------------------------------------- evidence cards (UX-10)
+  // After the hearts360ai supervision prototype's hover charts: title, definition, the figure for
+  // the hovered month with its counts, a small line (or table), and a band naming the place with
+  // the dashboard link. Plain SVG; every number comes from the API's evidence object.
+  var SVGNS = 'http://www.w3.org/2000/svg';
+  var LINE = '#3D71D9', AVG = '#8E9399', TARGET = '#C2410C';
+  var openCard = null, hideTimer = null, cardSeq = 0;
+
+  function svgEl(tag, attrs) {
+    var n = document.createElementNS(SVGNS, tag);
+    for (var k in attrs) { if (Object.prototype.hasOwnProperty.call(attrs, k)) { n.setAttribute(k, attrs[k]); } }
+    return n;
+  }
+  function numOf(v) { var n = parseFloat(v); return isFinite(n) ? n : null; }
+  function fmtCount(v) { var n = numOf(v); return n === null ? '–' : Math.round(n).toLocaleString('en'); }
+  function fmtValue(v, ev) {
+    var n = numOf(v);
+    if (n === null) { return '–'; }
+    if (ev.unit === '%') { return (Math.abs(n) < 10 && n !== 0 ? n.toFixed(1) : String(Math.round(n))) + '%'; }
+    return n.toFixed(ev.decimals || 0);
+  }
+
+  function lineChart(ev, onPick) {
+    var pts = Array.isArray(ev.points) ? ev.points : [];
+    var W = 300, H = 132, L = 30, R = 8, T = 22, B = 20;
+    var vals = [];
+    pts.forEach(function (p) { [p.value, p.average].forEach(function (v) { if (numOf(v) !== null) { vals.push(numOf(v)); } }); });
+    var target = numOf(ev.target);
+    if (target !== null) { vals.push(target); }
+    var max = ev.unit === '%' ? 100 : Math.max(1, Math.ceil(Math.max.apply(null, vals.concat([1])) * 1.15));
+    var svg = svgEl('svg', { viewBox: '0 0 ' + W + ' ' + H, role: 'img', tabindex: '0',
+      'aria-label': (ev.title || '') + ' by ' + (pts.length && /^Q/.test(pts[0].label || '') ? 'quarter' : 'month') + '. Use the arrow keys to read each point.' });
+    var x = function (i) { return pts.length < 2 ? L + (W - L - R) / 2 : L + i * (W - L - R) / (pts.length - 1); };
+    var y = function (v) { return T + (H - T - B) * (1 - v / max); };
+    [0, max / 2, max].forEach(function (g) {
+      svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: y(g), y2: y(g), stroke: '#ECEEEF', 'stroke-width': 1 }));
+      var t = svgEl('text', { x: L - 4, y: y(g) + 3, 'text-anchor': 'end', 'font-size': 9, fill: '#6E6E6E' });
+      t.textContent = (ev.unit === '%' ? Math.round(g) + '%' : (max > 5 ? Math.round(g) : g.toFixed(1)));
+      svg.appendChild(t);
+    });
+    if (target !== null) {
+      svg.appendChild(svgEl('line', { x1: L, x2: W - R, y1: y(target), y2: y(target), stroke: TARGET, 'stroke-width': 2,
+        'stroke-dasharray': '1 5', 'stroke-linecap': 'round', opacity: 0.8 }));
+      var tl = svgEl('text', { x: W - R, y: Math.max(10, y(target) - 5), 'text-anchor': 'end', 'font-size': 10, fill: TARGET });
+      tl.textContent = ev.target_label || '';
+      svg.appendChild(tl);
+    }
+    function path(key, color, dash) {
+      var d = '', on = false;
+      pts.forEach(function (p, i) {
+        var v = numOf(p[key]);
+        if (v === null) { on = false; return; }
+        d += (on ? 'L' : 'M') + x(i).toFixed(1) + ' ' + y(v).toFixed(1) + ' ';
+        on = true;
+      });
+      if (d) { svg.appendChild(svgEl('path', { d: d, fill: 'none', stroke: color, 'stroke-width': 2, 'stroke-dasharray': dash || '', 'stroke-linejoin': 'round' })); }
+    }
+    var hasAvg = pts.some(function (p) { return numOf(p.average) !== null; });
+    if (hasAvg) { path('average', AVG, '4 3'); }
+    path('value', LINE);
+    var hover = svgEl('line', { y1: T, y2: H - B, stroke: 'rgba(0,0,0,0.12)', 'stroke-width': 2, visibility: 'hidden' });
+    svg.appendChild(hover);
+    var dots = [];
+    pts.forEach(function (p, i) {
+      var lab = svgEl('text', { x: x(i), y: H - 5, 'text-anchor': 'middle', 'font-size': 9, fill: '#6E6E6E' });
+      lab.textContent = String(p.label || '').replace(/-\d{4}$/, '');
+      svg.appendChild(lab);
+      var v = numOf(p.value);
+      if (v === null) { dots.push(null); return; }
+      var c = svgEl('circle', { cx: x(i), cy: y(v), r: 3.5, fill: '#fff', stroke: LINE, 'stroke-width': 2 });
+      svg.appendChild(c);
+      dots.push(c);
+    });
+    var at = pts.length - 1;
+    function pick(i) {
+      at = Math.max(0, Math.min(pts.length - 1, i));
+      hover.setAttribute('x1', x(at)); hover.setAttribute('x2', x(at)); hover.setAttribute('visibility', 'visible');
+      dots.forEach(function (d, j) { if (d) { d.setAttribute('r', j === at ? 5 : 3.5); } });
+      onPick(at);
+    }
+    svg.addEventListener('mousemove', function (e) {
+      var r = svg.getBoundingClientRect();
+      var px = (e.clientX - r.left) * W / r.width;
+      var best = 0, bd = Infinity;
+      pts.forEach(function (p, i) { var d = Math.abs(x(i) - px); if (d < bd) { bd = d; best = i; } });
+      pick(best);
+    });
+    svg.addEventListener('mouseleave', function () { hover.setAttribute('visibility', 'hidden'); onPick(pts.length - 1); });
+    svg.addEventListener('keydown', function (e) {
+      if (e.key === 'ArrowLeft') { e.preventDefault(); pick(at - 1); }
+      else if (e.key === 'ArrowRight') { e.preventDefault(); pick(at + 1); }
+    });
+    return { svg: svg, hasAvg: hasAvg };
+  }
+
+  function evidenceTable(ev) {
+    var t = el('table');
+    var head = el('tr');
+    (ev.columns || []).forEach(function (c) { head.appendChild(el('th', null, c)); });
+    t.appendChild(head);
+    if (Array.isArray(ev.target)) {
+      var tr = el('tr', 'h360c-target');
+      ev.target.forEach(function (c) { tr.appendChild(el('td', null, c)); });
+      t.appendChild(tr);
+    }
+    (ev.rows || []).forEach(function (r) {
+      var row = el('tr', r.focus ? 'h360c-focus' : null);
+      (r.cells || []).forEach(function (c, i) {
+        row.appendChild(el('td', r.flag && i > 0 ? 'h360c-bad' : null, c));
+      });
+      t.appendChild(row);
+    });
+    return t;
+  }
+
+  function evidenceCard(ev, monthLabel) {
+    var card = el('div', 'h360c-ev');
+    card.id = 'h360c-ev-' + (++cardSeq);
+    card.hidden = true;
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-modal', 'false');
+    card.setAttribute('aria-label', ev.title || TXT.showData);
+    var x = el('button', 'h360c-x');
+    x.type = 'button';
+    x.setAttribute('aria-label', TXT.closeCard);
+    x.innerHTML = '<span aria-hidden="true">×</span>';
+    card.appendChild(el('h4', null, ev.title || ''));
+    if (ev.definition) { card.appendChild(el('p', 'h360c-def', ev.definition)); }
+    if (ev.kind === 'line') {
+      var rate = el('div', 'h360c-rate');
+      var detail = el('div', 'h360c-detail');
+      detail.setAttribute('aria-live', 'polite');
+      var pts = ev.points || [];
+      var fill = function (i) {
+        var p = pts[i] || {};
+        rate.textContent = fmtValue(p.value, ev);
+        var lines = [];
+        if (p.num !== null && p.num !== undefined) { lines.push(fmtCount(p.num) + ' ' + (ev.num_label || '')); }
+        if (p.den !== null && p.den !== undefined) { lines.push('of ' + fmtCount(p.den) + ' ' + (ev.den_label || '') + ', ' + (p.label || '')); }
+        if (numOf(p.average) !== null) { lines.push('Average of all facilities: ' + fmtValue(p.average, ev)); }
+        if (p.value === null || p.value === undefined) { lines = [(p.label || '') + ': too few to show']; }
+        detail.innerHTML = '';
+        lines.forEach(function (l) { detail.appendChild(el('div', null, l)); });
+      };
+      card.appendChild(rate);
+      card.appendChild(detail);
+      var chart = lineChart(ev, fill);
+      card.appendChild(chart.svg);
+      var legend = el('div', 'h360c-legend');
+      var me = el('span'); me.appendChild(el('i')); me.appendChild(document.createTextNode(ev.place || ''));
+      legend.appendChild(me);
+      if (chart.hasAvg) {
+        var av = el('span'); av.appendChild(el('i', 'h360c-avg')); av.appendChild(document.createTextNode('Average'));
+        legend.appendChild(av);
+      }
+      card.appendChild(legend);
+      fill(pts.length - 1);
+    } else {
+      card.appendChild(evidenceTable(ev));
+    }
+    var band = el('div', 'h360c-band');
+    band.appendChild(el('span', null, [ev.place, monthLabel].filter(Boolean).join(' · ')));
+    var li = ev.link ? { href: safeHref(ev.link.url), label: ev.link.label } : null;
+    if (li && li.href) {
+      var a = el('a', null, li.label + ' ↗');
+      a.href = li.href;
+      band.appendChild(a);
+    }
+    card.appendChild(band);
+    card.appendChild(x);
+    return { card: card, close: x };
+  }
+
+  function placeCard(card, anchor) {
+    var pr = panel.getBoundingClientRect();
+    var ar = anchor.getBoundingClientRect();
+    card.hidden = false;
+    var w = card.offsetWidth, h = card.offsetHeight, gap = 14;
+    var left = pr.left - w - gap;
+    var below = left < 8;
+    card.classList.toggle('h360c-below', below);
+    if (below) {
+      left = Math.max(8, Math.min(window.innerWidth - w - 8, ar.left));
+      var top = ar.bottom + 8;
+      if (top + h > window.innerHeight - 8) { top = Math.max(8, ar.top - h - 8); }
+      card.style.left = left + 'px'; card.style.top = top + 'px';
+      return;
+    }
+    var t = Math.max(8, Math.min(window.innerHeight - h - 8, ar.top + ar.height / 2 - 28));
+    card.style.left = left + 'px';
+    card.style.top = t + 'px';
+    card.style.setProperty('--h360c-arrow-y', Math.max(12, Math.min(h - 24, ar.top + ar.height / 2 - t - 7)) + 'px');
+  }
+
+  function hideCard(returnFocus) {
+    clearTimeout(hideTimer);
+    if (!openCard) { return; }
+    var o = openCard;
+    openCard = null;
+    o.card.hidden = true;
+    o.anchor.setAttribute('aria-expanded', 'false');
+    if (returnFocus) { o.anchor.focus(); }
+  }
+
+  function showCard(o) {
+    clearTimeout(hideTimer);
+    if (openCard && openCard !== o) { hideCard(false); }
+    openCard = o;
+    o.anchor.setAttribute('aria-expanded', 'true');
+    placeCard(o.card, o.anchor);
+  }
+
+  function hideSoon() {
+    clearTimeout(hideTimer);
+    hideTimer = setTimeout(function () {
+      if (!openCard || openCard.pinned) { return; }
+      var a = document.activeElement;
+      if (a && (openCard.card.contains(a) || a === openCard.anchor)) { return; }
+      hideCard(false);
+    }, 200);
+  }
+
+  // Wires a figure (a button) to its evidence card, which follows it in the DOM so Tab reaches the link.
+  function attachEvidence(anchor, ev, monthLabel, host) {
+    var built = evidenceCard(ev, monthLabel);
+    var o = { anchor: anchor, card: built.card, pinned: false };
+    anchor.setAttribute('aria-expanded', 'false');
+    anchor.setAttribute('aria-controls', built.card.id);
+    anchor.setAttribute('aria-haspopup', 'dialog');
+    anchor.addEventListener('mouseenter', function () { showCard(o); });
+    anchor.addEventListener('mouseleave', hideSoon);
+    anchor.addEventListener('focus', function () { showCard(o); });
+    anchor.addEventListener('blur', hideSoon);
+    anchor.addEventListener('click', function (e) {
+      e.preventDefault();
+      if (openCard === o && o.pinned) { o.pinned = false; hideCard(false); return; }
+      o.pinned = true;
+      showCard(o);
+    });
+    built.card.addEventListener('mouseenter', function () { clearTimeout(hideTimer); });
+    built.card.addEventListener('mouseleave', hideSoon);
+    built.card.addEventListener('focusout', hideSoon);
+    built.close.addEventListener('click', function () { o.pinned = false; hideCard(true); });
+    host.appendChild(built.card);
+    return o;
+  }
+
+  function figButton(text) {
+    var b = el('button', 'h360c-fig', text);
+    b.type = 'button';
+    return b;
+  }
+
+  // A sentence with its figure as the evidence button; else the first number bold and a
+  // `Show the data` button after it (for example when Claude reworded around the figure).
+  function evidenceText(text, figure, number, ev, monthLabel, host, srPrefix) {
+    var p = el('p', 'h360c-p');
+    if (srPrefix) { p.appendChild(el('span', 'h360c-sr', srPrefix)); }
+    var s = String(text || '');
+    var at = ev && figure ? s.indexOf(figure) : -1;
+    if (at < 0) {
+      var plain = textWithNumber(s, number);
+      while (plain.firstChild) { p.appendChild(plain.firstChild); }
+      if (ev) {
+        p.appendChild(document.createTextNode(' '));
+        var sd = el('button', 'h360c-showdata', TXT.showData);
+        sd.type = 'button';
+        p.appendChild(sd);
+        attachEvidence(sd, ev, monthLabel, p);
+      }
+      return p;
+    }
+    p.appendChild(document.createTextNode(s.slice(0, at)));
+    var b = figButton(figure);
+    b.setAttribute('aria-label', figure + ', ' + TXT.showData.toLowerCase() + ': ' + (ev.title || ''));
+    p.appendChild(b);
+    p.appendChild(document.createTextNode(s.slice(at + figure.length)));
+    // The card goes right after the sentence's text, so Tab moves from the figure into its link.
+    attachEvidence(b, ev, monthLabel, p);
+    return p;
+  }
+
   function renderAnswer(d, question) {
     if (d.place || d.month) { setHeader(d.place || (S.chipsData && S.chipsData.place), d.month || (S.chipsData && S.chipsData.month)); }
     setBadge(d.mode);
@@ -722,9 +1057,20 @@
     title.setAttribute('data-h360-focus', '1');
     card.appendChild(title);
     var m = fmtMonth(d.month);
-    if (d.control_line) { card.appendChild(el('p', 'h360c-muted', d.control_line)); }
+    if (d.control_line) {
+      var cl = evidenceText(d.control_line, d.control_figure, null, d.control_evidence || null, m, card);
+      cl.className = 'h360c-muted';
+      card.appendChild(cl);
+    }
     else if (pname || m) { card.appendChild(el('p', 'h360c-muted', [pname, m].filter(Boolean).join(' \u00b7 '))); }
     if (d.mode === 'offline_fallback') { card.appendChild(el('p', 'h360c-muted', TXT.fallback)); }
+
+    // Stock first (UX-09): read before any stepping-up or calling advice.
+    if (d.stock_line) {
+      var st = el('div', 'h360c-stock');
+      st.appendChild(evidenceText(d.stock_line, null, null, d.stock_evidence || null, m, st));
+      card.appendChild(st);
+    }
 
     // 2. Reasons (max three).
     var reasons = Array.isArray(d.reasons) ? d.reasons.slice(0, 3) : [];
@@ -738,9 +1084,9 @@
         var li = el('li', 'h360c-reason');
         li.appendChild(el('span', 'h360c-rank', String(i + 1))).setAttribute('aria-hidden', 'true');
         var box = el('div', 'h360c-rtext');
-        var sr = el('span', 'h360c-sr', 'Reason ' + (i + 1) + ': ');
-        var p = textWithNumber(r.text, r.number);
-        p.insertBefore(sr, p.firstChild);
+        // No `Reason 1:` label: the ordered list already numbers the reasons.
+        var p = evidenceText(r.text, r.figure, r.number, r.evidence || null, m, box);
+        if (r.tag) { p.insertBefore(el('span', 'h360c-tag', r.tag), p.firstChild); }
         box.appendChild(p);
         if (r.what_to_do) {
           box.appendChild(el('p', 'h360c-wtd', TXT.whatToDo));
@@ -756,7 +1102,7 @@
 
     // Inline plan (who_to_call returns the plan with the answer).
     var planNode = null;
-    if (d.plan) { planNode = planCard(d.plan, pname, d.links); }
+    if (d.plan) { planNode = planCard(d.plan, pname, d.links, d.reasons && d.reasons[0] && d.reasons[0].evidence, m); }
 
     // 3. Nudge button (a link when the API sends `nudge.url`).
     var nudgeHref = d.nudge && d.nudge.label ? safeHref(d.nudge.url) : null;
@@ -797,8 +1143,6 @@
       card.appendChild(also);
     }
 
-    // 5. Stock callout.
-    if (d.stock_line) { card.appendChild(el('p', 'h360c-stock', d.stock_line)); }
 
     var wrap = card;
     if (planNode) {
@@ -816,7 +1160,7 @@
     var pname = placeName(d.place) || placeName(S.chipsData && S.chipsData.place);
     var node;
     if (d.plan) {
-      node = planCard(d.plan, pname, d.links);
+      node = planCard(d.plan, pname, d.links, d.reasons && d.reasons[0] && d.reasons[0].evidence, fmtMonth(d.month));
       if (d.mode === 'offline_fallback') { node.insertBefore(el('p', 'h360c-muted', TXT.fallback), node.children[1] || null); }
       setHonesty(d.honesty);
     } else {
@@ -833,19 +1177,28 @@
     }
     var p = new URLSearchParams();
     p.set('var-org_unit', S.scope.org);
+    if (S.scope.month) { p.set('var-reporting_month', S.scope.month); }
     p.set('-dtab', 'Overdue-list');
     return '/d/heart360_showcase?' + p.toString();
   }
 
-  function planCard(plan, pname, links) {
+  // UX-08: a plan sized to one nurse's week, with how the number was chosen; the whole list is
+  // context, not the target. UX-12: above facility level the link opens the Overdue calls table.
+  function planCard(plan, pname, links, ev, monthLabel) {
     var card = el('div', 'h360c-card');
     var title = el('h3', 'h360c-title', 'Calling plan' + (pname ? ' for ' + pname : ''));
     title.tabIndex = -1;
     title.setAttribute('data-h360-focus', '1');
     card.appendChild(title);
     var tot = el('div');
-    tot.appendChild(el('div', 'h360c-big', String(plan.total) + (plan.total === 1 ? ' patient' : ' patients')));
-    tot.appendChild(el('p', 'h360c-muted', TXT.planUnit));
+    var perWeek = plan.per_week !== undefined && plan.per_week !== null ? String(plan.per_week) : null;
+    if (perWeek) {
+      tot.appendChild(el('div', 'h360c-big', perWeek + ' ' + TXT.planUnit));
+      var ctx = el('p', 'h360c-muted', fmtCount(plan.total) + TXT.planTotal);
+      tot.appendChild(ctx);
+    } else {
+      tot.appendChild(el('div', 'h360c-big', String(plan.total)));
+    }
     card.appendChild(tot);
     var weeks = Array.isArray(plan.weeks) ? plan.weeks.slice(0, 4) : [];
     if (weeks.length) {
@@ -858,11 +1211,19 @@
       });
       card.appendChild(g);
     }
-    if (plan.text && String(plan.text).trim() !== TXT.planStart) { card.appendChild(el('p', 'h360c-p', plan.text)); }
-    card.appendChild(el('p', 'h360c-p', TXT.planStart));
-    var a = el('a', 'h360c-link', TXT.planOpen);
-    a.href = overdueHref(links);
+    if (plan.text) { card.appendChild(el('p', 'h360c-plan-basis', plan.text)); }
+    var ll = plan.list_link && safeHref(plan.list_link.url);
+    var a = el('a', 'h360c-link', ll ? plan.list_link.label : TXT.planOpen);
+    a.href = ll || overdueHref(links);
     card.appendChild(a);
+    if (ev) {
+      var holder = el('div');
+      var sd = el('button', 'h360c-showdata', TXT.showData);
+      sd.type = 'button';
+      holder.appendChild(sd);
+      card.appendChild(holder);
+      attachEvidence(sd, ev, monthLabel, holder);
+    }
     return card;
   }
 
@@ -910,6 +1271,14 @@
     window.addEventListener('popstate', checkUrl);
     setInterval(checkUrl, 1000);
     document.addEventListener('keydown', function (ev) {
+      if ((ev.key === 'Escape' || ev.key === 'Esc') && openCard) {
+        ev.preventDefault();
+        ev.stopPropagation();
+        var back = root.contains(document.activeElement);
+        openCard.pinned = false;
+        hideCard(back);
+        return;
+      }
       if ((ev.key === 'Escape' || ev.key === 'Esc') && isOpen() && root.contains(document.activeElement)) {
         ev.preventDefault();
         ev.stopPropagation();

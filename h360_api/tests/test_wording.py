@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import re
 import time
 import unittest
@@ -53,7 +54,10 @@ class OfflineShapeTests(unittest.TestCase):
                 self.assertEqual(answer["honesty"], HONESTY)
                 self.assertEqual(wording.check_answer(answer, facts), [])
                 for r in answer["reasons"]:
-                    self.assertEqual(set(r), {"lever", "text", "number", "what_to_do", "link"})
+                    self.assertEqual(set(r), {"lever", "tag", "text", "number", "figure", "what_to_do", "link",
+                                              "evidence"})
+                    if r["figure"]:
+                        self.assertIn(r["figure"], r["text"])
                 self.assertEqual(set(answer["place"]), {"org_unit_id", "name", "level", "scope"})
                 self.assertEqual(answer["month"], "2026-10-01")
                 self.assertIsInstance(answer["title"], str)
@@ -82,44 +86,98 @@ class OfflineShapeTests(unittest.TestCase):
             self.assertIsNone(BANNED.search(s), s)
 
     def test_what_to_do_is_a_specific_action_with_a_number_or_cadence(self):
-        cadence = re.compile(r"\d|\b(each|every|weekly|monthly|this month|once a month|one|two)\b", re.I)
+        cadence = re.compile(r"\d|\b(each|every|weekly|monthly|this month|once a month|one|two|next visit)\b", re.I)
         for chip, org, _facts, answer in every_answer():
             for r in answer["reasons"]:
                 if r["what_to_do"]:
                     self.assertRegex(r["what_to_do"], cadence, (chip, org))
 
-    def test_percentages_carry_their_counts(self):
+    def test_percentages_carry_their_counts_for_the_group_they_name(self):
+        # UX-24: the counts are for the patients who did not come back. UX-23: whole percents, commas.
         answer = wording.compose(facts_for("why_control_low", 3), "", "m")
         self.assertEqual(answer["reasons"][0]["text"],
-                         "29.9% of new patients did not come back for a second visit (258 of 368 came back).")
+                         "Many new patients do not come back. 110 of 368 missed their second visit (30%).")
         plan = wording.compose(facts_for("who_to_call", 3), "", "m")["reasons"][0]
-        self.assertEqual(plan["text"], "11.0% of overdue patients with a phone were called (156 of 1421).")
-        self.assertEqual(plan["what_to_do"],
-                         "Assign one nurse to call 356 overdue patients each week, longest overdue first.")
+        self.assertEqual(plan["text"], "In Aug–Oct 2026, 156 of 1,421 overdue patients with a phone were called (11%).")
 
-    def test_every_number_is_in_the_facts(self):
+    def test_number_format(self):
+        fmt = wording.Fmt([])
+        self.assertEqual(fmt.pct("75.0"), "75%")
+        self.assertEqual(fmt.pct("27.9"), "28%")
+        self.assertEqual(fmt.pct("4.0"), "4.0%")
+        self.assertEqual(fmt.pct("6.45"), "6.5%")
+        self.assertEqual(fmt.pct("0.0"), "0%")
+        self.assertEqual(fmt.count(1421), "1,421")
+        self.assertEqual(fmt.ratio("5.40"), "5.4")
+        self.assertEqual(fmt.derived, [{"value": "28", "rule": "round0", "inputs": ["27.9"]},
+                                       {"value": "6.5", "rule": "round1", "inputs": ["6.45"]}])
+
+    def test_every_number_is_in_the_facts_or_derived_from_them(self):
         for chip, org, facts, answer in every_answer():
-            allowed = wording.fact_numbers(facts)
+            allowed, problems = wording.derived_numbers(answer, wording.fact_numbers(facts))
+            self.assertEqual(problems, [], (chip, org))
             for t in wording.visible_texts(answer):
-                for tok in re.findall(r"\d+(?:\.\d+)?", t):
+                for tok in wording.number_tokens(t):
                     self.assertIn(tok, allowed, (chip, org, t))
+
+    def test_a_forged_derivation_fails_the_check(self):
+        facts = facts_for("why_control_low", 11)
+        answer = wording.render_offline(facts)
+        answer["derived"].append({"value": "999", "rule": "sub", "inputs": ["283", "79"]})
+        self.assertTrue(wording.check_answer(answer, facts))
+
+
+class PlainWordsTests(unittest.TestCase):
+    """The owner's clear-writing rules (story 7.9): no stacked facts, labels or report jargon."""
+
+    def test_no_answer_sentence_uses_semicolons_labels_or_jargon(self):
+        bad = re.compile(r";|Reason |Past the line|Flagged on|\u2014|\b(ensure|key|leverage|robust|specifically|notably)\b",
+                         re.IGNORECASE)
+        for chip, org, _facts, answer in every_answer():
+            for text in wording.visible_texts(answer):
+                self.assertIsNone(bad.search(text), (chip, org, text))
+        for text in (*wording.TOO_FEW.values(), *wording.NUDGE_LABELS.values(), wording.PLAN_TEXT,
+                     wording.NO_MATCH, wording.PICK_DISTRICT_LINE):
+            self.assertIsNone(bad.search(text), text)
+
+    def test_counts_sit_inside_the_sentence_as_n_of_n(self):
+        answer = wording.compose(facts_for("why_control_low", 11), "", "m")
+        self.assertIn("1,019 of 1,358 patients", answer["control_line"])
+        self.assertIn("79 of 283 high BP visits", answer["reasons"][1]["text"])
 
 
 class PlanTests(unittest.TestCase):
     def test_who_to_call_has_one_reason_the_plan_and_the_overdue_nudge(self):
         answer = wording.compose(facts_for("who_to_call", 3), "", "m")
         self.assertEqual(len(answer["reasons"]), 1)
-        self.assertEqual(answer["plan"], {"total": 1421, "weeks": [356, 356, 356, 353],
-                                          "text": "Start with the patients overdue longest."})
-        self.assertEqual(sum(answer["plan"]["weeks"]), answer["plan"]["total"])
-        self.assertEqual(answer["nudge"], {"chip_id": "overdue_list", "label": "Who is overdue longest?",
-                                           "url": "/d/heart360_showcase?var-org_unit=3&-dtab=Overdue-list"})
+        plan = answer["plan"]
+        self.assertEqual(plan["total"], 1421)
+        self.assertEqual(plan["weeks"], [25, 25, 25, 25])
+        self.assertEqual(plan["text"],
+                         "One nurse can call about 25 a week, so 100 in 4 weeks. "
+                         "About 33 may come back, as 33% did here. "
+                         "The Dr Rai action plan gives one nurse 25 calls a week. "
+                         "Start at the top of the overdue list, with patients not called yet.")
+        self.assertNotIn("longest", json.dumps(answer))  # UX-30: the list keeps its own order
+        self.assertEqual(answer["nudge"], {"chip_id": "overdue_list", "label": "Open the overdue list",
+                                           "url": "/d/heart360_showcase?var-org_unit=3&var-reporting_month=2026-10-01"
+                                                  "&-dtab=Overdue-list"})
+
+    def test_district_overdue_link_goes_to_the_calls_table(self):
+        # UX-12: the overdue list works at facility level only.
+        answer = wording.compose(facts_for("who_to_call", 10), "", "m")
+        self.assertEqual(answer["nudge"]["label"], "Pick a facility to open its overdue list")
+        self.assertEqual(answer["nudge"]["url"],
+                         "/d/heart360_reports?var-org_unit=10&var-reporting_month=2026-10-01&-dtab=Overdue-calls")
+        self.assertEqual(answer["plan"]["list_link"]["url"], answer["nudge"]["url"])
+        self.assertTrue(answer["plan"]["text"].startswith(
+            "One nurse per facility can call about 25 a week, so 200 in 4 weeks across 2 facilities."))
 
     def test_plan_total_is_overdue_with_phone_n(self):
         facts = facts_for("call_plan", 11)
         answer = wording.compose(facts, "", "m")
         self.assertEqual(answer["plan"]["total"], 1401)  # report_calling.overdue_with_phone_n
-        self.assertTrue(answer["plan"]["text"].startswith("Start with the patients overdue longest"))
+        self.assertTrue(answer["plan"]["text"].endswith("Start at the top of the overdue list, with patients not called yet."))
         self.assertIsNone(answer["nudge"])
 
     def test_why_control_low_nudges_to_the_plan(self):
@@ -158,15 +216,52 @@ class LinkTests(unittest.TestCase):
 
 
 class ReadingsTests(unittest.TestCase):
-    def test_flagged_readings_use_the_pd5_sentence(self):
+    def test_flagged_readings_are_a_reason_to_check_not_proof(self):
+        # UX-09, UX-25: "may", and watch BP being measured; never "retrain" or "check every cuff".
         answer = wording.compose(facts_for("readings_reliable", 11), "", "m")
-        self.assertEqual(answer["reasons"][0]["text"], "5.40 readings just under 140 for every 1 just over (367 against 68).")
-        self.assertEqual(answer["reasons"][0]["what_to_do"],
-                         "Check every BP cuff and retrain staff on measuring BP this month.")
+        r = answer["reasons"][0]
+        self.assertEqual(r["text"], "Many BP readings sit just under 140: 308 of 130–139 against 131 of 140–149 "
+                                    "in Q3 2026. That is 2.35 to 1, up from 2.12 in Q2. "
+                                    "This may mean readings are rounded down.")
+        self.assertEqual(r["what_to_do"],
+                         "On your next visit, watch BP being measured and recorded.")
+        self.assertNotRegex(json.dumps(answer), r"(?i)retrain|every BP cuff")
+        self.assertEqual(r["figure"], "2.35")
+        self.assertEqual(r["evidence"]["target"], "2.0")
 
     def test_unflagged_readings_say_no_sign_of_rounding_down(self):
         answer = wording.compose(facts_for("readings_reliable", 3), "", "m")
-        self.assertTrue(answer["reasons"][0]["text"].startswith("No sign of rounding down: 1.19 readings"))
+        self.assertEqual(answer["reasons"][0]["text"],
+                         "No sign that readings are rounded down: 156 of 130–139 against 95 of 140–149 in Q3 2026. "
+                         "That is 1.64 to 1.")
+
+
+class EvidenceTests(unittest.TestCase):
+    def test_each_reason_has_its_evidence_with_place_month_and_tab(self):
+        answer = wording.compose(facts_for("why_control_low", 11), "", "m")
+        for r in answer["reasons"]:
+            ev = r["evidence"]
+            self.assertEqual(ev["kind"], "line")
+            self.assertEqual(ev["place"], "PHC-E")
+            self.assertEqual(len(ev["points"]), 4 if r["lever"] == "fudging_score" else 6)
+            self.assertEqual(ev["points"][-1]["label"], "Q3 2026" if r["lever"] == "fudging_score" else "Oct-2026")
+            self.assertTrue(ev["link"]["label"].startswith("See this in Reports: "))
+            self.assertIn("var-org_unit=11&var-reporting_month=2026-10-01", ev["link"]["url"])
+        titration = answer["reasons"][1]["evidence"]
+        self.assertEqual(titration["title"], "Stepping up")
+        self.assertEqual(titration["points"][-1]["num"], 79)
+        self.assertEqual(titration["target"], "40")
+        self.assertEqual(answer["control_evidence"]["link"]["url"],
+                         "/d/heart360_showcase?var-org_unit=11&var-reporting_month=2026-10-01")
+
+    def test_visit_first_evidence_is_the_facility_table(self):
+        answer = wording.compose(facts_for("visit_first", 10), "", "m")
+        ev = answer["reasons"][0]["evidence"]
+        self.assertEqual(ev["kind"], "table")
+        self.assertEqual(ev["columns"], ["Facility", "BP controlled", "Missed visits", "Flagged on"])
+        self.assertEqual([row["cells"][0] for row in ev["rows"]], ["PHC-F", "PHC-E"])
+        self.assertTrue(ev["rows"][0]["focus"])
+        self.assertIn("var-org_unit=47&", ev["link"]["url"])
 
 
 class CheckTests(unittest.TestCase):

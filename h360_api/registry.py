@@ -48,6 +48,12 @@ REGISTRY: dict[str, Entry] = {
     "drug_stock_gate": Entry("chat_drug_stock_gate", "Patient-Days per protocol stock category"),
     "facility_rank_district": Entry("chat_facility_rank_district", "district facilities by uncontrolled patients"),
     "call_plan": Entry("chat_call_plan", "overdue patients with a phone over four weeks"),
+    # Story 7.9 (UX-06, UX-10, UX-25): the Reports tabs' established forms. Optional: no chip needs
+    # them; when one is a stub or missing, the answer falls back to the entries above.
+    "titration_monthly": Entry("report_titration_monthly", "titration by month with the network average"),
+    "statins_monthly": Entry("report_statins_monthly", "statins by month with the network average"),
+    "fudging_quarterly": Entry("report_fudging_quarterly", "readings 130-139 against 140-149 by quarter"),
+    "calling_return": Entry("report_calling_return", "called patients who came back, one fixed window (UX-11)"),
 }
 
 REGISTRY_FUNCTIONS: frozenset[str] = frozenset(e.function for e in REGISTRY.values())
@@ -161,6 +167,19 @@ class Fetcher:
         self.db = db
         self.month = month
         self._cache: dict[tuple[str, int | None], list[dict]] = {}
+        self._months: dict[dt.date, Fetcher] = {month: self}
+
+    def at(self, month: dt.date) -> Fetcher:
+        """The same registry functions for another month (the overlay series, UX-10).
+
+        Access was checked for the node before the first query; the month is the only change.
+        """
+        other = self._months.get(month)
+        if other is None:
+            other = Fetcher(self.db, month)
+            other._months = self._months
+            self._months[month] = other
+        return other
 
     def rows(self, key: str, org_unit_id: int | None) -> list[dict]:
         entry = REGISTRY[key]  # KeyError: not a registry entry, never run

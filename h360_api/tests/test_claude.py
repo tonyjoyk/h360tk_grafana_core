@@ -42,8 +42,8 @@ def sent_sentences(kwargs) -> dict:
 
 
 def polite(kwargs) -> str:
-    """Rewrites each sentence with a prefix, keeping numbers and placeholders."""
-    return json.dumps({k: "In short, " + v[0].lower() + v[1:] for k, v in sent_sentences(kwargs).items()})
+    """Rewrites each sentence with a one-word prefix, keeping numbers and placeholders."""
+    return json.dumps({k: "So, " + v[0].lower() + v[1:] for k, v in sent_sentences(kwargs).items()})
 
 
 class ClaudeModeTests(unittest.TestCase):
@@ -60,8 +60,9 @@ class ClaudeModeTests(unittest.TestCase):
         call = fake.messages.calls[0]
         self.assertEqual(call["model"], "claude-sonnet-5-5")
         self.assertEqual(call["timeout"], 8.0)
-        self.assertTrue(answer["reasons"][0]["text"].startswith("In short, "))
+        self.assertTrue(answer["reasons"][0]["text"].startswith("So, "))
         self.assertIn("PHC-E", answer["also_check"])  # names restored after the call
+        self.assertIsNotNone(answer["reasons"][0]["evidence"])  # the evidence is never sent, never lost
         self.assertEqual(wording.check_answer(answer, facts), [])
         self.assertEqual(answer["honesty"], wording.HONESTY)
 
@@ -82,12 +83,12 @@ class ClaudeModeTests(unittest.TestCase):
     def test_changed_number_falls_back(self):
         def change(kwargs):
             s = sent_sentences(kwargs)
-            s["r0_text"] = s["r0_text"].replace("5.40", "5.4")
+            s["r0_text"] = s["r0_text"].replace("308", "309")
             return json.dumps(s)
 
         answer, _fake, _facts = self.compose(change)
         self.assertEqual(answer["mode"], "offline_fallback")
-        self.assertEqual(answer["reasons"][0]["text"], "5.40 readings just under 140 for every 1 just over (367 against 68).")
+        self.assertTrue(answer["reasons"][0]["text"].startswith("Many BP readings sit just under 140: 308 of 130–139"))
 
     def test_invented_number_falls_back(self):
         def add(kwargs):

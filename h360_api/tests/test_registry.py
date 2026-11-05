@@ -45,7 +45,8 @@ FACILITY = {
                     new_loss_pct=D("26.4"), new_usable_phone_n=303, new_usable_phone_pct=D("100.0")),
         "calling": dict(too_few=False, flag=True, flag_reason="Few overdue patients are called: 4.0%.",
                         overdue_n=1401, overdue_with_phone_n=1401, called_n=56, called_pct=D("4.0"), early_n=21,
-                        early_pct=D("37.5"), calls_per_week=351),
+                        early_pct=D("37.5"), calls_per_week=351,
+                        return_known_n=67, returned_n=20, returned_pct=D("29.9")),
         "titration": dict(too_few=False, flag=True,
                           flag_reason="Medicine rarely stepped up: 27.9% of 283 high BP visits.",
                           uncontrolled_visits_n=283, stepped_up_n=79, titration_pct=D("27.9"),
@@ -67,7 +68,8 @@ FACILITY = {
                     new_loss_pct=D("29.8"), new_usable_phone_n=325, new_usable_phone_pct=D("100.0")),
         "calling": dict(too_few=False, flag=True, flag_reason="Few overdue patients are called: 9.0%.",
                         overdue_n=1413, overdue_with_phone_n=1413, called_n=127, called_pct=D("9.0"), early_n=57,
-                        early_pct=D("44.9"), calls_per_week=354),
+                        early_pct=D("44.9"), calls_per_week=354,
+                        return_known_n=150, returned_n=48, returned_pct=D("32.0")),
         "titration": dict(too_few=False, flag=False, flag_reason=None, uncontrolled_visits_n=252, stepped_up_n=116,
                           titration_pct=D("46.0"), control_pct=D("51.2"), looks_fine_check=False),
         "fudging": dict(too_few=False, flag=False, flag_reason=None, readings_n=1427, band_135_139_n=24,
@@ -85,7 +87,8 @@ FACILITY = {
         "new": dict(too_few=False, flag=False, flag_reason=None, new_patients_n=368, new_returned_n=258,
                     new_loss_pct=D("29.9"), new_usable_phone_n=368, new_usable_phone_pct=D("100.0")),
         "calling": dict(too_few=False, flag=False, flag_reason=None, overdue_n=1421, overdue_with_phone_n=1421,
-                        called_n=156, called_pct=D("11.0"), early_n=94, early_pct=D("60.3"), calls_per_week=356),
+                        called_n=156, called_pct=D("11.0"), early_n=94, early_pct=D("60.3"), calls_per_week=356,
+                        return_known_n=120, returned_n=40, returned_pct=D("33.3")),
         "titration": dict(too_few=False, flag=False, flag_reason=None, uncontrolled_visits_n=266, stepped_up_n=122,
                           titration_pct=D("45.9"), control_pct=D("53.1"), looks_fine_check=False),
         "fudging": dict(too_few=False, flag=False, flag_reason=None, readings_n=1511, band_135_139_n=19,
@@ -113,7 +116,8 @@ DISTRICT = {
                     new_loss_pct=D("28.2"), new_usable_phone_n=628, new_usable_phone_pct=D("100.0")),
         "calling": dict(too_few=False, flag=True, flag_reason="Few overdue patients are called: 6.5%.",
                         overdue_n=2814, overdue_with_phone_n=2814, called_n=183, called_pct=D("6.5"), early_n=78,
-                        early_pct=D("42.6"), calls_per_week=704),
+                        early_pct=D("42.6"), calls_per_week=704,
+                        return_known_n=217, returned_n=68, returned_pct=D("31.3")),
         "titration": dict(too_few=False, flag=True,
                           flag_reason="Medicine rarely stepped up: 36.4% of 535 high BP visits.",
                           uncontrolled_visits_n=535, stepped_up_n=195, titration_pct=D("36.4"),
@@ -129,6 +133,23 @@ DISTRICT = {
         "children": [11, 47],
     },
 }
+
+# report_fudging_quarterly rows (story 7.9): (start, label, complete, n_130_139, n_140_149, ratio, flag).
+QUARTERS = {
+    11: [("2025-10-01", "Q4 2025", True, 42, 41, "1.02", False), ("2026-01-01", "Q1 2026", True, 43, 35, "1.23", False),
+         ("2026-04-01", "Q2 2026", True, 110, 52, "2.12", True), ("2026-07-01", "Q3 2026", True, 308, 131, "2.35", True),
+         ("2026-10-01", "Q4 2026", False, 385, 29, "13.28", True)],
+    47: [("2026-04-01", "Q2 2026", True, 84, 51, "1.65", False), ("2026-07-01", "Q3 2026", True, 164, 100, "1.64", False)],
+    3: [("2026-04-01", "Q2 2026", True, 85, 62, "1.37", False), ("2026-07-01", "Q3 2026", True, 156, 95, "1.64", False)],
+    10: [("2026-04-01", "Q2 2026", True, 194, 103, "1.88", False), ("2026-07-01", "Q3 2026", True, 472, 231, "2.04", True)],
+}
+QUARTERS[87] = QUARTERS[3]
+QUARTERS[12] = QUARTERS[11]
+NETWORK_AVERAGE = {"report_titration_monthly": D("42.8"), "report_statins_monthly": D("30.4")}
+MONTHLY_KEYS = {"report_titration_monthly": ("titration", "uncontrolled_visits_n", "stepped_up_n", "titration_pct",
+                                             "follow_up_n", "titrated_n"),
+                "report_statins_monthly": ("statins", "eligible_n", "on_statin_n", "on_statin_pct",
+                                           "eligible_n", "on_statin_n")}
 
 REPORT_KEYS = {
     "report_new_patients": "new",
@@ -198,6 +219,33 @@ class FakeChatDb:
                 if s is None:
                     continue
                 rows.append(dict(_std(o, sel), **s[key]))
+            return rows
+        if function in MONTHLY_KEYS:
+            key, den_in, num_in, pct_in, den_out, num_out = MONTHLY_KEYS[function]
+            rows = []
+            for back in range(8, -1, -1):
+                index = month.year * 12 + month.month - 1 - back
+                m = dt.date(index // 12, index % 12 + 1, 1)
+                for o, sel in [(oid, True)] + [(c, False) for c in children]:
+                    sec_o = self._section(o)
+                    if sec_o is None:
+                        continue
+                    k = sec_o[key]
+                    rows.append(dict(_std(o, sel), month_date=m, too_few=k.get("too_few", False),
+                                     **{den_out: k[den_in], num_out: k[num_in]}, rate_pct=k[pct_in],
+                                     average_rate_pct=NETWORK_AVERAGE[function]))
+            return rows
+        if function == "report_calling_return":
+            k = sec["calling"]
+            return [dict(_std(oid, True), too_few=False, called_month_n=k["called_n"], returned_month_n=k["returned_n"],
+                         returned_month_pct=k["returned_pct"], return_open_n=0)]
+        if function == "report_fudging_quarterly":
+            rows = []
+            for o, sel in [(oid, True)] + [(c, False) for c in children]:
+                for start, label, done, low, high, ratio, flag in QUARTERS.get(o, []):
+                    rows.append(dict(_std(o, sel), quarter_start=dt.date.fromisoformat(start), quarter_label=label,
+                                     is_complete=done, too_few=False, flag=flag, n_130_139=low, n_140_149=high,
+                                     ratio=D(ratio), band="flag" if flag else "green"))
             return rows
         if function == "chat_drug_stock_gate":
             fac = _facility_of(oid)
@@ -272,7 +320,8 @@ class RegistryShapeTests(unittest.TestCase):
         self.assertEqual(
             set(registry.REGISTRY),
             {"control_summary", "new_patient_return", "phone_capture", "overdue_calling", "titration_rate",
-             "fudging_score", "statin_gap", "drug_stock_gate", "facility_rank_district", "call_plan"},
+             "fudging_score", "statin_gap", "drug_stock_gate", "facility_rank_district", "call_plan",
+             "titration_monthly", "statins_monthly", "fudging_quarterly", "calling_return"},
         )
         self.assertNotIn("first_appointment_gap", registry.REGISTRY)
 

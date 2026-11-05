@@ -11,11 +11,15 @@
 #   - every number token in the visible answer (title, control line, reasons, also check, stock
 #     line, nudge, plan; not the honesty line) appears in the output of the report_* / chat_*
 #     functions for that place and month (report_window, report_flag_thresholds, the month itself
-#     and the fudging sentence constant "1" from ranker.CONSTANTS are also allowed). The functions
-#     are pooled per place and month: a number is not tied to one function. Numbers are compared
-#     as decimals (75.0 = 75; 5.40 = 5.4).
+#     and the sentence constants in h360_api/ranker.py CONSTANTS are also allowed), or is listed in
+#     the answer's `derived` with a rule (round0, round1, sub, add, mul, min, pct_of, pct) whose
+#     inputs are allowed and which this script recomputes (story 7.9: whole percents, sized calling
+#     plans). The functions are pooled per place and month, for the reporting month and the five
+#     months before (the overlay series): a number is not tied to one function. Numbers are
+#     compared as decimals (75.0 = 75; 5.40 = 5.4; 1,401 = 1401).
+#   - every reason with a figure has evidence whose link keeps the place and month (UX-10, UX-20).
 #   - PHC-E why_control_low: control 72-78%, title starts `What to check at PHC-E?`, and the first
-#     two reasons are the fudging and titration levers.
+#     two reasons are the fudging and titration levers; no reason says `On target` (UX-07).
 # nurse.phc-a asking about PHC-E gets 403 (chips and answer).
 # Key leak: if ANTHROPIC_API_KEY is set (host env, .env, or the h360-api container), its value
 # must not appear in docker_build/grafana_public, the widget Grafana serves, `docker logs` of
@@ -39,7 +43,7 @@ import sys
 import time
 import urllib.error
 import urllib.request
-from decimal import Decimal, InvalidOperation
+from decimal import ROUND_HALF_UP, Decimal, InvalidOperation
 from http.cookiejar import CookieJar
 from pathlib import Path
 
@@ -51,8 +55,8 @@ MONTH = os.environ.get("MONTH", "2026-10-01")
 DB = os.environ.get("H360_DB", "heart360tk_database")
 PLACES = [(11, "PHC-E"), (10, "District-D")]
 MAX_SECONDS = 3.0
-NUMBER = re.compile(r"\d+(?:\.\d+)?")
-SENTENCE_CONSTANTS = {"1"}  # ranker.CONSTANTS per_one ("for every 1 just over"); bp_line 140 is a histogram band
+NUMBER = re.compile(r"\d{1,3}(?:,\d{3})+(?:\.\d+)?|\d+(?:\.\d+)?")
+SERIES_MONTHS = 6
 
 failures = []
 
@@ -63,12 +67,20 @@ def check(label, ok, detail=""):
         failures.append(label)
 
 
-def honesty_line():
-    tree = ast.parse((ROOT / "h360_api" / "wording.py").read_text(encoding="utf-8"))
+def module_constant(module, name):
+    tree = ast.parse((ROOT / "h360_api" / module).read_text(encoding="utf-8"))
     for node in tree.body:
-        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == "HONESTY" for t in node.targets):
+        if isinstance(node, ast.Assign) and any(getattr(t, "id", None) == name for t in node.targets):
             return ast.literal_eval(node.value)
-    raise SystemExit("HONESTY not found in h360_api/wording.py")
+    raise SystemExit(f"{name} not found in h360_api/{module}")
+
+
+def honesty_line():
+    return module_constant("wording.py", "HONESTY")
+
+
+# Sentence constants (one nurse's 25 calls a week, 4 weeks, the 135-139 / 140-144 bands, "for every 1").
+SENTENCE_CONSTANTS = {str(v) for v in module_constant("ranker.py", "CONSTANTS").values()}
 
 
 def psql_cmd():
@@ -118,14 +130,68 @@ class Session:
 
 def norm(token):
     try:
-        return str(Decimal(token).normalize())
+        return format(Decimal(str(token).replace(",", "")).normalize(), "f")
     except InvalidOperation:
         return token
 
 
+def months_back(month, n):
+    y, m = int(month[:4]), int(month[5:7])
+    index = y * 12 + m - 1 - n
+    return f"{index // 12:04d}-{index % 12 + 1:02d}-01"
+
+
+def recompute(rule, xs):
+    q1, q01 = Decimal("1"), Decimal("0.1")
+    if rule == "sub":
+        return xs[0] - xs[1]
+    if rule == "add":
+        return xs[0] + xs[1]
+    if rule == "mul":
+        return xs[0] * xs[1]
+    if rule == "min":
+        return min(xs)
+    if rule == "round0":
+        return xs[0].quantize(q1, rounding=ROUND_HALF_UP)
+    if rule == "round1":
+        return xs[0].quantize(q01, rounding=ROUND_HALF_UP)
+    if rule == "pct_of":
+        return (xs[0] * xs[1] / 100).quantize(q1, rounding=ROUND_HALF_UP)
+    if rule == "pct":
+        return (100 * xs[0] / xs[1]).quantize(q1, rounding=ROUND_HALF_UP)
+    raise ValueError(rule)
+
+
+def with_derived(answer, allowed):
+    """Allowed numbers plus each `derived` value this script can recompute from allowed inputs."""
+    known, bad = set(allowed), []
+    for d in answer.get("derived") or []:
+        inputs = [norm(str(i)) for i in d.get("inputs") or []]
+        try:
+            value = norm(str(recompute(d.get("rule"), [Decimal(i) for i in inputs])))
+        except (ValueError, InvalidOperation, IndexError, ZeroDivisionError):
+            bad.append(f"rule {d}")
+            continue
+        if not all(i in known for i in inputs):
+            bad.append(f"inputs not from the functions {d}")
+        elif value != norm(str(d.get("value"))):
+            bad.append(f"does not recompute {d}")
+        else:
+            known.add(value)
+    return known, bad
+
+
 def allowed_numbers(place_id):
-    """Number tokens of every report_* / chat_* output for the place and month."""
-    m = f"DATE '{MONTH}'"
+    """Number tokens of every report_* / chat_* output for the place, this month and the 5 before."""
+    tokens = set()
+    for back in range(SERIES_MONTHS):
+        tokens |= allowed_numbers_for(place_id, months_back(MONTH, back))
+    return tokens
+
+
+def allowed_numbers_for(place_id, month):
+    """Number tokens of every report_* / chat_* output for the place and one month."""
+    m = f"DATE '{month}'"
     calls = [
         f"report_adherence({m}, {place_id}, true)", f"report_adherence({m}, {place_id}, false)",
         f"report_adherence_buckets({m}, {place_id}, true)", f"report_adherence_buckets({m}, {place_id}, false)",
@@ -136,6 +202,8 @@ def allowed_numbers(place_id):
         f"chat_control_summary({m}, {place_id})", f"chat_drug_stock_gate({m}, {place_id})",
         f"chat_call_plan({m}, {place_id})", f"chat_facility_rank_district({m}, {place_id})",
         f"h360_control_summary({m}, {place_id})",
+        f"report_titration_monthly({m}, {place_id})", f"report_statins_monthly({m}, {place_id})",
+        f"report_fudging_quarterly({m}, {place_id})", f"report_calling_return({m}, {place_id})",
     ]
     present = set(psql_json(
         "SELECT coalesce(json_agg(p.proname), '[]') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace "
@@ -278,9 +346,18 @@ for place_id, name in PLACES:
         if (ans.get("place") or {}).get("org_unit_id") != place_id:
             problems.append(f"place {ans.get('place')}")
         numbers = [t for s in visible(ans) for t in NUMBER.findall(s)]
-        missing = sorted({t for t in numbers if norm(t) not in allowed})
+        known, bad = with_derived(ans, allowed)
+        if bad:
+            problems.append("derived numbers: " + "; ".join(bad))
+        missing = sorted({t for t in numbers if norm(t) not in known})
         if missing:
             problems.append("numbers not in the report or chat functions: " + ", ".join(missing))
+        for r in ans.get("reasons") or []:
+            if r.get("figure"):
+                ev = r.get("evidence") or {}
+                url = (ev.get("link") or {}).get("url") or ""
+                if not ev or f"var-reporting_month={MONTH}" not in url or "var-org_unit=" not in url:
+                    problems.append(f"evidence link missing place or month: {r.get('lever')}")
         check(label, not problems, "; ".join(problems) if problems else
               f"{secs * 1000:.0f} ms, {len(numbers)} numbers matched, mode {ans.get('mode')}")
 
@@ -293,6 +370,8 @@ for place_id, name in PLACES:
             levers = [r.get("lever") for r in ans.get("reasons") or []]
             check("PHC-E first reasons are fudging then titration", levers[:2] == ["fudging_score", "titration_rate"],
                   ", ".join(str(x) for x in levers))
+            on_target = [r.get("text") for r in ans.get("reasons") or [] if "On target" in (r.get("text") or "")]
+            check("PHC-E no met target listed as a reason (UX-07)", not on_target, "; ".join(on_target))
 
 nurse = Session("nurse.phc-a", "demo")
 status, body, _ = nurse.call("GET", f"/chat/chips?org_unit_id=11&reporting_month={MONTH}")

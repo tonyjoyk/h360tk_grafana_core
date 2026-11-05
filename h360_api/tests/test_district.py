@@ -39,12 +39,18 @@ class VisitFirstTests(unittest.TestCase):
         answer = wording.compose(facts, "", "m")
         self.assertEqual(answer["title"], "Which facilities should I visit first in District-D?")
         self.assertEqual([r["text"] for r in answer["reasons"]], [
-            "PHC-F has 286 of 1334 patients with BP not controlled. "
-            "Past the line on BP not controlled (21.4%) and missed visits (27.3%).",
-            "PHC-E looks fine at 75.0% controlled, but is flagged on BP readings check and Stepping up.",
+            "PHC-F has the most patients with high BP: 286 of 1,334. Many patients miss visits (27%). "
+            "Few overdue patients are called. Few eligible patients are on a statin.",
+            "PHC-E looks good, with 75% of patients controlled. "
+            "But many BP readings sit just under 140 and medicine is rarely stepped up.",
         ])
         self.assertEqual(answer["reasons"][0]["what_to_do"],
-                         "Visit this month and agree two actions with the team, with a weekly check.")
+                         "Visit this month. Start with the overdue list. "
+                         "Agree two actions with the team and check them weekly.")
+        self.assertEqual(answer["reasons"][1]["what_to_do"],
+                         "Visit this month and watch BP being measured before you use PHC-E as an example.")
+        self.assertEqual(answer["reasons"][0]["link"]["url"],
+                         "/d/heart360_reports?var-org_unit=47&var-reporting_month=2026-10-01&-dtab=Overdue-calls")
         self.assertEqual(answer["nudge"], {"chip_id": "why_control_low", "label": "Why is control low at PHC-F?",
                                            "org_unit_id": 47})
         self.assertEqual(wording.check_answer(answer, facts), [])
@@ -87,7 +93,7 @@ class VisitFirstTests(unittest.TestCase):
         })
         answer = wording.compose(visit_facts(data, district), "", "m")
         self.assertEqual(len(answer["reasons"]), 1)
-        self.assertTrue(answer["reasons"][0]["text"].startswith("No facility in District-D is past the lines"))
+        self.assertTrue(answer["reasons"][0]["text"].startswith("No facility in District-D stands out"))
         self.assertIsNone(answer["nudge"])
 
     def test_breach_words_are_plain(self):
@@ -99,8 +105,8 @@ class VisitFirstTests(unittest.TestCase):
         data[47]["control"]["ltfu_pct"] = D("22.5")
         answer = wording.compose(visit_facts(data, district), "", "m")
         todo = answer["reasons"][0]["text"]
-        self.assertTrue(todo.endswith("Past the line on BP controlled (51.2%), BP not controlled (21.4%), "
-                                      "missed visits (27.3%) and patients not coming back (22.5%)."))
+        self.assertIn("Only 51% of patients have BP controlled. Many patients miss visits (27%). "
+                      "Many patients have stopped coming (23%).", todo)
         self.assertNotIn("LTFU", todo)
 
 
@@ -144,8 +150,8 @@ class DistrictChipsTests(unittest.TestCase):
         client, _db = chat_client()
         body = ask(client, {"chip_id": "why_control_low", "org_unit_id": "10",
                             "reporting_month": "2026-10-01"}).json()
-        self.assertEqual(body["title"], "What to check at District-D? 63.2% controlled, looks fine.")
-        self.assertTrue(body["also_check"].startswith("PHC-E looks fine at 75.0% controlled"))
+        self.assertEqual(body["title"], "What to check at District-D? Control looks good.")
+        self.assertEqual(body["also_check"], "PHC-E looks good at 75% controlled, but check its BP readings and stepping up.")
 
 
 if __name__ == "__main__":
