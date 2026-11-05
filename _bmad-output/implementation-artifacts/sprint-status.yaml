@@ -37,7 +37,7 @@ story_location: _bmad-output/implementation-artifacts
 development_status:
   epic-1: in-progress
   1-1-merge-housekeeping-and-migration-renumbering: done
-  1-2-demo_up-sh-hardening-and-deep-links: backlog
+  1-2-demo_up-sh-hardening-and-deep-links: done
   epic-1-retrospective: optional
 
   epic-2: in-progress
@@ -108,11 +108,11 @@ development_status:
   epic-6-retrospective: optional
 
   epic-7: backlog
-  7-1-verify_all-sh: backlog
-  7-2-seed-target-and-pill-check: backlog
-  7-3-banned-word-and-plain-language-check: backlog
-  7-4-fresh-install-upgrade-parity-and-clean-boot: backlog
-  7-5-chat-verification: backlog
+  7-1-verify_all-sh: done
+  7-2-seed-target-and-pill-check: done
+  7-3-banned-word-and-plain-language-check: done
+  7-4-fresh-install-upgrade-parity-and-clean-boot: done
+  7-5-chat-verification: done
   7-6-slow-laptop-browser-pass: backlog
   7-7-report-docs-demo-runbook-and-image-freeze: backlog
   7-8-rehearsal-and-backup-recording: backlog
