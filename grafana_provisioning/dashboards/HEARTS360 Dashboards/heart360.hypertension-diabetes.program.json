@@ -4997,6 +4997,104 @@
             "version": "6.2.0"
           }
         }
+      },
+      "panel-overdue": {
+        "kind": "Panel",
+        "spec": {
+          "id": 902,
+          "title": "Overdue patients",
+          "description": "**Overdue at the start of the month:** alive patients whose last visit was more than the overdue period before the 1st of the month and who were not removed from the overdue list, the same rule as the Overdue list. The big number counts those with a phone number (8 or more digits). **Overdue patients called:** overdue patients with a phone number whose first call of the month was made in that month. **Overdue patients that returned to care:** patients called in the month who had a visit within 15 days of their first call, out of all patients called that month (as in the hearts360 0.3.9 charts). Big numbers are the latest completed month; the current month is dashed. Months before the first recorded call show no call figures.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH sel AS (\n  SELECT (SELECT ou.id FROM org_units ou\n          WHERE ou.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')\n          LIMIT 1) AS org_id\n),\nunits AS (\n  SELECT id FROM org_units WHERE (SELECT org_id FROM sel) IS NULL\n  UNION\n  SELECT id FROM get_descendant_ids((SELECT org_id FROM sel))\n),\nmonths AS (\n  SELECT generate_series(date_trunc('month', $__timeFrom()::timestamptz),\n                         date_trunc('month', $__timeTo()::timestamptz),\n                         interval '1 month')::date AS ref_month\n),\ncalled AS (\n  SELECT ref_month, SUM(overdue_patients_called) AS called_n\n  FROM HEART360_OVERDUE_PATIENTS_CALLED\n  WHERE org_unit_id IN (SELECT id FROM units)\n  GROUP BY ref_month\n),\nreturned AS (\n  SELECT ref_month, SUM(overdue_returned_to_care) AS returned_n\n  FROM HEART360_OVERDUE_RETURNED_TO_CARE\n  WHERE org_unit_id IN (SELECT id FROM units)\n  GROUP BY ref_month\n),\nfirst_call AS (\n  SELECT date_trunc('month', MIN(call_date))::date AS ref_month FROM call_results\n)\nSELECT\n  m.ref_month,\n  r.overdue_n,\n  r.overdue_with_phone_n AS overdue_phone_n,\n  r.called_n AS called_overdue_n,\n  COALESCE(c.called_n, 0) AS called_n,\n  COALESCE(rt.returned_n, 0) AS returned_n,\n  (m.ref_month >= (SELECT ref_month FROM first_call)) AS calls_recorded\nFROM months m\nCROSS JOIN LATERAL report_calling(m.ref_month, (SELECT org_id FROM sel)) r\nLEFT JOIN called c ON c.ref_month = m.ref_month\nLEFT JOIN returned rt ON rt.ref_month = m.ref_month\nWHERE r.is_selected\nORDER BY m.ref_month\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "volkovlabs-echarts-panel",
+            "kind": "VizConfig",
+            "version": "7.2.5",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "baidu": {
+                  "callback": "bmapReady",
+                  "key": ""
+                },
+                "editor": {
+                  "format": "auto"
+                },
+                "editorMode": "code",
+                "gaode": {
+                  "key": "",
+                  "plugin": "AMap.Scale,AMap.ToolBar"
+                },
+                "google": {
+                  "callback": "gmapReady",
+                  "key": ""
+                },
+                "map": "none",
+                "renderer": "canvas",
+                "themeEditor": {
+                  "config": "{}",
+                  "name": "default"
+                },
+                "visualEditor": {
+                  "code": "return {}",
+                  "dataset": [],
+                  "series": []
+                },
+                "getOption": "const frame = (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst tr = context.panel.data.timeRange;\nconst from = tr ? tr.from.valueOf() : -Infinity;\nconst to = tr ? tr.to.valueOf() : Infinity;\nconst months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];\nconst mLabel = (ms) => { const d = new Date(ms); return months[d.getUTCMonth()] + '-' + d.getUTCFullYear(); };\nconst theme = context.grafana && context.grafana.theme;\nconst fg = (theme && theme.colors && theme.colors.text && theme.colors.text.primary) || '#1c1c1c';\nconst muted = '#6e7f8d';\nconst T = col('ref_month').map(Number);\nconst order = T.map((v, i) => i).filter((i) => T[i] >= from && T[i] <= to).sort((a, b) => T[a] - T[b]);\nconst done = order.length > 1 ? order[order.length - 2] : order[order.length - 1];\nconst solid = (vals) => order.map((i, k) => [T[i], k < order.length - 1 ? Number(vals[i]) || 0 : null]);\nconst dashed = (vals) => order.map((i, k) => [T[i], k >= order.length - 2 ? Number(vals[i]) || 0 : null]);\nconst axisX = { type: 'time', axisLabel: { color: muted, fontSize: 11, hideOverlap: true, formatter: (v) => mLabel(v) }, axisLine: { lineStyle: { color: 'rgba(128,128,128,0.4)' } }, splitLine: { show: false } };\nconst head = (big, color, line2, line3, rich) => [\n  { type: 'text', left: 12, top: 2, style: { text: big, fontSize: 30, fontWeight: 700, fill: color } },\n  { type: 'text', left: 12, top: 42, style: { text: line2, fontSize: 13, fill: fg } },\n  { type: 'text', left: 12, top: 62, style: { text: line3, fontSize: 13, fill: muted, rich: rich } }\n];\nconst fmt = (v) => Math.round(Number(v) || 0).toLocaleString('en-US');\nconst soft = (t) => '<span style=\"opacity:0.7\">' + t + '</span>';\n// Colour key for charts with more than one series. Like hearts360 (Chart.js), the colour sits on\n// white with a 1px white border, so translucent series colours read the same as on the chart.\nconst dot = (c) => '<span style=\"display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;'\n  + (c ? 'border:1px solid #fff;background:linear-gradient(' + c + ',' + c + '),#fff' : 'border:1px solid transparent') + '\"></span>';\nconst pctStr = (v, d) => (Number(d) ? Math.round(100 * (Number(v) || 0) / Number(d)) : 0) + '%';\n// \"Label: 61%\" over \"3,901 of 6,523 patients\"; several rows become \"Label: 29%, 387 patients\" over \"of 1,352 patients\"\n// (an optional third item per row adds a colour key).\nconst shareRows = (rows, d) => rows.length === 1\n  ? [rows[0][0] + ': ' + pctStr(rows[0][1], d), soft(fmt(rows[0][1]) + ' of ' + fmt(d) + ' patients')]\n  : rows.map(([label, v, c]) => dot(c) + label + ': ' + pctStr(v, d) + ', ' + fmt(v) + ' patients').concat(soft('of ' + fmt(d) + ' patients'));\n// Shared tooltip: the hovered month in bold (marked while still running), then rowsFor(monthIndex, gridIndex).\nconst tip = (rowsFor) => ({\n  trigger: 'axis', backgroundColor: 'rgba(28,28,28,0.92)', borderWidth: 0, padding: [8, 12],\n  textStyle: { color: '#fff', fontSize: 13 }, extraCssText: 'border-radius: 6px;',\n  axisPointer: { lineStyle: { color: 'rgba(110,127,141,0.6)' } },\n  formatter: (ps) => {\n    const p = [].concat(ps)[0];\n    const n = p ? order.findIndex((i) => T[i] === Number(p.axisValue)) : -1;\n    if (n < 0) { return ''; }\n    const running = order.length > 1 && n === order.length - 1;\n    return '<b>' + mLabel(T[order[n]]) + (running ? ' (in progress)' : '') + '</b><br>' + rowsFor(order[n], p.axisIndex || 0).join('<br>');\n  }\n});\nconst ovd = col('overdue_n');\nconst phone = col('overdue_phone_n');\nconst calledOvd = col('called_overdue_n');\nconst called = col('called_n');\nconst back = col('returned_n');\nconst known = col('calls_recorded').map((v) => v === true || v === 1 || v === 't' || v === 'true');\nconst ratio = (n, d, i) => (known[i] && Number(d[i]) ? 100 * (Number(n[i]) || 0) / Number(d[i]) : null);\nconst W = (context.panel.chart && context.panel.chart.getWidth && context.panel.chart.getWidth()) || 1200;\nconst colW = W / 3;\n// Titles wrap on narrow screens; push the figures and charts down by one line when any does.\nconst wrapped = (t) => t.length * 7.8 > colW - 36;\nconst noCalls = ['No calls recorded'];\nconst COLS = [\n  { color: '#ed6300', fill: 'rgba(237,99,0,0.12)', title: 'Overdue at the start of the month', count: true,\n    point: (i) => Number(phone[i]) || 0,\n    big: (i) => fmt(phone[i]),\n    detail: (i) => fmt(phone[i]) + ' of ' + fmt(ovd[i]) + ' overdue patients have a phone',\n    rows: (i) => ['Overdue with a phone number: ' + fmt(phone[i]), soft('of ' + fmt(ovd[i]) + ' overdue patients')] },\n  { color: '#007ee4', fill: 'rgba(0,126,228,0.12)', title: 'Overdue patients called',\n    point: (i) => ratio(calledOvd, phone, i),\n    big: (i) => (ratio(calledOvd, phone, i) === null ? '\u2013' : Math.round(ratio(calledOvd, phone, i)) + '%'),\n    detail: (i) => (known[i] ? fmt(calledOvd[i]) + ' of ' + fmt(phone[i]) + ' overdue patients were called' : 'No calls recorded this month'),\n    rows: (i) => (known[i] ? shareRows([['Called', calledOvd[i]]], phone[i]) : noCalls) },\n  { color: '#3bb231', fill: 'rgba(59,178,49,0.12)', title: 'Overdue patients that returned to care',\n    point: (i) => ratio(back, called, i),\n    big: (i) => (ratio(back, called, i) === null ? '\u2013' : Math.round(ratio(back, called, i)) + '%'),\n    detail: (i) => (known[i] ? fmt(back[i]) + ' of ' + fmt(called[i]) + ' called patients visited within 15 days' : 'No calls recorded this month'),\n    rows: (i) => (known[i] ? shareRows([['Returned to care', back[i]]], called[i]) : noCalls) }\n];\nconst shift = COLS.some((c) => wrapped(c.title)) ? 18 : 0;\nconst graphic = [];\nif (done !== undefined) {\n  graphic.push({ type: 'text', left: 12, top: 0, style: { text: 'Patients overdue at the start of ' + mLabel(T[done]) + ', the calls made to them that month, and the visits within 15 days of a call', fontSize: 13, fill: fg, width: W - 24, overflow: 'truncate' } });\n  COLS.forEach((c, k) => {\n    graphic.push({ type: 'group', left: k * colW + 12, top: 32, children: [\n      { type: 'text', style: { text: c.title, fontSize: 14, fontWeight: 600, fill: c.color, width: colW - 36, overflow: 'break', lineHeight: 18 } },\n      { type: 'text', top: 26 + shift, style: { text: c.big(done), fontSize: 30, fontWeight: 700, fill: c.color } },\n      { type: 'text', top: 64 + shift, style: { text: c.detail(done), fontSize: 13, fill: fg, width: colW - 36, overflow: 'break', lineHeight: 17 } }\n    ] });\n  });\n}\nconst grid = [], xAxis = [], yAxis = [], series = [];\nCOLS.forEach((c, k) => {\n  grid.push({ left: k * colW + 12, width: colW - 36, top: 136 + shift, bottom: 14, containLabel: true });\n  xAxis.push(Object.assign({}, axisX, { gridIndex: k }));\n  yAxis.push(c.count\n    ? { type: 'value', gridIndex: k, min: 0, splitNumber: 4, axisLabel: { color: muted, fontSize: 11, formatter: (v) => fmt(v) }, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } } }\n    : { type: 'value', gridIndex: k, min: 0, max: 100, interval: 25, axisLabel: { color: muted, fontSize: 11, formatter: (v) => v + '%' }, splitLine: { lineStyle: { color: 'rgba(128,128,128,0.15)' } } });\n  const pts = order.map((i) => c.point(i));\n  const solidPts = order.map((i, n) => [T[i], n < order.length - 1 ? pts[n] : null]);\n  const dashPts = order.map((i, n) => [T[i], n >= order.length - 2 ? pts[n] : null]);\n  series.push({ type: 'line', name: c.title, xAxisIndex: k, yAxisIndex: k, data: solidPts, showSymbol: true, symbolSize: 5, lineStyle: { color: c.color, width: 2 }, itemStyle: { color: c.color }, areaStyle: { color: c.fill } });\n  series.push({ type: 'line', name: c.title, xAxisIndex: k, yAxisIndex: k, data: dashPts, showSymbol: true, symbolSize: 5, lineStyle: { color: c.color, width: 2, type: 'dashed' }, itemStyle: { color: c.color } });\n});\nreturn {\n  animation: false,\n  graphic: graphic,\n  tooltip: tip((i, k) => COLS[k].rows(i)),\n  grid: grid, xAxis: xAxis, yAxis: yAxis, series: series\n};"
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -5163,6 +5261,33 @@
                                     }
                                   },
                                   "title": "Cohort"
+                                }
+                              },
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "collapse": false,
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-overdue"
+                                            },
+                                            "height": 11,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  },
+                                  "title": "Overdue patients"
                                 }
                               },
                               {
