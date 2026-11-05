@@ -56,6 +56,7 @@ CHECKS=(
   "verify_calling|bash $MIG/verify_calling.sh"
   "verify_new_patients|bash $MIG/verify_new_patients.sh"
   "verify_report_flags|bash $MIG/verify_report_flags.sh"
+  "verify_audit_reports|bash $MIG/verify_audit_reports.sh"
   # Chat SQL (Epic 6).
   "verify_chat_levers|bash $MIG/verify_chat_levers.sh"
   # Migration chain (7.4).
