@@ -169,6 +169,15 @@ def choose_team(person, rows, problem):
     return row["team"], f"org unit {row['name']} id {row['id']}"
 
 
+def password_works(login):
+    proc = subprocess.run(
+        ["curl", "-s", "-o", "/dev/null", "-w", "%{http_code}",
+         "-u", f"{login}:{PASSWORD}", f"{GRAFANA_URL}/api/user"],
+        capture_output=True, text=True, timeout=20,
+    )
+    return proc.stdout.strip() == "200"
+
+
 def ensure_person(person, team, source):
     login = person["login"]
     http, parsed, body = grafana("GET", "/api/users/lookup?loginOrEmail=" + urllib.parse.quote(login))
@@ -192,6 +201,9 @@ def ensure_person(person, team, source):
     pw_http, pw_parsed, pw_body = grafana(
         "PUT", f"/api/admin/users/{user_id}/password", {"password": PASSWORD}
     )
+    if pw_http != 200 and password_works(login):
+        # Grafana 12+ refuses a reset to the current password. The password is already right.
+        pw_http = 200
     require(pw_http, pw_parsed, pw_body, f"set password for {login}")
 
     org_http, org, org_body = grafana(
