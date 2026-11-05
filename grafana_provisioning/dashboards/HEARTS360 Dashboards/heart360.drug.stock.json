@@ -21,13 +21,25 @@
   "links": [
     {
       "asDropdown": false,
+      "icon": "",
+      "includeVars": true,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": false,
+      "title": "← Hypertension dashboard",
+      "tooltip": "Back to the Hypertension dashboard for this place and month",
+      "type": "link",
+      "url": "/d/heart360_showcase"
+    },
+    {
+      "asDropdown": false,
       "icon": "external link",
       "includeVars": true,
       "keepTime": false,
       "tags": [],
       "targetBlank": false,
       "title": "Reports",
-      "tooltip": "Reports",
+      "tooltip": "Reports for this place and month",
       "type": "link",
       "url": "/d/heart360_reports"
     },
@@ -39,14 +51,14 @@
       "tags": [],
       "targetBlank": false,
       "title": "Enter stock",
-      "tooltip": "Enter stock for one facility",
+      "tooltip": "Go to the stock form",
       "type": "link",
-      "url": "/d/heart360_drug_stock?viewPanel=12"
+      "url": "/d/heart360_drug_stock?enter=1"
     }
   ],
   "panels": [
     {
-      "collapsed": false,
+      "collapsed": true,
       "gridPos": {
         "h": 1,
         "w": 24,
@@ -54,8 +66,117 @@
         "y": 0
       },
       "id": 1,
-      "panels": [],
+      "panels": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension"
+          },
+          "fieldConfig": {
+            "defaults": {},
+            "overrides": []
+          },
+          "gridPos": {
+            "h": 12,
+            "w": 24,
+            "x": 0,
+            "y": 1
+          },
+          "id": 2,
+          "options": {
+            "additionalColumns": "",
+            "clickMode": "SetVariable",
+            "compactMode": true,
+            "dashboardVariableName": "org_unit",
+            "dataLinkNewTab": false,
+            "dataLinkUrl": "",
+            "disabledColumn": "disabled",
+            "displayedTreeDepth": 100,
+            "enableSelectDeselectAll": false,
+            "iconClickMode": "doNothing",
+            "iconClickTooltip": "",
+            "iconColorColumn": "",
+            "iconColorMappings": {
+              "valueMappings": []
+            },
+            "iconColumn": "",
+            "iconMappings": {
+              "valueMappings": []
+            },
+            "idColumn": "id",
+            "includeDisabled": false,
+            "labelColumn": "name",
+            "multiSelect": false,
+            "orderLevels": "asc",
+            "parentIconColorColumn": "",
+            "parentIconColorMappings": {
+              "valueMappings": []
+            },
+            "parentIconColumn": "",
+            "parentIconMappings": {
+              "valueMappings": []
+            },
+            "parentIdColumn": "parent_id",
+            "searchPlaceholder": "Search",
+            "showCheckbox": false,
+            "showColumnHeaders": false,
+            "showGridLines": false,
+            "showIconFilter": false,
+            "showItemCount": false,
+            "showSearch": true,
+            "supportsDisabled": false,
+            "toggleSelectMode": "singleClick",
+            "valueMappings": {}
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres-hypertension"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT 0 as id, 'All Locations' as name, 0 as level, NULL::integer as parent_id WHERE EXISTS (SELECT 1 FROM org_units) UNION ALL SELECT id, name, level, COALESCE(parent_id, 0) as parent_id FROM org_units UNION ALL SELECT NULL, 'No data', NULL, NULL WHERE NOT EXISTS (SELECT 1 FROM org_units) ORDER BY parent_id NULLS FIRST, name",
+              "refId": "A"
+            }
+          ],
+          "title": "",
+          "transparent": true,
+          "type": "equansdatahub-tree-panel",
+          "transformations": [
+            {
+              "id": "filterByValue",
+              "options": {
+                "filters": [
+                  {
+                    "fieldName": "id",
+                    "config": {
+                      "id": "isNotNull"
+                    }
+                  }
+                ],
+                "type": "include",
+                "match": "all"
+              }
+            }
+          ]
+        }
+      ],
       "title": "Change location",
+      "type": "row"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 1
+      },
+      "id": 15,
+      "panels": [],
+      "title": "Days of medicine left",
       "type": "row"
     },
     {
@@ -68,104 +189,29 @@
         "overrides": []
       },
       "gridPos": {
-        "h": 12,
-        "w": 24,
+        "h": 3,
+        "w": 20,
         "x": 0,
-        "y": 1
-      },
-      "id": 2,
-      "options": {
-        "additionalColumns": "",
-        "clickMode": "SetVariable",
-        "compactMode": true,
-        "dashboardVariableName": "org_unit",
-        "dataLinkNewTab": false,
-        "dataLinkUrl": "",
-        "disabledColumn": "disabled",
-        "displayedTreeDepth": 1,
-        "enableSelectDeselectAll": false,
-        "iconClickMode": "doNothing",
-        "iconClickTooltip": "",
-        "iconColorColumn": "",
-        "iconColorMappings": {
-          "valueMappings": []
-        },
-        "iconColumn": "",
-        "iconMappings": {
-          "valueMappings": []
-        },
-        "idColumn": "id",
-        "includeDisabled": false,
-        "labelColumn": "name",
-        "multiSelect": false,
-        "orderLevels": "asc",
-        "parentIconColorColumn": "",
-        "parentIconColorMappings": {
-          "valueMappings": []
-        },
-        "parentIconColumn": "",
-        "parentIconMappings": {
-          "valueMappings": []
-        },
-        "parentIdColumn": "parent_id",
-        "searchPlaceholder": "Search",
-        "showCheckbox": false,
-        "showColumnHeaders": false,
-        "showGridLines": false,
-        "showIconFilter": false,
-        "showItemCount": false,
-        "showSearch": true,
-        "supportsDisabled": false,
-        "toggleSelectMode": "chevronOnly",
-        "valueMappings": {}
-      },
-      "targets": [
-        {
-          "datasource": {
-            "type": "grafana-postgresql-datasource",
-            "uid": "postgres-hypertension-cached"
-          },
-          "editorMode": "code",
-          "format": "table",
-          "rawQuery": true,
-          "rawSql": "SELECT name, id, parent_id FROM heart360tk_schema.org_units",
-          "refId": "A"
-        }
-      ],
-      "title": "",
-      "transparent": true,
-      "type": "equansdatahub-tree-panel"
-    },
-    {
-      "datasource": {
-        "type": "grafana-postgresql-datasource",
-        "uid": "postgres-hypertension-cached"
-      },
-      "fieldConfig": {
-        "defaults": {},
-        "overrides": []
-      },
-      "gridPos": {
-        "h": 2,
-        "w": 24,
-        "x": 0,
-        "y": 13
+        "y": 2
       },
       "id": 11,
       "options": {
-        "afterRender": "",
-        "content": "{{#if (eq isAllowed \"1\")}}\n{{#if coverage}}\n<div class=\"h360-cov\">Coverage: {{coverage}}</div>\n{{/if}}\n{{else}}\n<div class=\"ovq-warn\"><span>\u26a0\ufe0f</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: {{{requiredGroups}}}</span></div>\n{{/if}}",
+        "afterRender": "// Place line above the table.\nconst root = context.element.querySelector('.h360-top');\nif (!root) { return; }\nconst series = (context.panelData && context.panelData.series) || [];\nconst frame = series.find((s) => s.refId === 'A') || series[0];\nconst a = {};\nif (frame) { frame.fields.forEach((f) => { a[f.name] = Array.from(f.values)[0]; }); }\nconst esc = (v) => String(v == null ? '' : v).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nif (!frame) { root.innerHTML = ''; return; }\nif (String(a.isAllowed) !== '1') {\n  root.innerHTML = '<div class=\"ovq-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: '\n    + (a.requiredGroups || '') + '</span></div>';\n  return;\n}\nconst chip = (cls, text) => '<span class=\"h360-key\"><i class=\"' + cls + '\"></i>' + text + '</span>';\nroot.innerHTML = '<div class=\"h360-place\"><strong>' + esc(a.place) + '</strong>'\n  + (a.month_label ? ' · ' + esc(a.month_label) : '')\n  + (a.coverage ? ' · ' + esc(a.coverage) : '') + '</div>'\n  + '<div class=\"h360-legend\">Days of medicine left for the patients: '\n  + chip('r', 'under 30') + chip('o', '30–59') + chip('y', '60–89') + chip('g', '90 or more')\n  + chip('q', '? not reported') + '</div>';\n",
+        "content": "<div class=\"h360-top\"></div>",
         "contentPartials": [],
-        "defaultContent": "",
+        "defaultContent": "<div class=\"h360-top\"></div>",
         "editor": {
           "format": "auto",
           "language": "html"
         },
-        "editors": [],
+        "editors": [
+          "styles",
+          "afterRender"
+        ],
         "externalStyles": [],
         "helpers": "",
-        "renderMode": "everyRow",
-        "styles": ".ovq-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n.h360-cov { font-family: Inter, Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.4; color: #6E6E6E; padding: 4px 2px; }",
+        "renderMode": "allRows",
+        "styles": ".h360-top { font-family: Inter, Roboto, Helvetica, Arial, sans-serif; font-size: 13px; line-height: 1.5; }\n.h360-place { font-size: 14px; }\n.h360-legend { color: #6E6E6E; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; }\n.h360-key { display: inline-flex; align-items: center; gap: 5px; }\n.h360-key i { display: inline-block; width: 12px; height: 12px; border-radius: 2px; }\n.h360-key i.r { background: #E02F44; } .h360-key i.o { background: #FF9830; }\n.h360-key i.y { background: #F2CC0C; } .h360-key i.g { background: #56A64B; }\n.h360-key i.q { background: #EFEFEF; border: 1px solid #ccc; }\n.h360-cov { color: #6E6E6E; padding: 4px 2px; }\n.ovq-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }",
         "wrap": true
       },
       "targets": [
@@ -177,7 +223,60 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "SELECT\n  flags.\"isAllowed\",\n  flags.\"requiredGroups\",\n  cov.coverage\nFROM (\n  SELECT '${isAllowed}'::text AS \"isAllowed\",\n         '${requiredGroups}'::text AS \"requiredGroups\"\n) flags\nLEFT JOIN (\n  SELECT * FROM (\n    SELECT CASE\n      WHEN COUNT(*) = 0 THEN NULL\n      WHEN COUNT(DISTINCT reporting_n) = 1 AND COUNT(DISTINCT cohort_n) = 1\n        THEN MIN(reporting_n)::text || ' of ' || MIN(cohort_n)::text || ' facilities'\n      ELSE string_agg(\n        drug_category || ' ' || reporting_n::text || ' of ' || cohort_n::text || ' facilities',\n        ' \u00b7 ' ORDER BY CASE drug_category\n          WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4\n        END, drug_category\n      )\n    END AS coverage\n    FROM heart360tk_reporting.drug_stock_patient_days_all(\n      NULLIF('${reporting_month}', '')::date,\n      NULLIF('${org_unit}', '')::integer\n    )\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n    AND coverage IS NOT NULL\n) cov ON true",
+          "rawSql": "-- Place, month and coverage for the line above the table.\nSELECT\n  flags.\"isAllowed\",\n  flags.\"requiredGroups\",\n  flags.place,\n  flags.month_label,\n  cov.coverage\nFROM (\n  SELECT '${isAllowed}'::text AS \"isAllowed\",\n         '${requiredGroups}'::text AS \"requiredGroups\",\n         COALESCE((SELECT o.name FROM heart360tk_schema.org_units o\n                   WHERE o.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')),\n                  'All locations') AS place,\n         to_char(NULLIF('${reporting_month}', '')::date, 'FMMon-YYYY') AS month_label\n) flags\nLEFT JOIN (\n  SELECT * FROM (\n    SELECT CASE\n      WHEN COUNT(*) = 0 THEN NULL\n      WHEN COUNT(DISTINCT reporting_n) = 1 AND COUNT(DISTINCT cohort_n) = 1\n        THEN MIN(reporting_n)::text || ' of ' || MIN(cohort_n)::text || ' facilities reported'\n      ELSE string_agg(\n        drug_category || ' ' || reporting_n::text || ' of ' || cohort_n::text || ' facilities',\n        ' · ' ORDER BY CASE drug_category\n          WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4\n        END, drug_category\n      ) || ' reported'\n    END AS coverage\n    FROM heart360tk_reporting.drug_stock_patient_days_all(\n      NULLIF('${reporting_month}', '')::date,\n      NULLIF('${org_unit}', '')::integer\n    )\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n    AND coverage IS NOT NULL\n) cov ON true",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-grafana"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 4,
+        "x": 20,
+        "y": 2
+      },
+      "id": 16,
+      "options": {
+        "afterRender": "// A Viewer who opens the board with no place goes to their home unit (UX-02), the unit the\n// home page links to. 0 is All Locations and stays. Elsewhere this shows a My place link.\nconst root = context.element.querySelector('.h360-home');\nif (!root) { return; }\nconst series = (context.panelData && context.panelData.series) || [];\nconst frame = series[0];\nconst field = frame && frame.fields.find((f) => f.name === 'home_unit');\nconst home = String((field && Array.from(field.values)[0]) || '').trim();\nconst g = context.grafana || {};\nconst vars = (t) => (typeof g.replaceVariables === 'function' ? String(g.replaceVariables(t)).trim() : '');\nconst org = vars('${org_unit}');\n\n// The Enter stock link adds ?enter=1: bring the form into view. This panel is at the top, so it\n// is always drawn; the form panel lower down is drawn only once it is near the screen.\nconst nav = (window.__h360StockNav = window.__h360StockNav || {});\nconst toForm = () => {\n  const el = document.querySelector('[data-viz-panel-key=\"panel-12\"]');\n  if (el) { el.scrollIntoView({ behavior: 'smooth', block: 'start' }); }\n};\n// Scroll twice (the table can still grow), then drop enter=1 so later month or place changes stay put.\nconst goToForm = () => {\n  setTimeout(toForm, 400);\n  setTimeout(() => {\n    toForm();\n    if (g.locationService && typeof g.locationService.partial === 'function') { g.locationService.partial({ enter: null }, true); }\n  }, 1500);\n};\nconst wantsForm = (loc) => /\\/d\\/heart360_drug_stock/.test(loc.pathname) && new URLSearchParams(loc.search).get('enter') === '1';\nif (wantsForm(location) && nav.done !== location.href) {\n  nav.done = location.href;\n  goToForm();\n}\nconst hist = g.locationService && typeof g.locationService.getHistory === 'function' ? g.locationService.getHistory() : null;\nif (hist && !nav.listening) {\n  nav.listening = true;\n  hist.listen((loc) => {\n    if (wantsForm(loc || location)) { nav.done = location.href; goToForm(); }\n  });\n}\n\nif (!/^[0-9]{1,9}$/.test(home)) { root.innerHTML = ''; return; }\nif (org === '' && g.locationService && typeof g.locationService.partial === 'function') {\n  root.innerHTML = '<span class=\"h360-home-note\">Opening your place…</span>';\n  g.locationService.partial({ 'var-org_unit': home }, true);\n  return;\n}\nroot.innerHTML = org === home ? '' : '<a class=\"h360-home-link\" href=\"/d/heart360_drug_stock?var-org_unit=' + home\n  + '&var-reporting_month=' + encodeURIComponent(vars('${reporting_month}')) + '\">My place</a>';\n",
+        "content": "<div class=\"h360-home\"></div>",
+        "contentPartials": [],
+        "defaultContent": "<div class=\"h360-home\"></div>",
+        "editor": {
+          "format": "auto",
+          "language": "html"
+        },
+        "editors": [
+          "styles",
+          "afterRender"
+        ],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "allRows",
+        "styles": ".h360-home { text-align: right; font-size: 13px; padding: 4px 2px; }\n.h360-home-link { color: #0075eb; text-decoration: underline; }\n.h360-home-note { color: #6E6E6E; }",
+        "wrap": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-grafana"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- The user's home unit, the same query as heart360.home.json UserOrgUnitId (UX-02).\nWITH me AS (\n  SELECT u.id, u.is_admin FROM \"user\" u WHERE u.id = ${__user.id}\n),\nmy_teams AS (\n  SELECT t.name\n  FROM me\n  JOIN team_member tm ON tm.user_id = me.id\n  JOIN team t ON tm.team_id = t.id\n  WHERE NOT me.is_admin\n),\nspecific_units AS (\n  SELECT hc.level, ou.id, ou.name\n  FROM my_teams mt\n  JOIN heart360tk_schema.hierarchy_config hc\n    ON mt.name ~ ('^heart360tk_' || hc.var_name || '_view_(patients|aggregated)_')\n    AND mt.name NOT LIKE '%\\_ALL' ESCAPE '\\'\n  JOIN heart360tk_schema.org_units ou\n    ON ou.level = hc.level\n    AND regexp_replace(lower(trim(ou.name)), '\\s+', '_', 'g') =\n        regexp_replace(mt.name, '^heart360tk_' || hc.var_name || '_view_(patients|aggregated)_', '')\n),\nall_access_level AS (\n  SELECT MIN(hc.level) AS level\n  FROM my_teams mt\n  JOIN heart360tk_schema.hierarchy_config hc\n    ON mt.name IN ('heart360tk_' || hc.var_name || '_view_patients_ALL',\n                   'heart360tk_' || hc.var_name || '_view_aggregated_ALL')\n),\nall_access_units AS (\n  SELECT ou.level, ou.id, ou.name\n  FROM all_access_level al\n  JOIN heart360tk_schema.org_units ou ON ou.level = al.level\n  WHERE al.level > 1\n),\ncandidates AS (\n  SELECT * FROM specific_units\n  UNION ALL\n  SELECT * FROM all_access_units\n)\nSELECT COALESCE(\n  (SELECT id::text FROM candidates ORDER BY level ASC, name ASC LIMIT 1),\n  ''\n) AS home_unit",
           "refId": "A"
         }
       ],
@@ -190,7 +289,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "postgres-hypertension-cached"
       },
-      "description": "Reporting Month is the stock month and is not the Grafana time picker.",
+      "description": "Days of medicine left for the registered patients, by medicine group. Red under 30 days, orange 30 to 59, yellow 60 to 89, green 90 or more. ? means the facility has not reported stock for this month. Open Tablets in stock below for the counts.",
       "fieldConfig": {
         "defaults": {
           "color": {
@@ -275,7 +374,7 @@
             "properties": [
               {
                 "id": "decimals",
-                "value": 2
+                "value": 0
               },
               {
                 "id": "noValue",
@@ -341,7 +440,7 @@
                       "-1": {
                         "color": "#FFFFFF",
                         "index": 1,
-                        "text": "\u2014"
+                        "text": "—"
                       }
                     },
                     "type": "value"
@@ -349,14 +448,51 @@
                 ]
               }
             ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Registered patients"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "locale"
+              },
+              {
+                "id": "decimals",
+                "value": 0
+              },
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "auto"
+                }
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "text"
+                }
+              },
+              {
+                "id": "noValue",
+                "value": "—"
+              },
+              {
+                "id": "mappings",
+                "value": []
+              }
+            ]
           }
         ]
       },
       "gridPos": {
-        "h": 14,
+        "h": 10,
         "w": 24,
         "x": 0,
-        "y": 15
+        "y": 5
       },
       "id": 10,
       "options": {
@@ -381,7 +517,7 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT * FROM (\nSELECT matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n)\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+          "rawSql": "-- Patient days only, like the established stock report (UX-32). Tablet counts are in the\n-- Tablets in stock row. Registered patients is the patient-days denominator.\n-- Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT * FROM (\nWITH m AS (\n  SELECT f.matrix, f.ord\n  FROM heart360tk_reporting.drug_stock_on_hand_matrix(\n    NULLIF('${reporting_month}', '')::date,\n    NULLIF('${org_unit}', '')::integer\n  ) WITH ORDINALITY AS f(matrix, ord)\n),\npts AS (\n  SELECT v.facility_name, MAX(v.patients_n) AS patients_n\n  FROM heart360tk_reporting.drug_stock_patient_days v\n  WHERE v.reporting_month = NULLIF('${reporting_month}', '')::date\n    AND v.org_unit_id IN (SELECT g.id FROM heart360tk_schema.get_descendant_ids(NULLIF('${org_unit}', '')::integer) g)\n  GROUP BY v.facility_name\n)\nSELECT (\n  SELECT json_object_agg(c.k, c.v ORDER BY c.n)\n  FROM (\n    SELECT 'Facility' AS k, m.matrix -> 'Facility' AS v, 0::bigint AS n\n    UNION ALL\n    SELECT 'Registered patients',\n           to_json(CASE WHEN m.matrix ->> 'Facility' = 'All'\n                        THEN (SELECT SUM(p.patients_n) FROM pts p)\n                        ELSE (SELECT p.patients_n FROM pts p WHERE p.facility_name = m.matrix ->> 'Facility') END),\n           1\n    UNION ALL\n    -- Whole days, rounded here so the colour matches the number shown (89.9998 is 90, green).\n    SELECT e.key,\n           CASE WHEN json_typeof(e.value) = 'number' THEN to_json(ROUND((e.value #>> '{}')::numeric))\n                ELSE e.value END,\n           1 + e.n\n    FROM json_each(m.matrix) WITH ORDINALITY AS e(key, value, n)\n    WHERE e.key LIKE '% Patient days'\n  ) c\n) AS matrix\nFROM m\nORDER BY m.ord\n) AS master_access_control WHERE '${isAllowed}' = '1'",
           "refId": "A"
         }
       ],
@@ -404,7 +540,7 @@
         "type": "grafana-postgresql-datasource",
         "uid": "postgres-hypertension"
       },
-      "description": "Type this month's stock of each protocol medicine for one facility. Blank means not counted; 0 means none in stock.",
+      "description": "Type the stock of each protocol medicine for one facility. Above facility level, choose the facility first. Blank means not counted; 0 means none in stock. The month starts on this month.",
       "fieldConfig": {
         "defaults": {},
         "overrides": []
@@ -413,11 +549,11 @@
         "h": 11,
         "w": 24,
         "x": 0,
-        "y": 29
+        "y": 15
       },
       "id": 12,
       "options": {
-        "afterRender": "// Enter stock form (story 3.5). One number per protocol drug and strength for one facility\n// and month. Saves to h360-api, which takes identity from the Grafana session.\nconst root = context.element.querySelector('.dse');\nif (!root) { return; }\n\nconst series = (context.panelData && context.panelData.series) || [];\nconst frame = series.find((s) => s.refId === 'A');\nconst all = (() => {\n  if (!frame) { return []; }\n  const cols = frame.fields.map((x) => [x.name, Array.from(x.values)]);\n  const n = cols.length ? cols[0][1].length : 0;\n  return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, v]) => [k, v[i]])));\n})();\nconst flags = all[0] || {};\nconst rows = all.filter((r) => r.drug_code != null);\n\nconst esc = (v) => String(v == null ? '' : v).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst warn = (html) => '<div class=\"dse-warn\"><span>\u26a0\ufe0f</span><span>' + html + '</span></div>';\n\nif (Number(flags.isAllowed) !== 1) {\n  root.innerHTML = warn('<strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + (flags.requiredGroups || ''));\n  return;\n}\nif (Number(flags.isFacility) !== 1 || !rows.length) {\n  root.innerHTML = '<div class=\"dse-note\">Pick one facility to enter stock.</div>';\n  return;\n}\n\nconst MAX = 1000000;\nconst orgId = Number(flags.org_unit_id);\nconst months = [...new Map(rows.map((r) => [r.month, r.month_label])).entries()];\n// Kept across the refresh that follows a save, so the form reopens on the saved month with its note.\nconst memo = (window.__h360StockEntry = window.__h360StockEntry || {});\nconst recent = memo.org === orgId && Date.now() - (memo.at || 0) < 8000 ? memo : null;\nlet month = (recent && recent.month) || flags.this_month;\nif (!months.some(([m]) => m === month)) { month = months[0][0]; }\n\nconst fmt = (n) => Number(n).toLocaleString('en-US');\nconst ofMonth = (m) => rows.filter((r) => r.month === m);\n\nconst render = () => {\n  const list = ofMonth(month);\n  const last = list.filter((r) => r.saved_on).sort((a, b) => String(b.saved_on).localeCompare(String(a.saved_on)))[0];\n  root.innerHTML = '<h2 class=\"dse-title\">Enter stock</h2>'\n    + '<div class=\"dse-head\">' + esc(flags.place) + '. Count tablets in stock. Leave blank if not counted. Enter 0 if none.</div>'\n    + '<form class=\"dse-form\" novalidate>'\n    + '<label class=\"dse-field dse-month-field\"><span>Month</span><select class=\"dse-month\">'\n    + months.map(([m, label]) => '<option value=\"' + esc(m) + '\"' + (m === month ? ' selected' : '') + '>' + esc(label) + '</option>').join('')\n    + '</select></label>'\n    + '<div class=\"dse-grid\">'\n    + list.map((r) => '<label class=\"dse-field\"><span>' + esc(r.drug_label) + '</span>'\n      + '<input type=\"number\" inputmode=\"numeric\" min=\"0\" max=\"' + MAX + '\" step=\"1\" placeholder=\"Not counted\"'\n      + ' data-code=\"' + esc(r.drug_code) + '\" value=\"' + (r.in_stock == null ? '' : esc(r.in_stock)) + '\"></label>').join('')\n    + '</div>'\n    + '<div class=\"dse-actions\"><button type=\"submit\" class=\"dse-save\">Save stock</button>'\n    + '<span class=\"dse-msg\" aria-live=\"polite\"></span></div>'\n    + '<div class=\"dse-last\">' + (last ? 'Last saved ' + esc(last.saved_on) + (last.saved_by ? ' by ' + esc(last.saved_by) : '') + '.' : 'Nothing saved for this month yet.') + '</div>'\n    + '</form>';\n  if (recent && recent.month === month && recent.note) { message(recent.note, recent.cls); }\n};\n\nconst message = (text, cls) => {\n  const m = root.querySelector('.dse-msg');\n  if (m) { m.className = 'dse-msg ' + (cls || ''); m.textContent = text; }\n};\n\n// --- Saving: posted to h360-api, which takes identity from the Grafana session.\nconst H360_API = location.protocol + '//' + location.hostname + ':8090';\nconst save = async (entries) => {\n  const body = JSON.stringify({ org_unit_id: orgId, month, entries });\n  const res = await fetch(H360_API + '/write/drug-stock', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-H360-Request':'1'}, body});\n  const saved = await res.json().catch(() => ({}));\n  const err = res.ok && saved.ok !== false ? '' : (saved.message || res.statusText);\n  if (err) { throw new Error(err); }\n  return saved;\n};\n\nconst refreshBoard = () => {\n  const g = context.grafana || {};\n  const shown = typeof g.replaceVariables === 'function' ? g.replaceVariables('${reporting_month}') : '';\n  if (shown !== month && g.locationService && typeof g.locationService.partial === 'function') {\n    g.locationService.partial({ 'var-reporting_month': month }, true);\n  } else if (typeof g.refresh === 'function') {\n    g.refresh();\n  }\n};\n\nroot.addEventListener('change', (e) => {\n  if (e.target.classList.contains('dse-month')) { month = e.target.value; render(); }\n});\n\nroot.addEventListener('input', (e) => {\n  if (e.target.dataset.code) { e.target.classList.remove('bad'); message(''); }\n});\n\nroot.addEventListener('submit', async (e) => {\n  e.preventDefault();\n  const inputs = Array.from(root.querySelectorAll('input[data-code]'));\n  let bad = false;\n  const entries = inputs.map((el) => {\n    const raw = el.value.trim();\n    // A number input reports '' for text it cannot parse; validity tells that apart from blank.\n    const blank = raw === '' && !(el.validity && el.validity.badInput);\n    const ok = blank || (/^\\d+$/.test(raw) && Number(raw) <= MAX);\n    el.classList.toggle('bad', !ok);\n    if (!ok) { bad = true; }\n    return { drug_code: el.dataset.code, stock: blank ? null : Number(raw) };\n  });\n  if (bad) { message('Use whole numbers from 0 to ' + fmt(MAX) + ', or leave blank.', 'err'); return; }\n\n  const btn = root.querySelector('.dse-save');\n  btn.disabled = true;\n  message('Saving\u2026');\n  try {\n    const saved = await save(entries);\n    const kept = Number(saved.kept_newer || 0);\n    const note = 'Saved \u2713' + (kept ? ' A newer count is kept for ' + kept + (kept === 1 ? ' medicine.' : ' medicines.') : '');\n    entries.forEach((en) => {\n      const r = ofMonth(month).find((x) => x.drug_code === en.drug_code);\n      if (r && !kept) { r.in_stock = en.stock; }\n    });\n    Object.assign(memo, { org: orgId, month, note, cls: 'ok', at: Date.now() });\n    message(note, 'ok');\n    refreshBoard();\n  } catch (err) {\n    message(\"Couldn't save. \" + (err.message || 'Try again.'), 'err');\n    if (context.grafana && context.grafana.notifyError) { context.grafana.notifyError([\"Couldn't save stock\", err.message]); }\n  } finally {\n    btn.disabled = false;\n  }\n});\n\nrender();\n",
+        "afterRender": "// Enter stock form (story 3.5, UX-13). One number per protocol drug and strength for one\n// facility and month. Above facility level the user picks the facility here, from the\n// stock-form facilities inside the place they can see. Saves to h360-api, which takes identity\n// from the Grafana session and checks access again.\nconst root = context.element.querySelector('.dse');\nif (!root) { return; }\n\nconst series = (context.panelData && context.panelData.series) || [];\nconst frame = series.find((s) => s.refId === 'A');\nconst all = (() => {\n  if (!frame) { return []; }\n  const cols = frame.fields.map((x) => [x.name, Array.from(x.values)]);\n  const n = cols.length ? cols[0][1].length : 0;\n  return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, v]) => [k, v[i]])));\n})();\nconst flags = all[0] || {};\nconst rows = all.filter((r) => r.drug_code != null);\n\nconst esc = (v) => String(v == null ? '' : v).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst warn = (html) => '<div class=\"dse-warn\"><span>⚠️</span><span>' + html + '</span></div>';\nconst note = (text) => '<h2 class=\"dse-title\">Enter stock</h2><div class=\"dse-note\">' + esc(text) + '</div>';\n\nconst memo = (window.__h360StockEntry = window.__h360StockEntry || {});\n\nif (Number(flags.isAllowed) !== 1) {\n  root.innerHTML = Number(flags.isAll) === 1\n    ? note('Pick your facility under Change location to enter stock.')\n    : warn('<strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + (flags.requiredGroups || ''));\n  return;\n}\nif (!rows.length) {\n  root.innerHTML = note('Stock is entered for a facility. Pick a facility or district under Change location.');\n  return;\n}\n\nconst MAX = 1000000;\nconst facilities = [...new Map(rows.map((r) => [Number(r.facility_id), r.facility_name])).entries()];\nconst months = [...new Map(rows.map((r) => [r.month, r.month_label])).entries()];\nconst known = (id) => facilities.some(([f]) => f === id);\n// Kept across the refresh that follows a save, so the form reopens on the saved facility and month with its note.\nconst recent = Date.now() - (memo.at || 0) < 8000 && known(memo.org) ? memo : null;\nlet facility = facilities.length === 1 ? facilities[0][0] : (known(memo.pick) ? memo.pick : null);\nlet month = (recent && recent.month) || flags.this_month;\nif (!months.some(([m]) => m === month)) { month = months[0][0]; }\n\nconst fmt = (n) => Number(n).toLocaleString('en-US');\nconst nameOf = (id) => (facilities.find(([f]) => f === id) || [null, ''])[1];\nconst cells = () => rows.filter((r) => Number(r.facility_id) === facility && r.month === month);\n\nconst render = () => {\n  const pick = facilities.length > 1\n    ? '<label class=\"dse-field dse-top-field\"><span>Facility</span><select class=\"dse-facility\">'\n      + (facility == null ? '<option value=\"\" selected disabled>Choose a facility</option>' : '')\n      + facilities.map(([f, name]) => '<option value=\"' + f + '\"' + (f === facility ? ' selected' : '') + '>' + esc(name) + '</option>').join('')\n      + '</select></label>'\n    : '';\n  const head = '<h2 class=\"dse-title\">Enter stock' + (facilities.length === 1 ? ' for ' + esc(facilities[0][1]) : '') + '</h2>'\n    + '<div class=\"dse-head\">Count the tablets in stock. Leave blank if not counted. Enter 0 if none.</div>';\n  if (facility == null) {\n    root.innerHTML = head + '<form class=\"dse-form\" novalidate><div class=\"dse-tops\">' + pick + '</div></form>';\n    return;\n  }\n  const list = cells();\n  const last = list.filter((r) => r.saved_on).sort((a, b) => String(b.saved_at).localeCompare(String(a.saved_at)))[0];\n  root.innerHTML = head\n    + '<form class=\"dse-form\" novalidate><div class=\"dse-tops\">' + pick\n    + '<label class=\"dse-field dse-top-field\"><span>Month</span><select class=\"dse-month\">'\n    + months.map(([m, label]) => '<option value=\"' + esc(m) + '\"' + (m === month ? ' selected' : '') + '>' + esc(label) + '</option>').join('')\n    + '</select></label></div>'\n    + '<div class=\"dse-grid\">'\n    + list.map((r) => '<label class=\"dse-field\"><span>' + esc(r.drug_label) + '</span>'\n      + '<input type=\"number\" inputmode=\"numeric\" min=\"0\" max=\"' + MAX + '\" step=\"1\" placeholder=\"Not counted\"'\n      + ' data-code=\"' + esc(r.drug_code) + '\" value=\"' + (r.in_stock == null ? '' : esc(r.in_stock)) + '\"></label>').join('')\n    + '</div>'\n    + '<div class=\"dse-actions\"><button type=\"submit\" class=\"dse-save\">Save stock</button>'\n    + '<span class=\"dse-msg\" aria-live=\"polite\"></span></div>'\n    + '<div class=\"dse-last\">' + (last ? 'Last saved ' + esc(last.saved_on) + (last.saved_by ? ' by ' + esc(last.saved_by) : '') + '.' : 'Nothing saved for this month yet.') + '</div>'\n    + '</form>';\n  if (recent && recent.org === facility && recent.month === month && recent.note) { message(recent.note, recent.cls); }\n};\n\nconst message = (text, cls) => {\n  const m = root.querySelector('.dse-msg');\n  if (m) { m.className = 'dse-msg ' + (cls || ''); m.textContent = text; }\n};\n\n// --- Saving: posted to h360-api, which takes identity from the Grafana session.\nconst H360_API = location.protocol + '//' + location.hostname + ':8090';\nconst save = async (orgId, entries) => {\n  const body = JSON.stringify({ org_unit_id: orgId, month, entries });\n  const res = await fetch(H360_API + '/write/drug-stock', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-H360-Request':'1'}, body});\n  const saved = await res.json().catch(() => ({}));\n  if (!res.ok || saved.ok === false) {\n    const err = new Error(saved.message || res.statusText);\n    err.status = res.status;\n    throw err;\n  }\n  return saved;\n};\n\nconst plain = (err, place) => {\n  if (err.status === 403) { return 'Not saved. You do not have access to enter stock for ' + place + '. Ask your admin.'; }\n  if (err.status === 401) { return 'Not saved. Sign in again, then save once more.'; }\n  if (!err.status) { return 'Not saved. Could not reach the server. Check the connection and try again.'; }\n  return 'Not saved. ' + (err.message || 'Try again.');\n};\n\nconst refreshBoard = () => {\n  const g = context.grafana || {};\n  const shown = typeof g.replaceVariables === 'function' ? g.replaceVariables('${reporting_month}') : '';\n  if (shown !== month && g.locationService && typeof g.locationService.partial === 'function') {\n    g.locationService.partial({ 'var-reporting_month': month }, true);\n  } else if (typeof g.refresh === 'function') {\n    g.refresh();\n  }\n};\n\nroot.addEventListener('change', (e) => {\n  if (e.target.classList.contains('dse-month')) { month = e.target.value; render(); }\n  if (e.target.classList.contains('dse-facility')) {\n    facility = Number(e.target.value);\n    memo.pick = facility;\n    render();\n  }\n});\n\nroot.addEventListener('input', (e) => {\n  if (e.target.dataset.code) { e.target.classList.remove('bad'); message(''); }\n});\n\nroot.addEventListener('submit', async (e) => {\n  e.preventDefault();\n  if (facility == null) { return; }\n  const inputs = Array.from(root.querySelectorAll('input[data-code]'));\n  let bad = false;\n  const entries = inputs.map((el) => {\n    const raw = el.value.trim();\n    // A number input reports '' for text it cannot parse; validity tells that apart from blank.\n    const blank = raw === '' && !(el.validity && el.validity.badInput);\n    const ok = blank || (/^\\d+$/.test(raw) && Number(raw) <= MAX);\n    el.classList.toggle('bad', !ok);\n    if (!ok) { bad = true; }\n    return { drug_code: el.dataset.code, stock: blank ? null : Number(raw) };\n  });\n  if (bad) { message('Use whole numbers from 0 to ' + fmt(MAX) + ', or leave blank.', 'err'); return; }\n\n  // The select's value is what is saved, so a changed option is checked by the API, not trusted here.\n  const sel = root.querySelector('.dse-facility');\n  const orgId = sel ? Number(sel.value) : facility;\n  const place = sel && sel.selectedOptions[0] ? sel.selectedOptions[0].textContent : nameOf(facility);\n  const btn = root.querySelector('.dse-save');\n  btn.disabled = true;\n  message('Saving…');\n  try {\n    const saved = await save(orgId, entries);\n    const kept = Number(saved.kept_newer || 0);\n    const done = 'Saved ✓ ' + place + ', ' + (months.find(([m]) => m === month) || ['', month])[1] + '.';\n    const msg = done + (kept ? ' A newer count is kept for ' + kept + (kept === 1 ? ' medicine.' : ' medicines.') : '');\n    entries.forEach((en) => {\n      const r = cells().find((x) => x.drug_code === en.drug_code);\n      if (r && !kept) { r.in_stock = en.stock; }\n    });\n    Object.assign(memo, { org: facility, pick: facility, month, note: msg, cls: 'ok', at: Date.now() });\n    message(msg, 'ok');\n    refreshBoard();\n  } catch (err) {\n    message(plain(err, place), 'err');\n    if (context.grafana && context.grafana.notifyError) { context.grafana.notifyError([\"Stock not saved\", plain(err, place)]); }\n  } finally {\n    btn.disabled = false;\n  }\n});\n\nrender();\n",
         "content": "<div class=\"dse\"></div>",
         "contentPartials": [],
         "defaultContent": "<div class=\"dse\"></div>",
@@ -432,7 +568,7 @@
         "externalStyles": [],
         "helpers": "",
         "renderMode": "allRows",
-        "styles": ".dse { font-size: 13px; line-height: 1.35; }\n.dse-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }\n.dse-head { margin: 0 0 10px; }\n.dse-note { font-size: 13px; color: #6E6E6E; padding: 4px 2px; }\n.dse-form select, .dse-form input { font: inherit; color: #1c1c1c; background: #fff; border: 1px solid #d9e3ff; border-radius: 4px;\n  padding: 4px 6px; height: 30px; line-height: 1.2; box-sizing: border-box; width: 100%; }\n.dse-form input.bad { border-color: red; }\n.dse-field { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 12px; }\n.dse-month-field { max-width: 200px; margin-bottom: 10px; }\n.dse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; margin-bottom: 12px; }\n.dse-actions { display: flex; align-items: center; gap: 12px; }\n.dse-save { font: inherit; font-weight: 600; background: #0075eb; border: 1px solid #0075eb; color: #fff; border-radius: 4px; padding: 5px 14px; cursor: pointer; }\n.dse-save:disabled { opacity: 0.6; cursor: default; }\n.dse-msg { font-size: 12px; }\n.dse-msg.ok { color: #3bb231; }\n.dse-msg.err { color: red; }\n.dse-last { font-size: 12px; color: #6E6E6E; margin-top: 8px; }\n.dse-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }",
+        "styles": ".dse { font-size: 13px; line-height: 1.35; }\n.dse-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }\n.dse-head { margin: 0 0 10px; }\n.dse-note { font-size: 13px; color: #6E6E6E; padding: 4px 2px; }\n.dse-form select, .dse-form input { font: inherit; color: #1c1c1c; background: #fff; border: 1px solid #d9e3ff; border-radius: 4px;\n  padding: 4px 6px; height: 30px; line-height: 1.2; box-sizing: border-box; width: 100%; }\n.dse-form input.bad { border-color: red; }\n.dse-field { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 12px; }\n.dse-tops { display: flex; flex-wrap: wrap; gap: 10px 14px; margin-bottom: 12px; }\n.dse-top-field { width: 220px; max-width: 100%; }\n.dse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; margin-bottom: 12px; }\n.dse-actions { display: flex; align-items: center; gap: 12px; }\n.dse-save { font: inherit; font-weight: 600; background: #0075eb; border: 1px solid #0075eb; color: #fff; border-radius: 4px; padding: 5px 14px; cursor: pointer; }\n.dse-save:disabled { opacity: 0.6; cursor: default; }\n.dse-msg { font-size: 12px; }\n.dse-msg.ok { color: #3bb231; }\n.dse-msg.err { color: red; }\n.dse-last { font-size: 12px; color: #6E6E6E; margin-top: 8px; }\n.dse-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }",
         "wrap": true
       },
       "targets": [
@@ -444,13 +580,157 @@
           "editorMode": "code",
           "format": "table",
           "rawQuery": true,
-          "rawSql": "-- Enter stock form (story 3.5). Row 1 always exists and carries the flags; the rest are\n-- one row per protocol drug and strength per month (the six months of Reporting Month).\n-- Saving goes to h360-api; this datasource is read-only.\nSELECT flags.*, d.* FROM (\n  SELECT\n    COALESCE(NULLIF('${isAllowed}', ''), '0')::int AS \"isAllowed\",\n    '${requiredGroups}'::text AS \"requiredGroups\",\n    o.id AS org_unit_id,\n    o.name AS place,\n    CASE WHEN o.id IS NOT NULL\n          AND o.level = COALESCE((SELECT hc.level FROM heart360tk_schema.hierarchy_config hc WHERE hc.var_name = 'facility'), 3)\n          AND EXISTS (SELECT 1 FROM heart360tk_schema.drug_stock_form_cohort c WHERE c.org_unit_id = o.id)\n         THEN 1 ELSE 0 END AS \"isFacility\",\n    to_char(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD') AS this_month,\n    -- Names the board month so a change of Reporting Month after a save re-runs this query.\n    '${reporting_month}'::text AS board_month\n  FROM (SELECT 1) one\n  LEFT JOIN heart360tk_schema.org_units o ON o.id = CASE WHEN TRIM(BOTH FROM '${org_unit}') ~ '^[0-9]{1,9}$' THEN TRIM(BOTH FROM '${org_unit}')::int END\n) flags LEFT JOIN (\n  SELECT * FROM (\n    SELECT\n      dr.rxnorm_code AS drug_code,\n      dr.drug_name,\n      dr.drug_name || ' ' || dr.dosage AS drug_label,\n      to_char(m.month_start, 'YYYY-MM-DD') AS month,\n      to_char(m.month_start, 'FMMon YYYY') AS month_label,\n      s.in_stock,\n      to_char(s.submitted_at, 'FMDD Mon YYYY') AS saved_on,\n      s.submitted_by AS saved_by,\n      CASE dr.drug_category WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4 END AS cat_ord,\n      COALESCE(substring(dr.dosage FROM '^[0-9]+[.]?[0-9]*')::numeric, 0) AS dose_ord\n    FROM heart360tk_schema.active_stock_tracked_drugs dr\n    CROSS JOIN generate_series(\n      date_trunc('month', CURRENT_DATE)::date - interval '5 months',\n      date_trunc('month', CURRENT_DATE)::date,\n      interval '1 month'\n    ) AS m(month_start)\n    LEFT JOIN heart360tk_schema.drug_stock_submission s\n      ON s.org_unit_id = CASE WHEN TRIM(BOTH FROM '${org_unit}') ~ '^[0-9]{1,9}$' THEN TRIM(BOTH FROM '${org_unit}')::int END\n     AND s.reporting_month = m.month_start::date\n     AND s.rxnorm_code = dr.rxnorm_code\n     AND s.country_code = dr.country_code\n     AND s.programme_code = dr.programme_code\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n) d ON true\nORDER BY d.month DESC NULLS FIRST, d.cat_ord, d.drug_name, d.dose_ord",
+          "rawSql": "-- Enter stock form (story 3.5, UX-13). Every row carries the flags; the data rows are one per\n-- stock-form facility inside the selected place, protocol drug and strength, and month (this\n-- month and the five before). A district user picks the facility in the form. Saving goes to\n-- h360-api, which checks access again; this datasource is read-only.\nSELECT flags.*, d.* FROM (\n  SELECT\n    COALESCE(NULLIF('${isAllowed}', ''), '0')::int AS \"isAllowed\",\n    '${requiredGroups}'::text AS \"requiredGroups\",\n    CASE WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN 1 ELSE 0 END AS \"isAll\",\n    to_char(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD') AS this_month,\n    -- Names the board month so a change of Reporting Month after a save re-runs this query.\n    '${reporting_month}'::text AS board_month\n) flags LEFT JOIN (\n  SELECT * FROM (\n    SELECT\n      f.id AS facility_id,\n      f.name AS facility_name,\n      dr.rxnorm_code AS drug_code,\n      dr.drug_name,\n      dr.drug_name || ' ' || dr.dosage AS drug_label,\n      to_char(m.month_start, 'YYYY-MM-DD') AS month,\n      to_char(m.month_start, 'FMMon-YYYY')\n        || CASE WHEN m.month_start = date_trunc('month', CURRENT_DATE) THEN ' (this month)' ELSE '' END AS month_label,\n      s.in_stock,\n      to_char(s.submitted_at, 'DD-Mon-YYYY') AS saved_on,\n      to_char(s.submitted_at, 'YYYY-MM-DD\"T\"HH24:MI:SS') AS saved_at,\n      s.submitted_by AS saved_by,\n      CASE dr.drug_category WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4 END AS cat_ord,\n      COALESCE(substring(dr.dosage FROM '^[0-9]+[.]?[0-9]*')::numeric, 0) AS dose_ord\n    FROM heart360tk_schema.drug_stock_form_cohort c\n    JOIN heart360tk_schema.org_units f\n      ON f.id = c.org_unit_id\n     AND f.level = COALESCE((SELECT hc.level FROM heart360tk_schema.hierarchy_config hc WHERE hc.var_name = 'facility'), 3)\n    CROSS JOIN heart360tk_schema.active_stock_tracked_drugs dr\n    CROSS JOIN generate_series(\n      date_trunc('month', CURRENT_DATE)::date - interval '5 months',\n      date_trunc('month', CURRENT_DATE)::date,\n      interval '1 month'\n    ) AS m(month_start)\n    LEFT JOIN heart360tk_schema.drug_stock_submission s\n      ON s.org_unit_id = f.id\n     AND s.reporting_month = m.month_start::date\n     AND s.rxnorm_code = dr.rxnorm_code\n     AND s.country_code = dr.country_code\n     AND s.programme_code = dr.programme_code\n    WHERE f.id IN (\n      SELECT g.id FROM heart360tk_schema.get_descendant_ids(\n        CASE WHEN TRIM(BOTH FROM '${org_unit}') ~ '^[0-9]{1,9}$' THEN TRIM(BOTH FROM '${org_unit}')::int END\n      ) g\n    )\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n) d ON true\nORDER BY d.facility_name NULLS FIRST, d.month DESC, d.cat_ord, d.drug_name, d.dose_ord",
           "refId": "A"
         }
       ],
       "title": "",
       "transparent": true,
       "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "collapsed": true,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 26
+      },
+      "id": 14,
+      "panels": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension-cached"
+          },
+          "description": "Tablets counted for each medicine and strength. ? means not reported; — means not counted.",
+          "fieldConfig": {
+            "defaults": {
+              "color": {
+                "mode": "thresholds"
+              },
+              "custom": {
+                "align": "right",
+                "cellOptions": {
+                  "type": "auto"
+                },
+                "filterable": false,
+                "inspect": false,
+                "minWidth": 120,
+                "wrapHeaderText": true
+              },
+              "mappings": [
+                {
+                  "options": {
+                    "?": {
+                      "color": "#EFEFEF",
+                      "index": 0,
+                      "text": "?"
+                    }
+                  },
+                  "type": "value"
+                }
+              ],
+              "thresholds": {
+                "mode": "absolute",
+                "steps": [
+                  {
+                    "color": "#FFFFFF",
+                    "value": null
+                  }
+                ]
+              }
+            },
+            "overrides": [
+              {
+                "matcher": {
+                  "id": "byName",
+                  "options": "Facility"
+                },
+                "properties": [
+                  {
+                    "id": "custom.align",
+                    "value": "left"
+                  },
+                  {
+                    "id": "custom.cellOptions",
+                    "value": {
+                      "type": "auto"
+                    }
+                  },
+                  {
+                    "id": "custom.minWidth",
+                    "value": 180
+                  },
+                  {
+                    "id": "custom.width",
+                    "value": 280
+                  },
+                  {
+                    "id": "mappings",
+                    "value": []
+                  },
+                  {
+                    "id": "color",
+                    "value": {
+                      "mode": "fixed",
+                      "fixedColor": "text"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "gridPos": {
+            "h": 10,
+            "w": 24,
+            "x": 0,
+            "y": 27
+          },
+          "id": 13,
+          "options": {
+            "cellHeight": "sm",
+            "frozenColumns": {
+              "left": 1
+            },
+            "showHeader": true,
+            "sortBy": [
+              {
+                "desc": false,
+                "displayName": "Facility"
+              }
+            ]
+          },
+          "targets": [
+            {
+              "datasource": {
+                "type": "grafana-postgresql-datasource",
+                "uid": "postgres-hypertension-cached"
+              },
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "-- Tablet counts per medicine and strength (UX-32: kept out of the main table), with thousands\n-- commas. Empty text must stay null. A cast of '' fails while Postgres plans the query.\nSELECT * FROM (\nSELECT (\n  SELECT json_object_agg(\n    e.key,\n    CASE WHEN json_typeof(e.value) = 'string' AND (e.value #>> '{}') ~ '^[0-9]+(\\.[0-9]+)?$'\n         THEN to_json(to_char(ROUND((e.value #>> '{}')::numeric), 'FM999,999,999,990'))\n         ELSE e.value END\n    ORDER BY e.n)\n  FROM json_each(f.matrix) WITH ORDINALITY AS e(key, value, n)\n  WHERE e.key NOT LIKE '% Patient days'\n) AS matrix\nFROM heart360tk_reporting.drug_stock_on_hand_matrix(\n  NULLIF('${reporting_month}', '')::date,\n  NULLIF('${org_unit}', '')::integer\n) WITH ORDINALITY AS f(matrix, ord)\nORDER BY f.ord\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+              "refId": "A"
+            }
+          ],
+          "title": "Tablets in stock",
+          "transformations": [
+            {
+              "id": "extractFields",
+              "options": {
+                "format": "json",
+                "keepTime": false,
+                "replace": true,
+                "source": "matrix"
+              }
+            }
+          ],
+          "type": "table"
+        }
+      ],
+      "title": "Tablets in stock",
+      "type": "row"
     }
   ],
   "preload": false,
@@ -464,18 +744,19 @@
           "type": "grafana-postgresql-datasource",
           "uid": "postgres-hypertension-cached"
         },
-        "definition": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "definition": "SELECT to_char(m::date, 'FMMon-YYYY') || CASE WHEN m::date = date_trunc('month', CURRENT_DATE)::date THEN ' (this month)' ELSE '' END AS __text, to_char(m::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS m ORDER BY (m::date = date_trunc('month', CURRENT_DATE)::date), m DESC",
         "hide": 0,
         "includeAll": false,
         "label": "Reporting Month",
         "multi": false,
         "name": "reporting_month",
         "options": [],
-        "query": "SELECT to_char(month_start::date, 'FMMon-YYYY') AS __text, to_char(month_start::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS month_start ORDER BY month_start DESC",
+        "query": "SELECT to_char(m::date, 'FMMon-YYYY') || CASE WHEN m::date = date_trunc('month', CURRENT_DATE)::date THEN ' (this month)' ELSE '' END AS __text, to_char(m::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '5 months', date_trunc('month', CURRENT_DATE)::date, interval '1 month') AS m ORDER BY (m::date = date_trunc('month', CURRENT_DATE)::date), m DESC",
         "refresh": 1,
         "regex": "",
         "sort": 0,
-        "type": "query"
+        "type": "query",
+        "description": "The last full month first, as on Reports. This month is last in the list."
       },
       {
         "current": {
@@ -550,13 +831,13 @@
           "type": "grafana-postgresql-datasource",
           "uid": "postgres-grafana"
         },
-        "definition": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) \u2014 admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+        "definition": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) — admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
         "hide": 2,
         "includeAll": false,
         "multi": false,
         "name": "requiredGroups",
         "options": [],
-        "query": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) \u2014 admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+        "query": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) — admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
         "refresh": 2,
         "regex": "",
         "regexApplyTo": "value",
@@ -570,10 +851,12 @@
     "from": "now-6M",
     "to": "now"
   },
-  "timepicker": {},
+  "timepicker": {
+    "hidden": true
+  },
   "timezone": "browser",
   "title": "Drug Stock",
   "uid": "heart360_drug_stock",
-  "version": 2,
+  "version": 3,
   "weekStart": ""
 }
