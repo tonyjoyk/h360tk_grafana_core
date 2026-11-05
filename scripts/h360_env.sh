@@ -1,4 +1,4 @@
-# Source this file to get this checkout's ports and container names.
+# Source this file from bash (not zsh) to get this checkout's ports and container names.
 #
 # Two stacks can run side by side (for example a demo and another leaf node) when one of them sets,
 # in its git-ignored .env:
@@ -21,3 +21,6 @@ export H360_PG_CONTAINER="${H360_CONTAINER_PREFIX}postgres"
 export GRAFANA_URL="${GRAFANA_URL:-http://localhost:${GRAFANA_PORT:-3000}}"
 export H360_API_URL="${H360_API_URL:-http://localhost:${H360_API_PORT:-8090}}"
 export H360_ORIGIN="${H360_ORIGIN:-$GRAFANA_URL}"
+# Scripts that connect from the host (verify_dashboard_queries.py and others) default to
+# localhost:5432, which may belong to another stack. Point them at this checkout's database.
+export DATABASE_URL="${DATABASE_URL:-postgres://h360tk_root:NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0@localhost:${POSTGRES_PORT:-5432}/heart360tk_database}"
