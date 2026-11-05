@@ -8,6 +8,9 @@ Banned (case-insensitive):
   fudg                                       prefix: fudge, fudging, fudged ...
   will, guarantee, guarantees, guaranteed    whole words only (so `willing` and `goodwill` pass)
 
+Allowed: the exact string `BP fudging`, the program dashboard's tab title (owner decision 2026-11-05,
+the established report name). Only that whole string passes; any other text with `fudg` still fails.
+
 What is scanned
   1. Dashboards. The generated Reports dashboard (every visible string), and the other provisioned
      dashboards' NEW strings: visible strings that are not in the same file at the baseline ref
@@ -78,6 +81,8 @@ ORIGIN = os.environ.get("H360_ORIGIN", "http://localhost:3000")
 MAX_WORDS = 20
 
 BANNED_RE = re.compile(r"\bfudg\w*|\b(?:will|guarantee|guarantees|guaranteed)\b", re.IGNORECASE)
+# Whole strings that pass the banned-word check (exact match after whitespace is collapsed).
+ALLOWED_TEXT = {"BP fudging"}
 WORD_RE = re.compile(r"\S+")
 SENTENCE_END = re.compile(r"(?<=[.?!])\s+")
 
@@ -127,7 +132,7 @@ def check_text(f: Findings, source: str, where: str, text: str, length: bool = F
     if not text:
         return
     f.scanned(source)
-    hits = banned_in(text)
+    hits = [] if text in ALLOWED_TEXT else banned_in(text)
     if hits:
         f.add(source, where, "banned " + ",".join(hits), text)
     if length:
@@ -488,6 +493,13 @@ def self_test() -> int:
         expect("21-word sentence exits nonzero", rc_long != 0)
         rc_ok = run(parse([*base, "--plant", str(clean), "--plant-text", " ".join(["word"] * 20) + "."]))
         expect("20-word sentence exits zero", rc_ok == 0)
+        tab = Path(tmp) / "tab.json"
+        tab.write_text(json.dumps({"title": "Tab", "panels": [{"title": "BP fudging"}]}))
+        expect("allowed tab title 'BP fudging' exits zero", run(parse([*base, "--plant", str(tab)])) == 0)
+        for text in ("BP fudging report", "bp fudging", "Fudging"):
+            other = Path(tmp) / "other.json"
+            other.write_text(json.dumps({"title": "Other", "panels": [{"title": text}]}))
+            expect(f"{text!r} still exits nonzero", run(parse([*base, "--plant", str(other)])) != 0)
     print("PASS self-test" if ok else "FAIL self-test")
     return 0 if ok else 1
 

@@ -5095,6 +5095,825 @@
             }
           }
         }
+      },
+      "panel-pa-head": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1500,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT 'Protocol adherence at ' || COALESCE((SELECT ou.name::text FROM org_units ou WHERE ou.id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int), 'all locations')\n       || ': medicines at the latest visit up to the end of ' || to_char((date_trunc('month', now()) - interval '1 month')::date, 'FMMonth YYYY') || '.' AS line\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "showHeader": false,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-pa-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1501,
+          "title": "Patients by protocol step",
+          "description": "The Excel protocol adherence table. Each patient is counted once, by the BP medicines at their latest visit up to the end of the month. Shaded rows are totals. Counted patients were registered before the last 3 months and visited in the last 3 months. Controlled means BP below 140/90 at that visit. Cumulative control adds up each step's share of controlled patients on a step.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH r AS (\n  SELECT * FROM report_adherence_steps((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, false)\n)\nSELECT\n  CASE WHEN r.step_no IS NOT NULL THEN E'\\u2003\\u2003' || r.label ELSE r.label END AS \"Medicines at latest visit\",\n  r.patients_n AS \"Number of patients\",\n  r.patients_pct AS \"% of all patients\",\n  r.step_share_pct AS \"% of patients on any protocol step\",\n  CASE WHEN r.row_key <> 'no_htn_medicine' THEN r.cohort_n END AS \"Patients counted (registered before the last 3 months)\",\n  CASE WHEN r.row_key <> 'no_htn_medicine' THEN r.cohort_controlled_n END AS \"Controlled\",\n  CASE WHEN r.row_key <> 'no_htn_medicine' THEN r.cohort_controlled_pct END AS \"% controlled\",\n  r.controlled_share_cum_pct AS \"Cumulative control by step\"\nFROM r\nORDER BY r.row_order\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false,
+                    "wrapHeaderText": true
+                  },
+                  "decimals": 0,
+                  "noValue": ""
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Medicines at latest visit"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 430
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background",
+                          "mode": "basic",
+                          "applyToRow": true,
+                          "wrapText": false
+                        }
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "fixed",
+                          "fixedColor": "transparent"
+                        }
+                      },
+                      {
+                        "id": "mappings",
+                        "value": [
+                          {
+                            "type": "value",
+                            "options": {
+                              "Protocol medicines": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 0
+                              },
+                              "On a protocol step": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 1
+                              },
+                              "Other mix of protocol medicines": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 2
+                              },
+                              "Medicine outside the protocol": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 3
+                              },
+                              "No BP medicine at last visit": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 4
+                              },
+                              "Could not read the entry": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 5
+                              },
+                              "All patients": {
+                                "color": "rgba(128, 128, 128, 0.18)",
+                                "index": 6
+                              }
+                            }
+                          }
+                        ]
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byRegexp",
+                      "options": "^%.*|^Cumulative.*"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-tit-head": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1510,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT 'Titration at ' || COALESCE((SELECT ou.name::text FROM org_units ou WHERE ou.id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int), 'all locations') || ', ' || to_char((date_trunc('month', now()) - interval '1 month')::date - interval '8 months', 'FMMonth YYYY')\n       || ' to ' || to_char((date_trunc('month', now()) - interval '1 month')::date, 'FMMonth YYYY') || ', with the average of all places.' AS line\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "showHeader": false,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-tit-line": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1511,
+          "title": "Titration rate by month",
+          "description": "Share of follow-up visits by patients with uncontrolled BP where the BP medicine was stepped up. Average is all places together.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "time_series",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH r AS (\n  SELECT * FROM report_titration_monthly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) WHERE is_selected\n)\nSELECT month_date::timestamp AS \"time\", org_unit_name AS metric, rate_pct AS value FROM r\nUNION ALL\nSELECT month_date::timestamp, 'Average', average_rate_pct FROM r\nORDER BY 1, 2\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "decimals": 1,
+                  "min": 0,
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineWidth": 2,
+                    "showPoints": "always",
+                    "pointSize": 6,
+                    "spanNulls": true,
+                    "fillOpacity": 0
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Average"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "fixed",
+                          "fixedColor": "#8e8e8e"
+                        }
+                      },
+                      {
+                        "id": "custom.lineStyle",
+                        "value": {
+                          "fill": "dash",
+                          "dash": [
+                            10,
+                            10
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true,
+                  "calcs": []
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-tit-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1512,
+          "title": "Titration by month",
+          "description": "The Metabase titration table: the place's months first, then the average of all places.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH r AS (\n  SELECT * FROM report_titration_monthly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) WHERE is_selected\n)\nSELECT \"Month\", \"Place\", \"Follow-up visits\", \"Titrated\", \"Titration rate\" FROM (\n  SELECT 1 AS k, month_date, to_char(month_date, 'FMMonth YYYY') AS \"Month\", org_unit_name AS \"Place\",\n         follow_up_n AS \"Follow-up visits\", titrated_n AS \"Titrated\", rate_pct AS \"Titration rate\"\n  FROM r\n  UNION ALL\n  SELECT 2, month_date, to_char(month_date, 'FMMonth YYYY'), 'Average',\n         average_follow_up_n, average_titrated_n, average_rate_pct\n  FROM r\n) t\nORDER BY k, month_date\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "decimals": 0
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Titration rate"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-bpf-head": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1520,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT 'Systolic readings of 130\u2013149 at ' || COALESCE((SELECT ou.name::text FROM org_units ou WHERE ou.id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int), 'all locations') || ', by quarter, '\n       || min(quarter_label) FILTER (WHERE is_complete AND quarter_start = lo) || ' to '\n       || min(quarter_label) FILTER (WHERE is_complete AND quarter_start = hi) || '.' AS line\nFROM (\n  SELECT q.*, min(q.quarter_start) FILTER (WHERE q.is_complete) OVER () AS lo,\n              max(q.quarter_start) FILTER (WHERE q.is_complete) OVER () AS hi\n  FROM report_fudging_quarterly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) q\n) x\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "showHeader": false,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-bpf-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1521,
+          "title": "Systolic 130\u2013139 and 140\u2013149 readings by facility",
+          "description": "Readings with systolic BP 130\u2013139 and 140\u2013149 in each completed quarter. Ratio is 130\u2013139 readings divided by 140\u2013149 readings. Green is under 1.8, yellow from 1.8, red from 2.0. The first row is the place you chose. A blank ratio means too few readings.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT q.org_unit_name AS \"Place\", c.col AS \"Column\", c.val AS \"Value\"\nFROM report_fudging_quarterly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) q\nCROSS JOIN LATERAL (VALUES\n  (1, q.quarter_label || ' 130\u2013139', q.n_130_139::numeric),\n  (2, q.quarter_label || ' 140\u2013149', q.n_140_149::numeric),\n  (3, q.quarter_label || ' Ratio', CASE WHEN NOT q.too_few THEN q.ratio END)\n) AS c(k, col, val)\nWHERE q.is_complete\nORDER BY NOT q.is_selected, q.org_unit_name, q.org_unit_id, q.quarter_start, c.k\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "kind": "groupingToMatrix",
+                  "spec": {
+                    "id": "groupingToMatrix",
+                    "options": {
+                      "rowField": "Place",
+                      "columnField": "Column",
+                      "valueField": "Value",
+                      "emptyValue": "null"
+                    }
+                  }
+                },
+                {
+                  "kind": "organize",
+                  "spec": {
+                    "id": "organize",
+                    "options": {
+                      "renameByName": {
+                        "Place\\Column": "Place"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false,
+                    "wrapHeaderText": true
+                  },
+                  "decimals": 0,
+                  "noValue": ""
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Place"
+                    },
+                    "properties": [
+                      {
+                        "id": "custom.width",
+                        "value": 170
+                      }
+                    ]
+                  },
+                  {
+                    "matcher": {
+                      "id": "byRegexp",
+                      "options": ".* Ratio$"
+                    },
+                    "properties": [
+                      {
+                        "id": "decimals",
+                        "value": 2
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "green",
+                              "value": null
+                            },
+                            {
+                              "color": "yellow",
+                              "value": 1.8
+                            },
+                            {
+                              "color": "red",
+                              "value": 2.0
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "thresholds"
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-background",
+                          "mode": "basic"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-bpf-note": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1522,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "text",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "mode": "markdown",
+                "content": "<span style=\"opacity: 0.65\">A high ratio is a reason to check how BP is measured. Some patients really are 130\u2013139.</span>",
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-bpf-share": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1523,
+          "title": "% of facilities with ratio 2.0 or more",
+          "description": "Of the facilities with enough readings, the share whose ratio is 2.0 or more, by completed quarter.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT quarter_label AS \"Quarter\", flagged_pct AS \"% of facilities with ratio 2.0 or more\"\nFROM report_fudging_share((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\nWHERE is_complete\nORDER BY quarter_start\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "barchart",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "decimals": 1,
+                  "min": 0,
+                  "max": 100,
+                  "color": {
+                    "mode": "fixed",
+                    "fixedColor": "#6e9fff"
+                  },
+                  "custom": {
+                    "fillOpacity": 80,
+                    "lineWidth": 1,
+                    "gradientMode": "none"
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "xField": "Quarter",
+                "orientation": "vertical",
+                "showValue": "always",
+                "barWidth": 0.6,
+                "groupWidth": 0.7,
+                "stacking": "none",
+                "xTickLabelRotation": 0,
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": false,
+                  "calcs": []
+                },
+                "tooltip": {
+                  "mode": "single",
+                  "sort": "none"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -5538,6 +6357,207 @@
                           }
                         },
                         "title": "Overdue list"
+                      }
+                    },
+                    {
+                      "kind": "TabsLayoutTab",
+                      "spec": {
+                        "title": "Protocol adherence",
+                        "layout": {
+                          "kind": "RowsLayout",
+                          "spec": {
+                            "rows": [
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "title": "Protocol adherence",
+                                  "collapse": false,
+                                  "hideHeader": true,
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-pa-head"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-pa-table"
+                                            },
+                                            "height": 15,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 2
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "TabsLayoutTab",
+                      "spec": {
+                        "title": "Titration",
+                        "layout": {
+                          "kind": "RowsLayout",
+                          "spec": {
+                            "rows": [
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "title": "Titration",
+                                  "collapse": false,
+                                  "hideHeader": true,
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-tit-head"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-tit-line"
+                                            },
+                                            "height": 9,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 2
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-tit-table"
+                                            },
+                                            "height": 20,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 11
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "TabsLayoutTab",
+                      "spec": {
+                        "title": "BP fudging",
+                        "layout": {
+                          "kind": "RowsLayout",
+                          "spec": {
+                            "rows": [
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "title": "BP fudging",
+                                  "collapse": false,
+                                  "hideHeader": true,
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-bpf-head"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-bpf-table"
+                                            },
+                                            "height": 10,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 2
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-bpf-note"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 12
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-bpf-share"
+                                            },
+                                            "height": 9,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 14
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
                       }
                     }
                   ]
