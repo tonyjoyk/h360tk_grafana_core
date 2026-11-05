@@ -12,8 +12,10 @@ set -euo pipefail
 cd "$(dirname "$0")/.."
 
 PINNED_MONTH="2026-10-01"
-GRAFANA="http://localhost:3000"
-API="http://localhost:8090"
+source "$(dirname "$0")/h360_env.sh"
+GRAFANA="$GRAFANA_URL"
+API="$H360_API_URL"
+P="$H360_CONTAINER_PREFIX"
 T0=$SECONDS
 TMP="$(mktemp -d "${TMPDIR:-/tmp}/demo_up.XXXXXX")"
 trap 'rm -rf "$TMP"' EXIT
@@ -27,7 +29,7 @@ API_TIMEOUT="${DEMO_API_TIMEOUT:-180}"
 # Over TCP on purpose: the temporary server Postgres runs during its init
 # scripts listens on the socket only, so TCP means init is finished (R-02).
 psql_root() {
-  docker exec -i postgres sh -c \
+  docker exec -i "${P}postgres" sh -c \
     'psql -h 127.0.0.1 -U "$POSTGRES_USER" -d heart360tk_database -X -v ON_ERROR_STOP=1 -qtA'
 }
 q() { echo "$1" | psql_root; }
@@ -55,10 +57,10 @@ docker compose up -d --build
 # --- Postgres -----------------------------------------------------------
 say "Waiting for Postgres to accept TCP connections and finish its init scripts (up to ${PG_TIMEOUT}s)..."
 deadline=$((SECONDS + PG_TIMEOUT))
-until docker exec postgres pg_isready -q -h 127.0.0.1 -p 5432 >/dev/null 2>&1 \
+until docker exec "${P}postgres" pg_isready -q -h 127.0.0.1 -p 5432 >/dev/null 2>&1 \
   && [[ "$(q "select to_regclass('heart360tk_schema.org_units') is not null and exists (select 1 from heart360tk_schema.org_units)" 2>/dev/null)" == "t" ]]; do
   (( SECONDS < deadline )) || fail "Postgres was not ready over TCP after ${PG_TIMEOUT}s." \
-    "Run 'docker logs postgres' and look for an error in the init scripts. Then re-run this script."
+    "Run 'docker logs ${P}postgres' and look for an error in the init scripts. Then re-run this script."
   sleep 3
 done
 say "Postgres is ready."
@@ -71,12 +73,12 @@ if [[ "$patients" == "0" ]]; then
   say "Waiting for the file watcher in file-upload-trigger (up to ${WATCHER_TIMEOUT}s; the first start installs Python packages)..."
   deadline=$((SECONDS + WATCHER_TIMEOUT))
   while :; do
-    started="$(docker inspect -f '{{.State.StartedAt}}' file-upload-trigger 2>/dev/null || true)"
-    if [[ -n "$started" ]] && docker logs --since "$started" file-upload-trigger 2>&1 | grep -q "running /inotifywait.sh"; then
+    started="$(docker inspect -f '{{.State.StartedAt}}' "${P}file-upload-trigger" 2>/dev/null || true)"
+    if [[ -n "$started" ]] && docker logs --since "$started" ${P}file-upload-trigger 2>&1 | grep -q "running /inotifywait.sh"; then
       break
     fi
     (( SECONDS < deadline )) || fail "The file watcher did not start within ${WATCHER_TIMEOUT}s." \
-      "Run 'docker logs file-upload-trigger'. If pip is still installing, re-run with DEMO_WATCHER_TIMEOUT=1800."
+      "Run 'docker logs ${P}file-upload-trigger'. If pip is still installing, re-run with DEMO_WATCHER_TIMEOUT=1800."
     sleep 3
   done
   say "Watcher is running."
@@ -97,7 +99,7 @@ if [[ "$patients" == "0" ]]; then
     if [[ "$now" == "$last" ]]; then stable=$((stable + 1)); else stable=0; fi
     last="$now"
     summary=0
-    if docker logs --since "$since" file-upload-trigger 2>&1 | grep -q -- "--- EXECUTION SUMMARY ---"; then
+    if docker logs --since "$since" ${P}file-upload-trigger 2>&1 | grep -q -- "--- EXECUTION SUMMARY ---"; then
       summary=1
     fi
     if (( summary == 1 && stable >= 2 && now > 0 )); then
@@ -108,7 +110,7 @@ if [[ "$patients" == "0" ]]; then
       last_print=$SECONDS
     fi
     (( SECONDS < deadline )) || fail "The demo cohort did not finish loading within ${INGEST_TIMEOUT}s (${now} patients, summary line seen: ${summary})." \
-      "Run 'docker logs --since $since file-upload-trigger' and look for 'Error loading file' or 'CONNECTION ERROR'. Fix it, then 'docker compose restart file-processor' and re-run this script."
+      "Run 'docker logs --since $since ${P}file-upload-trigger' and look for 'Error loading file' or 'CONNECTION ERROR'. Fix it, then 'docker compose restart file-processor' and re-run this script."
     sleep 5
   done
   say "Ingest finished: ${last} patients."
@@ -158,7 +160,7 @@ say "Waiting for db-grants to finish (up to ${GRANTS_TIMEOUT}s)..."
 deadline=$((SECONDS + GRANTS_TIMEOUT))
 retried=0
 while :; do
-  state="$(docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' db-grants 2>/dev/null || echo "missing")"
+  state="$(docker inspect -f '{{.State.Status}} {{.State.ExitCode}}' "${P}db-grants" 2>/dev/null || echo "missing")"
   case "$state" in
     "exited 0") break ;;
     exited*)
@@ -168,12 +170,12 @@ while :; do
         retried=1
       else
         fail "db-grants exited with code ${state#exited }." \
-          "Run 'docker logs db-grants', fix the error, then 'docker compose start db-grants' and re-run this script."
+          "Run 'docker logs ${P}db-grants', fix the error, then 'docker compose start db-grants' and re-run this script."
       fi
       ;;
   esac
   (( SECONDS < deadline )) || fail "db-grants did not finish within ${GRANTS_TIMEOUT}s (state: ${state})." \
-    "Run 'docker logs db-grants'. It waits for Grafana's tables; check 'docker logs grafana'."
+    "Run 'docker logs ${P}db-grants'. It waits for Grafana's tables; check 'docker logs ${P}grafana'."
   sleep 3
 done
 say "db-grants exited 0."
@@ -182,7 +184,7 @@ say "Waiting for h360-api ${API}/healthz (up to ${API_TIMEOUT}s)..."
 deadline=$((SECONDS + API_TIMEOUT))
 until [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "${API}/healthz" || true)" == "200" ]]; do
   (( SECONDS < deadline )) || fail "h360-api did not answer 200 on /healthz within ${API_TIMEOUT}s." \
-    "Run 'docker logs h360-api'. Then re-run this script."
+    "Run 'docker logs ${P}h360-api'. Then re-run this script."
   sleep 3
 done
 say "h360-api is healthy."
@@ -191,7 +193,7 @@ say "Waiting for Grafana ${GRAFANA}/api/health (up to ${API_TIMEOUT}s)..."
 deadline=$((SECONDS + API_TIMEOUT))
 until [[ "$(curl -s -o /dev/null -w '%{http_code}' --max-time 5 "${GRAFANA}/api/health" || true)" == "200" ]]; do
   (( SECONDS < deadline )) || fail "Grafana did not answer on /api/health within ${API_TIMEOUT}s." \
-    "Run 'docker logs grafana'. Then re-run this script."
+    "Run 'docker logs ${P}grafana'. Then re-run this script."
   sleep 3
 done
 

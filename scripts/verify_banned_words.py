@@ -308,7 +308,7 @@ def scan_dashboards(f: Findings, ref: str, extra: list[Path], only_extra: bool) 
 def psql_cmd() -> list[str]:
     raw = os.environ.get("PSQL")
     if not raw:
-        raw = "psql" if shutil.which("psql") else "docker exec -i postgres psql -U h360tk_root"
+        raw = "psql" if shutil.which("psql") else "docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root"
     return shlex.split(raw)
 
 

@@ -17,7 +17,7 @@
  * behind the number, the place and month, and `See this in Reports: <tab>`. The figure is a
  * button: Enter or Space pins the card, Tab moves into its link, Escape closes it.
  *
- * H360_API defaults to <page protocol>//<page hostname>:8090. To point it elsewhere:
+ * H360_API defaults to <page protocol>//<page hostname>:<Grafana port + 5090> (3000 -> 8090). To point it elsewhere:
  *   - set window.H360_API = 'http://host:port' (console or another script), or
  *   - open any Grafana page with ?h360_api=http://<same hostname>:<port> once; the value is kept
  *     in sessionStorage for the tab. Only the page's own hostname is accepted this way.
@@ -114,7 +114,7 @@
     if (typeof window.H360_API === 'string' && window.H360_API) { return window.H360_API.replace(/\/+$/, ''); }
     var s = ssGet(STORE_API);
     if (s) { return s; }
-    return location.protocol + '//' + location.hostname + ':8090';
+    return location.protocol + '//' + location.hostname + ':' + ((Number(location.port) || 80) + 5090);
   }
 
   function el(tag, cls, text) {

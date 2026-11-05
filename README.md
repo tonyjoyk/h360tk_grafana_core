@@ -85,7 +85,7 @@ Wait 30-60 seconds for all services to initialize.
 #### Step 4: Verify Installation
 
 1. **Check Grafana Dashboard:**
-   - Open browser: `http://localhost:3000`
+   - Open browser: `http://localhost:3000`. That is the stock port. To run two stacks on one machine, or to move a stack back, see [Running two stacks](docs/running-two-stacks.md).
    - Login with: `admin` / `admin`
    - You should see the "Hypertension Program" dashboard
 

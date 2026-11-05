@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # Fresh install and upgrade parity (story 7.4, FR-15, FR-16, NFR-5, AD-13).
 #
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./scripts/verify_upgrade_path.sh
+#   PSQL="docker exec -i ${H360_PG_CONTAINER:-postgres} psql -U h360tk_root" ./scripts/verify_upgrade_path.sh
 #   KEEP_DBS=1 ...   keep the two scratch databases and the dumps for a look afterwards
 #
 # Builds two scratch databases in the running cluster and compares them:
@@ -37,6 +37,7 @@
 #   - The empty-volume `docker compose up -d --build` boot (AC 7.4 part 3) is a human step in the
 #     demo runbook: this script never runs `compose down` or touches volumes.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 INIT="$ROOT/pg_init_scripts"
@@ -47,7 +48,7 @@ FRESH_DB="${FRESH_DB:-h360_upgrade_fresh}"
 UPGRADE_DB="${UPGRADE_DB:-h360_upgrade_from060}"
 
 if [[ -z "${PSQL:-}" ]]; then
-    if command -v psql >/dev/null 2>&1; then PSQL="psql"; else PSQL="docker exec -i postgres psql -U h360tk_root"; fi
+    if command -v psql >/dev/null 2>&1; then PSQL="psql"; else PSQL="docker exec -i ${H360_PG_CONTAINER:-postgres} psql -U h360tk_root"; fi
 fi
 PG_DUMP="${PG_DUMP:-${PSQL/psql/pg_dump}}"
 read -r -a PSQL_CMD <<< "$PSQL"

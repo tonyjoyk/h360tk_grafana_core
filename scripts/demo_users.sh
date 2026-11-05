@@ -9,6 +9,7 @@
 # A62 names are used: heart360tk_district_view_patients_district-d and
 # heart360tk_facility_view_patients_phc-a.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PY'
 import json
@@ -136,7 +137,7 @@ def psql_command():
         return base
     passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
                    if os.environ.get(key) for arg in ("-e", key)]
-    return ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, "postgres", *base]
+    return ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, os.environ.get("H360_PG_CONTAINER", "postgres"), *base]
 
 
 def org_rows():

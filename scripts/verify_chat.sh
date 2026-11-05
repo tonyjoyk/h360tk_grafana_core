@@ -27,9 +27,10 @@
 # excluded). With no key set, no `ANTHROPIC_API_KEY=<value>` assignment may appear in those places,
 # and no `sk-ant-` token in the browser files or logs.
 #
-# PSQL follows AD-35 (PSQL="docker exec -i postgres psql -U h360tk_root"); without it, `psql` when
+# PSQL follows AD-35 (PSQL="docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root"); without it, `psql` when
 # on PATH, else that docker command.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PY'
 import ast
@@ -84,7 +85,7 @@ SENTENCE_CONSTANTS = {str(v) for v in module_constant("ranker.py", "CONSTANTS").
 
 
 def psql_cmd():
-    raw = os.environ.get("PSQL") or ("psql" if shutil.which("psql") else "docker exec -i postgres psql -U h360tk_root")
+    raw = os.environ.get("PSQL") or ("psql" if shutil.which("psql") else "docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root")
     return shlex.split(raw)
 
 
@@ -256,7 +257,7 @@ def key_values():
             k, sep, v = line.partition("=")
             if sep and k.strip() == "ANTHROPIC_API_KEY" and v.strip().strip("'\""):
                 values.add(v.strip().strip("'\""))
-    proc = subprocess.run(["docker", "exec", "h360-api", "printenv", "ANTHROPIC_API_KEY"],
+    proc = subprocess.run(["docker", "exec", os.environ.get("H360_CONTAINER_PREFIX", "") + "h360-api", "printenv", "ANTHROPIC_API_KEY"],
                           capture_output=True, text=True)
     if proc.returncode == 0 and proc.stdout.strip():
         values.add(proc.stdout.strip())
@@ -278,7 +279,7 @@ def key_sources():
             yield "browser", "served /public/h360/chat-widget.js", resp.read()
     except (urllib.error.URLError, OSError) as exc:
         check("served widget readable", False, str(exc))
-    for container in ("h360-api", "grafana"):
+    for container in (os.environ.get("H360_CONTAINER_PREFIX", "") + "h360-api", os.environ.get("H360_CONTAINER_PREFIX", "") + "grafana"):
         proc = subprocess.run(["docker", "logs", container], capture_output=True)
         yield "logs", f"docker logs {container}", proc.stdout + proc.stderr
     listed = subprocess.run(["git", "ls-files", "-z", "-co", "--exclude-standard"], capture_output=True, check=True)

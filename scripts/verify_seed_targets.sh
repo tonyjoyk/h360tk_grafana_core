@@ -21,8 +21,9 @@
 #          (default: docker exec -i postgres psql -U h360tk_root -d heart360tk_database)
 #   MONTH  reporting month (default 2026-10-01)
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 
-PSQL="${PSQL:-docker exec -i postgres psql -U h360tk_root -d heart360tk_database}"
+PSQL="${PSQL:-docker exec -i ${H360_PG_CONTAINER:-postgres} psql -U h360tk_root -d heart360tk_database}"
 MONTH="${MONTH:-2026-10-01}"
 
 if [[ ! "$MONTH" =~ ^[0-9]{4}-[0-9]{2}-01$ ]]; then

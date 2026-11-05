@@ -9,6 +9,7 @@
 # The function allowlist is MATRIX and REPORT_CHAT_NAMES in this file.
 # Add a new report_* or chat_* name to REPORT_CHAT_NAMES when a migration grants it.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PY'
 import json
@@ -506,7 +507,7 @@ def psql(sql):
         # No host psql (a stock Mac): run psql inside the postgres container instead.
         passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
                        if os.environ.get(key) for arg in ("-e", key)]
-        command = ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, "postgres", *command]
+        command = ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, os.environ.get("H360_PG_CONTAINER", "postgres"), *command]
     dsn = resolve_dsn()
     if dsn:
         command.append(dsn)
@@ -655,7 +656,7 @@ def write_path(sessions):
     unchanged("write foreign origin")
 
     try:
-        http, body = post_write(foreign_id, jar=nurse, origin="http://localhost:3000")
+        http, body = post_write(foreign_id, jar=nurse, origin=os.environ.get("H360_ORIGIN", "http://localhost:3000"))
     except ConnectionError as exc:
         check("write other facility", False, str(exc))
         return
@@ -663,7 +664,7 @@ def write_path(sessions):
     unchanged("write other facility")
 
     try:
-        http, body = post_write(allowed_id, jar=nurse, origin="http://localhost:3000")
+        http, body = post_write(allowed_id, jar=nurse, origin=os.environ.get("H360_ORIGIN", "http://localhost:3000"))
     except ConnectionError as exc:
         check("write allowed patient", False, str(exc))
         return

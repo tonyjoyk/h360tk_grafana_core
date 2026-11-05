@@ -12,7 +12,7 @@
 #   ./scripts/verify_all.sh --keep-going    run every check and list all failures at the end
 #
 # PSQL (AD-35). Per-rule scripts read PSQL. When PSQL is unset and there is no psql on PATH (this
-# Mac), PSQL="docker exec -i postgres psql -U h360tk_root". Scripts that call plain `psql` with a
+# Mac), PSQL="docker exec -i <prefix>postgres psql -U h360tk_root" (see scripts/h360_env.sh). Scripts that call plain `psql` with a
 # DSN (verify_security.sh, verify_dashboard_queries.py fallback, demo_users.sh, the drug stock
 # scripts' local mode) get a temporary `psql` shim on PATH that runs psql in the postgres
 # container: a host file given with -f is sent on stdin and \i / \ir lines naming host files are
@@ -25,6 +25,7 @@
 # heart360tk, which is unsafe on a shared cluster). Its migration, 0.6.0_to_0.6.1, is loaded and
 # exercised by the verify_drug_stock_* scripts.
 set -euo pipefail
+source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -102,8 +103,8 @@ trap cleanup EXIT
 
 # ------------------------------------------------------------------------------ psql setup
 if ! command -v psql >/dev/null 2>&1; then
-  : "${PSQL:=docker exec -i postgres psql -U h360tk_root}"
-  PG_USER="$(docker exec postgres printenv POSTGRES_USER 2>/dev/null || true)"
+  : "${PSQL:=docker exec -i "$H360_PG_CONTAINER" psql -U h360tk_root}"
+  PG_USER="$(docker exec "$H360_PG_CONTAINER" printenv POSTGRES_USER 2>/dev/null || true)"
   SHIM="$(mktemp -d "${TMPDIR:-/tmp}/verify_all_bin.XXXXXX")"
   cat > "$SHIM/psql" <<'SH'
 #!/usr/bin/env bash
@@ -154,7 +155,7 @@ export PSQL="${PSQL:-}"
 
 run_h360_api_tests() {
   local image
-  image="$(docker inspect -f '{{.Config.Image}}' h360-api 2>/dev/null || echo h360tk_grafana_core-demo-h360-api)"
+  image="$(docker inspect -f '{{.Config.Image}}' "${H360_CONTAINER_PREFIX}h360-api" 2>/dev/null || echo h360tk_grafana_core-demo-h360-api)"
   docker run --rm -u 0 -v "$ROOT/h360_api:/src/h360_api:ro" -w /src -e PYTHONPATH=/src "$image" \
     python -m unittest discover -s h360_api/tests -t /src
 }
@@ -199,7 +200,7 @@ run_check() {
 }
 
 counts() {
-  docker exec -i postgres sh -c 'psql -U "$POSTGRES_USER" -d heart360tk_database -X -qAt' <<'SQL'
+  docker exec -i "$H360_PG_CONTAINER" sh -c 'psql -U "$POSTGRES_USER" -d heart360tk_database -X -qAt' <<'SQL'
 SELECT 'patients ' || count(*) FROM heart360tk_schema.patients
 UNION ALL SELECT 'encounters ' || count(*) FROM heart360tk_schema.encounters
 UNION ALL SELECT 'prescriptions ' || count(*) FROM heart360tk_schema.prescriptions

@@ -4,9 +4,9 @@ services:
     build:
       context: .
       dockerfile: docker_build/heart360.grafana.docker
-    container_name: grafana
+    container_name: ${H360_CONTAINER_PREFIX:-}grafana
     ports:
-      - 3000:3000
+      - ${GRAFANA_PORT:-3000}:3000
     restart: unless-stopped
     volumes:
       - ./grafana_provisioning:/etc/grafana/provisioning:ro
@@ -25,9 +25,9 @@ services:
     build:
       context: .
       dockerfile: docker_build/heart360.pg_database.docker
-    container_name: postgres
+    container_name: ${H360_CONTAINER_PREFIX:-}postgres
     ports:
-      - 5432:5432
+      - ${POSTGRES_PORT:-5432}:5432
     restart: unless-stopped
     # POSTGRES_INITDB_ARGS goes to initdb, not the running server — pg_cron must load during init scripts too.
     command:
@@ -50,7 +50,7 @@ services:
   # first start, and the h360_api password. Re-applied on every `up` (AD-14, A60).
   db-grants:
     image: postgres:16-alpine
-    container_name: db-grants
+    container_name: ${H360_CONTAINER_PREFIX:-}db-grants
     restart: "no"
     depends_on:
       - postgres
@@ -71,25 +71,25 @@ services:
     build:
       context: ./h360_api
       dockerfile: Dockerfile
-    container_name: h360-api
+    container_name: ${H360_CONTAINER_PREFIX:-}h360-api
     ports:
-      - "8090:8090"
+      - "${H360_API_PORT:-8090}:8090"
     restart: unless-stopped
     depends_on:
       - postgres
       - grafana
     environment:
       - DATABASE_URL=postgresql://h360_api:${H360_API_DB_PASSWORD:-h360_api_mvp}@postgres:5432/heart360tk_database
-      - GRAFANA_URL=${GRAFANA_URL:-http://grafana:3000}
+      - GRAFANA_URL=${H360_GRAFANA_INTERNAL_URL:-http://grafana:3000}
       - H360_ALLOWED_ORIGINS=${H360_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}
       - ANTHROPIC_MODEL=${ANTHROPIC_MODEL:-claude-sonnet-5-5}
 
   pgadmin:
     image: dpage/pgadmin4:9.14
-    container_name: pgadmin
+    container_name: ${H360_CONTAINER_PREFIX:-}pgadmin
     ports:
-      - "5050:80"
+      - "${PGADMIN_PORT:-5050}:80"
     restart: unless-stopped
     user: root
     entrypoint: /bin/sh -c "cp /pgadmin4/pgpass_src /tmp/pgpass && chmod 0600 /tmp/pgpass && chown 5050:5050 /tmp/pgpass && /entrypoint.sh"
@@ -107,10 +107,10 @@ services:
 
   filebrowser:
     image: gtstef/filebrowser:stable-slim
-    container_name: filebrowser-quantum
+    container_name: ${H360_CONTAINER_PREFIX:-}filebrowser-quantum
     restart: unless-stopped
     ports:
-      - "8080:80"
+      - "${FILEBROWSER_PORT:-8080}:80"
     volumes:
       - ./data/upload:/srv:rw
     environment:
@@ -119,7 +119,7 @@ services:
 
   file-processor:
     image: devodev/inotify
-    container_name: file-upload-trigger
+    container_name: ${H360_CONTAINER_PREFIX:-}file-upload-trigger
     entrypoint: /bin/sh /scripts/init.sh
     environment:
       - H360TK_DATA_LOAD_SCRIPT=/scripts/ingest_file_h360tk.py
@@ -141,7 +141,7 @@ services:
       dockerfile: docker_build/heart360.exporter.docker
       args:
         SOURCE_VERSION: ${SOURCE_VERSION}
-    container_name: h360tk-exporter
+    container_name: ${H360_CONTAINER_PREFIX:-}h360tk-exporter
     restart: unless-stopped
     depends_on:
       - postgres
@@ -161,7 +161,7 @@ services:
     build:
       context: .
       dockerfile: docker_build/heart360.importer.docker
-    container_name: h360tk-importer
+    container_name: ${H360_CONTAINER_PREFIX:-}h360tk-importer
     restart: unless-stopped
     depends_on:
       - postgres
