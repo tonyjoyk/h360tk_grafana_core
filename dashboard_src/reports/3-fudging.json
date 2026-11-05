@@ -1,7 +1,372 @@
 {
   "title": "BP readings check",
   "elements": {
-    "panel-fudging-placeholder": {
+    "panel-fudging-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT w.window_start, w.window_end, w.data_end,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · last 3 months to {date}\".\nconst root = rpt.mount('.rpt-fud-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst period = w.window_end ? 'last 3 months to ' + rpt.day(w.window_end) : 'last 3 months';\nroot.innerHTML = '<h2 class=\"rpt-title\">Are BP readings bunching just under 140?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(period) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-fud-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-fud-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-fudging-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT f.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'flag_score') AS flag_score, (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'min_readings') AS min_readings\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nWHERE f.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Headline strip: Bunching score, readings of 135 to 139, readings of 140 to 144.\nconst root = rpt.mount('.rpt-fud-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, cls, color, label, line, title) => '<div' + (title ? ' title=\"' + esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (cls ? ' ' + cls : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nif (!r) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + col('—', '', '', 'Bunching score', rpt.NO_DATA) + col('—', '', '', 'Readings of 135 to 139', rpt.NO_DATA)\n    + col('—', '', '', 'Readings of 140 to 144', rpt.NO_DATA) + '</div>';\n  return;\n}\nconst a = num(r.band_135_139_n) || 0, b = num(r.band_140_144_n) || 0;\nconst counts = fmt(a) + ' readings of 135 to 139 and ' + fmt(b) + ' readings of 140 to 144';\nconst flagAt = num(r.flag_score);\nlet first;\nif (yes(r.too_few)) {\n  first = col('Too few readings', 'rpt-few', '', 'Bunching score', rpt.needAtLeast(r.min_readings, a + b), counts);\n} else if (num(r.score) === null) {\n  first = col('—', '', 'var(--flag-bar)', 'Bunching score', r.flag_reason || rpt.NO_DATA, counts);\n} else {\n  const high = flagAt !== null && num(r.score) >= flagAt;\n  first = col(rpt.score(r.score), '', high ? 'var(--flag-bar)' : 'var(--text-primary)', 'Bunching score',\n    rpt.score(r.score) + ' readings just under 140 for every 1 just over.' + (flagAt !== null ? ' ' + rpt.score(flagAt) + ' or more is flagged.' : ''), counts);\n}\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first\n  + col(fmt(a), '', 'var(--uncontrolled)', 'Readings of 135 to 139', 'just under the line', counts)\n  + col(fmt(b), '', 'var(--no-visit)', 'Readings of 140 to 144', 'just over the line', counts) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-fud-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-fud-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-fudging-chart": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT * FROM (\n  SELECT band_low, band_high, readings_n, highlight\n  FROM report_fudging_histogram('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\n) h\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Readings in the last 3 months, counted by the top BP number in 5-point bands. Readings bunch under 140 when the 135–139 bar is much taller than the 140–144 bar. The dashed line marks 140, where high BP starts.",
+        "id": 0,
+        "links": [],
+        "title": "Top BP number of each reading, last 3 months",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// Histogram of the top BP number in 5-point bands; dashed line between 139 and 140.\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst lo = col('band_low').map(Number);\nconst hi = col('band_high').map(Number);\nconst cnt = col('readings_n').map((v) => Number(v) || 0);\nconst order = lo.map((v, i) => i).sort((a, b) => lo[a] - lo[b]);\nconst band = (i) => lo[i] + '–' + hi[i];\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nif (!order.length) {\n  // No access: the title strip shows the access banner; the chart stays empty.\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\nconst colorOf = (i) => (lo[i] === 135 ? C.uncontrolled : lo[i] === 140 ? C.noVisit : C.estimated);\nconst NOTE = { 135: 'just under the line', 140: 'just over the line' };\n// The dashed line sits on a hidden value axis from 0 to the number of bands, where band k spans k to k + 1,\n// so the edge between the 135-139 and 140-144 bars is a whole number.\nconst k135 = order.findIndex((i) => lo[i] === 135);\nconst k140 = order.findIndex((i) => lo[i] === 140);\nconst at = k140 > 0 ? k140 : k135 >= 0 ? k135 + 1 : null;\nreturn {\n  animation: false,\n  grid: { left: 8, right: 16, top: 34, bottom: 8, containLabel: true },\n  tooltip: tip((k) => [fmt(cnt[order[k]]) + ' readings'].concat(NOTE[lo[order[k]]] ? [soft(NOTE[lo[order[k]]])] : []),\n    (k) => 'Top BP number ' + band(order[k]), { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  xAxis: [{ type: 'category', data: order.map(band), axisTick: { show: false },\n    axisLabel: { color: C.axis, fontSize: 11 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  { type: 'value', min: 0, max: order.length, show: false, axisPointer: { show: false } }],\n  yAxis: { type: 'value', min: 0, splitNumber: 4, axisLabel: { color: C.axis, fontSize: 11, formatter: (v) => fmt(v) },\n    splitLine: { lineStyle: { color: C.grid } } },\n  series: [{\n    type: 'bar', name: 'Readings', barWidth: '62%',\n    data: order.map((i) => ({ value: cnt[i], itemStyle: { color: colorOf(i), borderRadius: [2, 2, 0, 0] } })),\n    label: { show: true, position: 'top', color: C.text, fontSize: 12, formatter: (p) => fmt(p.value) }\n  }].concat(at === null ? [] : [{\n    type: 'line', name: '140', xAxisIndex: 1, data: [[at, 0]], showSymbol: false, silent: true, tooltip: { show: false },\n    markLine: {\n      silent: true, symbol: ['none', 'none'], animation: false,\n      lineStyle: { type: 'dashed', color: C.text, width: 1.5 },\n      label: { formatter: '140: high BP starts', position: 'end', color: C.text, fontSize: 12 },\n      data: [{ xAxis: at }]\n    }\n  }])\n};\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-fudging-look": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT f.org_unit_id, f.org_unit_name, f.flag_reason, f.looks_fine_check, f.control_pct, fl.patients_n\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nJOIN report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) fl ON fl.org_unit_id = f.org_unit_id AND fl.report = 'fudging'\nWHERE f.flag AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-fud-look');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst list = rpt.rows('A').sort((a, b) => (num(b.patients_n) || 0) - (num(a.patients_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + (yes(r.looks_fine_check) ? ' <span class=\"rpt-pill rpt-pill-check\">◆ Looks fine, check readings</span>' : '')\n    + '<div class=\"rpt-look-line\">' + fmt(r.patients_n) + ' patients · ' + esc(r.flag_reason) + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
+              "content": "<div class=\"rpt rpt-fud-look\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-fud-look\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-fudging-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT f.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'flag_score') AS flag_score, (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'min_readings') AS min_readings,\n  fl.flags_json\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nLEFT JOIN fl ON fl.org_unit_id = f.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, BP controlled, 135–139, 140–144, Bunching score, Why look here.\nconst root = rpt.mount('.rpt-fud-table');\nif (!root) { return; }\nconst { fmt, num, yes } = rpt;\nconst counted = (r) => (num(r.band_135_139_n) || 0) + (num(r.band_140_144_n) || 0);\nrptTable(root, {\n  report: 'fudging',\n  rows: rpt.rows('A'),\n  caption: 'BP readings just under and just over 140, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'BP controlled', num: true, value: (r) => num(r.control_pct), cell: (r) => (num(r.control_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.control_pct) + '</span>') },\n    { label: '135–139', num: true, value: (r) => num(r.band_135_139_n), cell: (r) => fmt(r.band_135_139_n) },\n    { label: '140–144', num: true, value: (r) => num(r.band_140_144_n), cell: (r) => fmt(r.band_140_144_n) },\n    { label: 'Bunching score', num: true, guard: true, value: (r) => num(r.score), cell: (r) => rpt.score(r.score),\n      title: (r) => fmt(r.band_135_139_n) + ' readings of 135 to 139 and ' + fmt(r.band_140_144_n) + ' of 140 to 144' }\n  ],\n  flagNames: () => ['Readings bunch under 140'],\n  guardName: 'Too few readings',\n  guardReason: (r) => rpt.needAtLeast(r.min_readings, counted(r)),\n  check: { text: '◆ Looks fine, check readings', when: (r) => yes(r.looks_fine_check) },\n  alsoOn: ['titration'],\n  size: (r) => num(r.readings_n)\n});\n",
+              "content": "<div class=\"rpt rpt-fud-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-fud-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-fudging-note": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -16,6 +381,7 @@
         "id": 0,
         "links": [],
         "title": "",
+        "transparent": true,
         "vizConfig": {
           "group": "marcusolsson-dynamictext-panel",
           "kind": "VizConfig",
@@ -27,18 +393,21 @@
             },
             "options": {
               "afterRender": "",
-              "content": "This report is being built.",
+              "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Counts readings with a top BP number of 135–139 and of 140–144 in the last 3 months, and divides the first by the second. A high score is a reason to look at how BP is measured. The cuff, habit, training or rounding could each cause it. The score does not prove any of them.</div>",
               "contentPartials": [],
-              "defaultContent": "This report is being built.",
+              "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Counts readings with a top BP number of 135–139 and of 140–144 in the last 3 months, and divides the first by the second. A high score is a reason to look at how BP is measured. The cuff, habit, training or rounding could each cause it. The score does not prove any of them.</div>",
               "editor": {
                 "format": "auto",
-                "language": "markdown"
+                "language": "html"
               },
-              "editors": [],
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
               "externalStyles": [],
               "helpers": "",
-              "renderMode": "everyRow",
-              "styles": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
               "wrap": true
             }
           }
@@ -47,20 +416,113 @@
     }
   },
   "layout": {
-    "kind": "GridLayout",
+    "kind": "RowsLayout",
     "spec": {
-      "items": [
+      "rows": [
         {
-          "kind": "GridLayoutItem",
+          "kind": "RowsLayoutRow",
           "spec": {
-            "element": {
-              "kind": "ElementReference",
-              "name": "panel-fudging-placeholder"
-            },
-            "height": 3,
-            "width": 24,
-            "x": 0,
-            "y": 0
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-chart"
+                      },
+                      "height": 9,
+                      "width": 14,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-look"
+                      },
+                      "height": 9,
+                      "width": 10,
+                      "x": 14,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-table"
+                      },
+                      "height": 14,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-fudging-note"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 14
+                    }
+                  }
+                ]
+              }
+            }
           }
         }
       ]

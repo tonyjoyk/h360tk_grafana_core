@@ -2,7 +2,7 @@
   "_builder_notes": [
     "Source for heart360.reports.json. Edit here, then run scripts/build_reports_dashboard.py. Keys starting with _ are dropped by the builder.",
     "Tabs come from the TABS list in the builder; they are placed in the one row whose layout is a TabsLayout (tabs: []).",
-    "Story 5.12 strip: add a RowsLayoutRow (hideHeader: true) between 'Change location' and the tabs row, with its element keyed panel-strip-*.",
+    "Story 5.12 strip: the header-less row between 'Change location' and the tabs row holds panel-strip-flags (report_flags, PD-7) and the PD-19 demo notice. Shared code comes from _shared/ via {{shared:<file>}}.",
     "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. reporting_month default 2026-10-01 is pinned for the demo (PD-9, C8); revert to the latest completed month after the demo."
   ],
   "uid": "heart360_reports",
@@ -194,6 +194,77 @@
           },
           "transparent": true
         }
+      },
+      "panel-strip-flags": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT org_unit_id, org_unit_name, report, flag_reason, patients_n\nFROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\nWHERE '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 0,
+          "links": [],
+          "title": "",
+          "transparent": false,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "{{shared:states.js}}\n// Needs-a-look strip (story 5.12, PD-7): at most three facilities from report_flags, those flagged on\n// two or more reports first, then most patients. Chips open the tab with the same location and month.\nconst root = context.element.querySelector('.rpt-nal-root');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst head = '<div class=\"rpt-nal-head\"><span class=\"rpt-nal-title\">Needs a look first</span>'\n  + '<span class=\"rpt-demo\">Demo data. Facility names and numbers are made up.</span></div>';\nif (!rpt.allowed()) { root.innerHTML = head + rpt.banner(); return; }\nconst tabOrder = rpt.TABS.map((t) => t.report);\nconst by = {};\nrpt.rows('A').filter((f) => tabOrder.includes(f.report)).forEach((f) => {\n  const k = String(f.org_unit_id);\n  (by[k] = by[k] || { name: String(f.org_unit_name || ''), patients: num(f.patients_n) || 0, items: [] }).items.push(f);\n});\n// Ties on patients go to the facility with more flags, then by name.\nconst list = Object.values(by).sort((a, b) => (b.items.length >= 2) - (a.items.length >= 2) || b.patients - a.patients\n  || b.items.length - a.items.length || a.name.localeCompare(b.name)).slice(0, 3);\nconst chip = (f) => '<a class=\"rpt-chip\" href=\"' + esc(rpt.link(f.report)) + '\" title=\"' + esc(f.flag_reason) + '\">' + esc(rpt.tab(f.report).title) + '</a>';\nroot.innerHTML = head + (list.length\n  ? '<ul class=\"rpt-nal\">' + list.map((f) => '<li><span class=\"rpt-nal-name\">' + esc(f.name) + '</span>'\n    + '<span class=\"rpt-nal-n\">' + fmt(f.patients) + ' patients</span>'\n    + '<div class=\"rpt-chips\" aria-label=\"Reports that flag ' + esc(f.name) + '\">'\n    + f.items.slice().sort((a, b) => tabOrder.indexOf(a.report) - tabOrder.indexOf(b.report)).map(chip).join('') + '</div></li>').join('') + '</ul>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + '</div>');\n",
+                "content": "<div class=\"rpt rpt-nal-root\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-nal-root\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "{{shared:styles.css}}",
+                "wrap": true
+              }
+            }
+          }
+        }
       }
     },
     "layout": {
@@ -222,6 +293,34 @@
                   ],
                   "maxColumnCount": 3,
                   "rowHeightMode": "standard"
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "hideHeader": true,
+              "title": "",
+              "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-strip-flags"
+                        },
+                        "height": 4,
+                        "width": 24,
+                        "x": 0,
+                        "y": 0
+                      }
+                    }
+                  ]
                 }
               }
             }

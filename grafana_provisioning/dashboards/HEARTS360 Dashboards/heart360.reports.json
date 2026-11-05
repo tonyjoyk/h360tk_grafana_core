@@ -189,7 +189,443 @@
           "transparent": true
         }
       },
-      "panel-fudging-placeholder": {
+      "panel-strip-flags": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT org_unit_id, org_unit_name, report, flag_reason, patients_n\nFROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\nWHERE '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 2,
+          "links": [],
+          "title": "",
+          "transparent": false,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "// --- Reports shared helpers and states (dashboard_src/reports/_shared/states.js) ---\n// Declares one name: rpt. Business Text afterRender only (it reads context.grafana).\nconst rpt = (() => {\n  const grafana = (typeof context !== 'undefined' && context.grafana) || {};\n  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');\n\n  const esc = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\n  const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));\n  // Thousands commas.\n  const fmt = (x) => (num(x) === null ? '—' : Math.round(num(x)).toLocaleString('en-US'));\n  // Percent: whole, one decimal under 10% (DESIGN Typography).\n  const pct = (x) => { const n = num(x); if (n === null) { return '—'; } return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\n  // Scores: two decimals.\n  const score = (x) => (num(x) === null ? '—' : num(x).toFixed(2));\n  const yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\n\n  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  // Postgres dates arrive as ms numbers or 'YYYY-MM-DD' strings; read them as UTC days.\n  const toDate = (x) => { if (x == null || x === '') { return null; } const d = typeof x === 'number' ? new Date(x) : new Date(String(x).slice(0, 10) + 'T00:00:00Z'); return isNaN(d) ? null : d; };\n  const day = (x) => { const d = toDate(x); return d ? d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n  const month = (x) => { const d = toDate(x); return d ? MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n\n  // Rows of the frame with refId ref, as objects.\n  const rows = (ref) => {\n    const series = (context.panelData && context.panelData.series) || [];\n    const f = series.find((s) => s.refId === ref);\n    if (!f) { return []; }\n    const cols = f.fields.map((x) => [x.name, Array.from(x.values)]);\n    const n = cols.length ? cols[0][1].length : 0;\n    return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, vals]) => [k, vals[i]])));\n  };\n\n  // report_flags rows from a flags_json column (json_agg of {report, flag_reason, patients_n}) on each row.\n  const flagsFrom = (list) => [].concat(...(list || []).map((r) => {\n    let parsed = [];\n    try { parsed = r.flags_json ? JSON.parse(r.flags_json) : []; } catch (e) { parsed = []; }\n    return (Array.isArray(parsed) ? parsed : []).map((f) => Object.assign({ org_unit_id: r.org_unit_id, org_unit_name: r.org_unit_name }, f));\n  }));\n\n  // Variables, read in the browser so no access query is needed.\n  const orgUnit = () => { const o = v('org_unit').trim(); return o && o !== '0' ? o : '0'; };\n  const reportingMonth = () => v('reporting_month');\n  const allowed = () => v('isAllowed') === '1';\n\n  // Tabs from the builder's TABS list: [{report, title, slug}].\n  const TABS = [{\"report\":\"adherence\",\"title\":\"Right medicines\",\"slug\":\"Right-medicines\"},{\"report\":\"titration\",\"title\":\"Stepping up\",\"slug\":\"Stepping-up\"},{\"report\":\"fudging\",\"title\":\"BP readings check\",\"slug\":\"BP-readings-check\"},{\"report\":\"statins\",\"title\":\"Statins\",\"slug\":\"Statins\"},{\"report\":\"calling\",\"title\":\"Overdue calls\",\"slug\":\"Overdue-calls\"}];\n  const tab = (report) => TABS.find((t) => t.report === report) || null;\n  // AD-29 deep link; keeps the location and month unless given.\n  const link = (report, org, mon) => {\n    const t = tab(report);\n    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)\n      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';\n  };\n\n  // --- States (DESIGN States, FR-32) ---\n  // Existing HTN access banner, verbatim (program dashboard overdue list).\n  const banner = () => '<div class=\"rpt-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';\n  const NO_DATA = 'No data for this place.';\n  const NO_FACILITIES = 'No facilities for this location.';\n  const NO_FLAGS = 'No facility is flagged.';\n  const noData = (text) => '<div class=\"rpt-empty\">' + esc(text || NO_DATA) + '</div>';\n  // \"Need at least 20; this place has 12.\"\n  const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';\n  // Place for the subtitle: the selected name, or all locations.\n  const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));\n\n  // Thresholds from report_flag_thresholds rows ({report, key, value}).\n  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };\n\n  // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,\n  // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.\n  const mount = (selector, opts) => {\n    const root = context.element.querySelector(selector);\n    if (!root) { return null; }\n    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }\n    return root;\n  };\n\n  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,\n    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };\n})();\n// Needs-a-look strip (story 5.12, PD-7): at most three facilities from report_flags, those flagged on\n// two or more reports first, then most patients. Chips open the tab with the same location and month.\nconst root = context.element.querySelector('.rpt-nal-root');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst head = '<div class=\"rpt-nal-head\"><span class=\"rpt-nal-title\">Needs a look first</span>'\n  + '<span class=\"rpt-demo\">Demo data. Facility names and numbers are made up.</span></div>';\nif (!rpt.allowed()) { root.innerHTML = head + rpt.banner(); return; }\nconst tabOrder = rpt.TABS.map((t) => t.report);\nconst by = {};\nrpt.rows('A').filter((f) => tabOrder.includes(f.report)).forEach((f) => {\n  const k = String(f.org_unit_id);\n  (by[k] = by[k] || { name: String(f.org_unit_name || ''), patients: num(f.patients_n) || 0, items: [] }).items.push(f);\n});\n// Ties on patients go to the facility with more flags, then by name.\nconst list = Object.values(by).sort((a, b) => (b.items.length >= 2) - (a.items.length >= 2) || b.patients - a.patients\n  || b.items.length - a.items.length || a.name.localeCompare(b.name)).slice(0, 3);\nconst chip = (f) => '<a class=\"rpt-chip\" href=\"' + esc(rpt.link(f.report)) + '\" title=\"' + esc(f.flag_reason) + '\">' + esc(rpt.tab(f.report).title) + '</a>';\nroot.innerHTML = head + (list.length\n  ? '<ul class=\"rpt-nal\">' + list.map((f) => '<li><span class=\"rpt-nal-name\">' + esc(f.name) + '</span>'\n    + '<span class=\"rpt-nal-n\">' + fmt(f.patients) + ' patients</span>'\n    + '<div class=\"rpt-chips\" aria-label=\"Reports that flag ' + esc(f.name) + '\">'\n    + f.items.slice().sort((a, b) => tabOrder.indexOf(a.report) - tabOrder.indexOf(b.report)).map(chip).join('') + '</div></li>').join('') + '</ul>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + '</div>');\n",
+                "content": "<div class=\"rpt rpt-nal-root\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-nal-root\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
+                "wrap": true
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-title": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT w.window_start, w.window_end, w.data_end,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 3,
+          "links": [],
+          "title": "",
+          "transparent": true,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "// --- Reports shared helpers and states (dashboard_src/reports/_shared/states.js) ---\n// Declares one name: rpt. Business Text afterRender only (it reads context.grafana).\nconst rpt = (() => {\n  const grafana = (typeof context !== 'undefined' && context.grafana) || {};\n  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');\n\n  const esc = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\n  const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));\n  // Thousands commas.\n  const fmt = (x) => (num(x) === null ? '—' : Math.round(num(x)).toLocaleString('en-US'));\n  // Percent: whole, one decimal under 10% (DESIGN Typography).\n  const pct = (x) => { const n = num(x); if (n === null) { return '—'; } return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\n  // Scores: two decimals.\n  const score = (x) => (num(x) === null ? '—' : num(x).toFixed(2));\n  const yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\n\n  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  // Postgres dates arrive as ms numbers or 'YYYY-MM-DD' strings; read them as UTC days.\n  const toDate = (x) => { if (x == null || x === '') { return null; } const d = typeof x === 'number' ? new Date(x) : new Date(String(x).slice(0, 10) + 'T00:00:00Z'); return isNaN(d) ? null : d; };\n  const day = (x) => { const d = toDate(x); return d ? d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n  const month = (x) => { const d = toDate(x); return d ? MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n\n  // Rows of the frame with refId ref, as objects.\n  const rows = (ref) => {\n    const series = (context.panelData && context.panelData.series) || [];\n    const f = series.find((s) => s.refId === ref);\n    if (!f) { return []; }\n    const cols = f.fields.map((x) => [x.name, Array.from(x.values)]);\n    const n = cols.length ? cols[0][1].length : 0;\n    return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, vals]) => [k, vals[i]])));\n  };\n\n  // report_flags rows from a flags_json column (json_agg of {report, flag_reason, patients_n}) on each row.\n  const flagsFrom = (list) => [].concat(...(list || []).map((r) => {\n    let parsed = [];\n    try { parsed = r.flags_json ? JSON.parse(r.flags_json) : []; } catch (e) { parsed = []; }\n    return (Array.isArray(parsed) ? parsed : []).map((f) => Object.assign({ org_unit_id: r.org_unit_id, org_unit_name: r.org_unit_name }, f));\n  }));\n\n  // Variables, read in the browser so no access query is needed.\n  const orgUnit = () => { const o = v('org_unit').trim(); return o && o !== '0' ? o : '0'; };\n  const reportingMonth = () => v('reporting_month');\n  const allowed = () => v('isAllowed') === '1';\n\n  // Tabs from the builder's TABS list: [{report, title, slug}].\n  const TABS = [{\"report\":\"adherence\",\"title\":\"Right medicines\",\"slug\":\"Right-medicines\"},{\"report\":\"titration\",\"title\":\"Stepping up\",\"slug\":\"Stepping-up\"},{\"report\":\"fudging\",\"title\":\"BP readings check\",\"slug\":\"BP-readings-check\"},{\"report\":\"statins\",\"title\":\"Statins\",\"slug\":\"Statins\"},{\"report\":\"calling\",\"title\":\"Overdue calls\",\"slug\":\"Overdue-calls\"}];\n  const tab = (report) => TABS.find((t) => t.report === report) || null;\n  // AD-29 deep link; keeps the location and month unless given.\n  const link = (report, org, mon) => {\n    const t = tab(report);\n    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)\n      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';\n  };\n\n  // --- States (DESIGN States, FR-32) ---\n  // Existing HTN access banner, verbatim (program dashboard overdue list).\n  const banner = () => '<div class=\"rpt-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';\n  const NO_DATA = 'No data for this place.';\n  const NO_FACILITIES = 'No facilities for this location.';\n  const NO_FLAGS = 'No facility is flagged.';\n  const noData = (text) => '<div class=\"rpt-empty\">' + esc(text || NO_DATA) + '</div>';\n  // \"Need at least 20; this place has 12.\"\n  const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';\n  // Place for the subtitle: the selected name, or all locations.\n  const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));\n\n  // Thresholds from report_flag_thresholds rows ({report, key, value}).\n  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };\n\n  // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,\n  // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.\n  const mount = (selector, opts) => {\n    const root = context.element.querySelector(selector);\n    if (!root) { return null; }\n    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }\n    return root;\n  };\n\n  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,\n    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };\n})();\n// Title strip: the question, then \"{place} · last 3 months to {date}\".\nconst root = rpt.mount('.rpt-fud-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst period = w.window_end ? 'last 3 months to ' + rpt.day(w.window_end) : 'last 3 months';\nroot.innerHTML = '<h2 class=\"rpt-title\">Are BP readings bunching just under 140?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(period) + '</div>';\n",
+                "content": "<div class=\"rpt rpt-fud-title\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-fud-title\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
+                "wrap": true
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-headline": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT f.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'flag_score') AS flag_score, (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'min_readings') AS min_readings\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nWHERE f.is_selected AND '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 4,
+          "links": [],
+          "title": "",
+          "transparent": false,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "// --- Reports shared helpers and states (dashboard_src/reports/_shared/states.js) ---\n// Declares one name: rpt. Business Text afterRender only (it reads context.grafana).\nconst rpt = (() => {\n  const grafana = (typeof context !== 'undefined' && context.grafana) || {};\n  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');\n\n  const esc = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\n  const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));\n  // Thousands commas.\n  const fmt = (x) => (num(x) === null ? '—' : Math.round(num(x)).toLocaleString('en-US'));\n  // Percent: whole, one decimal under 10% (DESIGN Typography).\n  const pct = (x) => { const n = num(x); if (n === null) { return '—'; } return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\n  // Scores: two decimals.\n  const score = (x) => (num(x) === null ? '—' : num(x).toFixed(2));\n  const yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\n\n  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  // Postgres dates arrive as ms numbers or 'YYYY-MM-DD' strings; read them as UTC days.\n  const toDate = (x) => { if (x == null || x === '') { return null; } const d = typeof x === 'number' ? new Date(x) : new Date(String(x).slice(0, 10) + 'T00:00:00Z'); return isNaN(d) ? null : d; };\n  const day = (x) => { const d = toDate(x); return d ? d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n  const month = (x) => { const d = toDate(x); return d ? MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n\n  // Rows of the frame with refId ref, as objects.\n  const rows = (ref) => {\n    const series = (context.panelData && context.panelData.series) || [];\n    const f = series.find((s) => s.refId === ref);\n    if (!f) { return []; }\n    const cols = f.fields.map((x) => [x.name, Array.from(x.values)]);\n    const n = cols.length ? cols[0][1].length : 0;\n    return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, vals]) => [k, vals[i]])));\n  };\n\n  // report_flags rows from a flags_json column (json_agg of {report, flag_reason, patients_n}) on each row.\n  const flagsFrom = (list) => [].concat(...(list || []).map((r) => {\n    let parsed = [];\n    try { parsed = r.flags_json ? JSON.parse(r.flags_json) : []; } catch (e) { parsed = []; }\n    return (Array.isArray(parsed) ? parsed : []).map((f) => Object.assign({ org_unit_id: r.org_unit_id, org_unit_name: r.org_unit_name }, f));\n  }));\n\n  // Variables, read in the browser so no access query is needed.\n  const orgUnit = () => { const o = v('org_unit').trim(); return o && o !== '0' ? o : '0'; };\n  const reportingMonth = () => v('reporting_month');\n  const allowed = () => v('isAllowed') === '1';\n\n  // Tabs from the builder's TABS list: [{report, title, slug}].\n  const TABS = [{\"report\":\"adherence\",\"title\":\"Right medicines\",\"slug\":\"Right-medicines\"},{\"report\":\"titration\",\"title\":\"Stepping up\",\"slug\":\"Stepping-up\"},{\"report\":\"fudging\",\"title\":\"BP readings check\",\"slug\":\"BP-readings-check\"},{\"report\":\"statins\",\"title\":\"Statins\",\"slug\":\"Statins\"},{\"report\":\"calling\",\"title\":\"Overdue calls\",\"slug\":\"Overdue-calls\"}];\n  const tab = (report) => TABS.find((t) => t.report === report) || null;\n  // AD-29 deep link; keeps the location and month unless given.\n  const link = (report, org, mon) => {\n    const t = tab(report);\n    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)\n      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';\n  };\n\n  // --- States (DESIGN States, FR-32) ---\n  // Existing HTN access banner, verbatim (program dashboard overdue list).\n  const banner = () => '<div class=\"rpt-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';\n  const NO_DATA = 'No data for this place.';\n  const NO_FACILITIES = 'No facilities for this location.';\n  const NO_FLAGS = 'No facility is flagged.';\n  const noData = (text) => '<div class=\"rpt-empty\">' + esc(text || NO_DATA) + '</div>';\n  // \"Need at least 20; this place has 12.\"\n  const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';\n  // Place for the subtitle: the selected name, or all locations.\n  const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));\n\n  // Thresholds from report_flag_thresholds rows ({report, key, value}).\n  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };\n\n  // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,\n  // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.\n  const mount = (selector, opts) => {\n    const root = context.element.querySelector(selector);\n    if (!root) { return null; }\n    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }\n    return root;\n  };\n\n  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,\n    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };\n})();\n// Headline strip: Bunching score, readings of 135 to 139, readings of 140 to 144.\nconst root = rpt.mount('.rpt-fud-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, cls, color, label, line, title) => '<div' + (title ? ' title=\"' + esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (cls ? ' ' + cls : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nif (!r) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + col('—', '', '', 'Bunching score', rpt.NO_DATA) + col('—', '', '', 'Readings of 135 to 139', rpt.NO_DATA)\n    + col('—', '', '', 'Readings of 140 to 144', rpt.NO_DATA) + '</div>';\n  return;\n}\nconst a = num(r.band_135_139_n) || 0, b = num(r.band_140_144_n) || 0;\nconst counts = fmt(a) + ' readings of 135 to 139 and ' + fmt(b) + ' readings of 140 to 144';\nconst flagAt = num(r.flag_score);\nlet first;\nif (yes(r.too_few)) {\n  first = col('Too few readings', 'rpt-few', '', 'Bunching score', rpt.needAtLeast(r.min_readings, a + b), counts);\n} else if (num(r.score) === null) {\n  first = col('—', '', 'var(--flag-bar)', 'Bunching score', r.flag_reason || rpt.NO_DATA, counts);\n} else {\n  const high = flagAt !== null && num(r.score) >= flagAt;\n  first = col(rpt.score(r.score), '', high ? 'var(--flag-bar)' : 'var(--text-primary)', 'Bunching score',\n    rpt.score(r.score) + ' readings just under 140 for every 1 just over.' + (flagAt !== null ? ' ' + rpt.score(flagAt) + ' or more is flagged.' : ''), counts);\n}\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first\n  + col(fmt(a), '', 'var(--uncontrolled)', 'Readings of 135 to 139', 'just under the line', counts)\n  + col(fmt(b), '', 'var(--no-visit)', 'Readings of 140 to 144', 'just over the line', counts) + '</div>';\n",
+                "content": "<div class=\"rpt rpt-fud-head\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-fud-head\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
+                "wrap": true
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-chart": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\n  SELECT band_low, band_high, readings_n, highlight\n  FROM report_fudging_histogram('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\n) h\nWHERE '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "Readings in the last 3 months, counted by the top BP number in 5-point bands. Readings bunch under 140 when the 135–139 bar is much taller than the 140–144 bar. The dashed line marks 140, where high BP starts.",
+          "id": 5,
+          "links": [],
+          "title": "Top BP number of each reading, last 3 months",
+          "vizConfig": {
+            "group": "volkovlabs-echarts-panel",
+            "kind": "VizConfig",
+            "version": "7.2.5",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "baidu": {
+                  "callback": "bmapReady",
+                  "key": ""
+                },
+                "editor": {
+                  "format": "auto"
+                },
+                "editorMode": "code",
+                "gaode": {
+                  "key": "",
+                  "plugin": "AMap.Scale,AMap.ToolBar"
+                },
+                "google": {
+                  "callback": "gmapReady",
+                  "key": ""
+                },
+                "map": "none",
+                "renderer": "canvas",
+                "themeEditor": {
+                  "config": "{}",
+                  "name": "default"
+                },
+                "visualEditor": {
+                  "code": "return {}",
+                  "dataset": [],
+                  "series": []
+                },
+                "getOption": "// --- Reports shared ECharts tooltip (dashboard_src/reports/_shared/tip.js) ---\n// Copied from the program dashboard's ECharts panels (panel-outcomes, panel-overdue): same dark card,\n// bold header, \"Label: 61%\" over \"3,901 of 6,523 patients\" in lighter text.\n// Declares: fmt, soft, dot, pctStr, shareRows, tip, chartColors. ECharts getOption only.\nconst fmt = (v) => Math.round(Number(v) || 0).toLocaleString('en-US');\nconst soft = (t) => '<span style=\"opacity:0.7\">' + t + '</span>';\n// Colour key for charts with more than one series. Like hearts360 (Chart.js), the colour sits on\n// white with a 1px white border, so translucent series colours read the same as on the chart.\nconst dot = (c) => '<span style=\"display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;'\n  + (c ? 'border:1px solid #fff;background:linear-gradient(' + c + ',' + c + '),#fff' : 'border:1px solid transparent') + '\"></span>';\nconst pctStr = (v, d) => (Number(d) ? Math.round(100 * (Number(v) || 0) / Number(d)) : 0) + '%';\n// \"Label: 61%\" over \"3,901 of 6,523 patients\"; several rows become \"Label: 29%, 387 patients\" over \"of 1,352 patients\"\n// (an optional third item per row adds a colour key).\nconst shareRows = (rows, d) => rows.length === 1\n  ? [rows[0][0] + ': ' + pctStr(rows[0][1], d), soft(fmt(rows[0][1]) + ' of ' + fmt(d) + ' patients')]\n  : rows.map(([label, v, c]) => dot(c) + label + ': ' + pctStr(v, d) + ', ' + fmt(v) + ' patients').concat(soft('of ' + fmt(d) + ' patients'));\n// Shared tooltip. rowsFor(dataIndex, axisIndex) gives the lines under the bold header; headFor(dataIndex)\n// gives the header (default: the hovered axis label, e.g. a month or a band). extra overrides any option,\n// e.g. { axisPointer: { type: 'shadow' } } for bars.\nconst tip = (rowsFor, headFor, extra) => Object.assign({\n  trigger: 'axis', backgroundColor: 'rgba(28,28,28,0.92)', borderWidth: 0, padding: [8, 12],\n  textStyle: { color: '#fff', fontSize: 13 }, extraCssText: 'border-radius: 6px;',\n  axisPointer: { lineStyle: { color: 'rgba(110,127,141,0.6)' } },\n  formatter: (ps) => {\n    const p = [].concat(ps)[0];\n    if (!p || p.dataIndex == null) { return ''; }\n    const head = headFor ? headFor(p.dataIndex) : p.axisValueLabel;\n    return '<b>' + head + '</b><br>' + rowsFor(p.dataIndex, p.axisIndex || 0).join('<br>');\n  }\n}, extra || {});\n// DESIGN tokens used by charts (cascade colours keep their meaning).\nconst chartColors = {\n  controlled: '#3BB231', uncontrolled: '#EEAB00', noVisit: '#ED6300', estimated: '#DAE0E1',\n  text: '#111217', muted: '#6E6E6E', axis: '#6e7f8d', grid: 'rgba(128,128,128,0.15)', axisLine: 'rgba(128,128,128,0.4)',\n  step: ['#E1DEF5', '#C3BDEB', '#A49BE0', '#8578D3', '#6655BF', '#4A3A9E'], stepOther: '#B3BAC1', stepOff: '#6E7782'\n};\n// Histogram of the top BP number in 5-point bands; dashed line between 139 and 140.\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst lo = col('band_low').map(Number);\nconst hi = col('band_high').map(Number);\nconst cnt = col('readings_n').map((v) => Number(v) || 0);\nconst order = lo.map((v, i) => i).sort((a, b) => lo[a] - lo[b]);\nconst band = (i) => lo[i] + '–' + hi[i];\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nif (!order.length) {\n  // No access: the title strip shows the access banner; the chart stays empty.\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\nconst colorOf = (i) => (lo[i] === 135 ? C.uncontrolled : lo[i] === 140 ? C.noVisit : C.estimated);\nconst NOTE = { 135: 'just under the line', 140: 'just over the line' };\n// The dashed line sits on a hidden value axis from 0 to the number of bands, where band k spans k to k + 1,\n// so the edge between the 135-139 and 140-144 bars is a whole number.\nconst k135 = order.findIndex((i) => lo[i] === 135);\nconst k140 = order.findIndex((i) => lo[i] === 140);\nconst at = k140 > 0 ? k140 : k135 >= 0 ? k135 + 1 : null;\nreturn {\n  animation: false,\n  grid: { left: 8, right: 16, top: 34, bottom: 8, containLabel: true },\n  tooltip: tip((k) => [fmt(cnt[order[k]]) + ' readings'].concat(NOTE[lo[order[k]]] ? [soft(NOTE[lo[order[k]]])] : []),\n    (k) => 'Top BP number ' + band(order[k]), { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  xAxis: [{ type: 'category', data: order.map(band), axisTick: { show: false },\n    axisLabel: { color: C.axis, fontSize: 11 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  { type: 'value', min: 0, max: order.length, show: false, axisPointer: { show: false } }],\n  yAxis: { type: 'value', min: 0, splitNumber: 4, axisLabel: { color: C.axis, fontSize: 11, formatter: (v) => fmt(v) },\n    splitLine: { lineStyle: { color: C.grid } } },\n  series: [{\n    type: 'bar', name: 'Readings', barWidth: '62%',\n    data: order.map((i) => ({ value: cnt[i], itemStyle: { color: colorOf(i), borderRadius: [2, 2, 0, 0] } })),\n    label: { show: true, position: 'top', color: C.text, fontSize: 12, formatter: (p) => fmt(p.value) }\n  }].concat(at === null ? [] : [{\n    type: 'line', name: '140', xAxisIndex: 1, data: [[at, 0]], showSymbol: false, silent: true, tooltip: { show: false },\n    markLine: {\n      silent: true, symbol: ['none', 'none'], animation: false,\n      lineStyle: { type: 'dashed', color: C.text, width: 1.5 },\n      label: { formatter: '140: high BP starts', position: 'end', color: C.text, fontSize: 12 },\n      data: [{ xAxis: at }]\n    }\n  }])\n};\n"
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-look": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT f.org_unit_id, f.org_unit_name, f.flag_reason, f.looks_fine_check, f.control_pct, fl.patients_n\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nJOIN report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) fl ON fl.org_unit_id = f.org_unit_id AND fl.report = 'fudging'\nWHERE f.flag AND '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 6,
+          "links": [],
+          "title": "",
+          "transparent": false,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "// --- Reports shared helpers and states (dashboard_src/reports/_shared/states.js) ---\n// Declares one name: rpt. Business Text afterRender only (it reads context.grafana).\nconst rpt = (() => {\n  const grafana = (typeof context !== 'undefined' && context.grafana) || {};\n  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');\n\n  const esc = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\n  const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));\n  // Thousands commas.\n  const fmt = (x) => (num(x) === null ? '—' : Math.round(num(x)).toLocaleString('en-US'));\n  // Percent: whole, one decimal under 10% (DESIGN Typography).\n  const pct = (x) => { const n = num(x); if (n === null) { return '—'; } return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\n  // Scores: two decimals.\n  const score = (x) => (num(x) === null ? '—' : num(x).toFixed(2));\n  const yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\n\n  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  // Postgres dates arrive as ms numbers or 'YYYY-MM-DD' strings; read them as UTC days.\n  const toDate = (x) => { if (x == null || x === '') { return null; } const d = typeof x === 'number' ? new Date(x) : new Date(String(x).slice(0, 10) + 'T00:00:00Z'); return isNaN(d) ? null : d; };\n  const day = (x) => { const d = toDate(x); return d ? d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n  const month = (x) => { const d = toDate(x); return d ? MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n\n  // Rows of the frame with refId ref, as objects.\n  const rows = (ref) => {\n    const series = (context.panelData && context.panelData.series) || [];\n    const f = series.find((s) => s.refId === ref);\n    if (!f) { return []; }\n    const cols = f.fields.map((x) => [x.name, Array.from(x.values)]);\n    const n = cols.length ? cols[0][1].length : 0;\n    return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, vals]) => [k, vals[i]])));\n  };\n\n  // report_flags rows from a flags_json column (json_agg of {report, flag_reason, patients_n}) on each row.\n  const flagsFrom = (list) => [].concat(...(list || []).map((r) => {\n    let parsed = [];\n    try { parsed = r.flags_json ? JSON.parse(r.flags_json) : []; } catch (e) { parsed = []; }\n    return (Array.isArray(parsed) ? parsed : []).map((f) => Object.assign({ org_unit_id: r.org_unit_id, org_unit_name: r.org_unit_name }, f));\n  }));\n\n  // Variables, read in the browser so no access query is needed.\n  const orgUnit = () => { const o = v('org_unit').trim(); return o && o !== '0' ? o : '0'; };\n  const reportingMonth = () => v('reporting_month');\n  const allowed = () => v('isAllowed') === '1';\n\n  // Tabs from the builder's TABS list: [{report, title, slug}].\n  const TABS = [{\"report\":\"adherence\",\"title\":\"Right medicines\",\"slug\":\"Right-medicines\"},{\"report\":\"titration\",\"title\":\"Stepping up\",\"slug\":\"Stepping-up\"},{\"report\":\"fudging\",\"title\":\"BP readings check\",\"slug\":\"BP-readings-check\"},{\"report\":\"statins\",\"title\":\"Statins\",\"slug\":\"Statins\"},{\"report\":\"calling\",\"title\":\"Overdue calls\",\"slug\":\"Overdue-calls\"}];\n  const tab = (report) => TABS.find((t) => t.report === report) || null;\n  // AD-29 deep link; keeps the location and month unless given.\n  const link = (report, org, mon) => {\n    const t = tab(report);\n    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)\n      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';\n  };\n\n  // --- States (DESIGN States, FR-32) ---\n  // Existing HTN access banner, verbatim (program dashboard overdue list).\n  const banner = () => '<div class=\"rpt-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';\n  const NO_DATA = 'No data for this place.';\n  const NO_FACILITIES = 'No facilities for this location.';\n  const NO_FLAGS = 'No facility is flagged.';\n  const noData = (text) => '<div class=\"rpt-empty\">' + esc(text || NO_DATA) + '</div>';\n  // \"Need at least 20; this place has 12.\"\n  const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';\n  // Place for the subtitle: the selected name, or all locations.\n  const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));\n\n  // Thresholds from report_flag_thresholds rows ({report, key, value}).\n  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };\n\n  // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,\n  // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.\n  const mount = (selector, opts) => {\n    const root = context.element.querySelector(selector);\n    if (!root) { return null; }\n    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }\n    return root;\n  };\n\n  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,\n    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };\n})();\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-fud-look');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst list = rpt.rows('A').sort((a, b) => (num(b.patients_n) || 0) - (num(a.patients_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + (yes(r.looks_fine_check) ? ' <span class=\"rpt-pill rpt-pill-check\">◆ Looks fine, check readings</span>' : '')\n    + '<div class=\"rpt-look-line\">' + fmt(r.patients_n) + ' patients · ' + esc(r.flag_reason) + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
+                "content": "<div class=\"rpt rpt-fud-look\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-fud-look\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
+                "wrap": true
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-table": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT f.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'flag_score') AS flag_score, (SELECT value FROM report_flag_thresholds WHERE report = 'fudging' AND key = 'min_readings') AS min_readings,\n  fl.flags_json\nFROM report_fudging('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f\nLEFT JOIN fl ON fl.org_unit_id = f.org_unit_id\nWHERE '$isAllowed' = '1'",
+                        "refId": "A"
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "description": "",
+          "id": 7,
+          "links": [],
+          "title": "",
+          "transparent": false,
+          "vizConfig": {
+            "group": "marcusolsson-dynamictext-panel",
+            "kind": "VizConfig",
+            "version": "6.3.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "afterRender": "// --- Reports shared helpers and states (dashboard_src/reports/_shared/states.js) ---\n// Declares one name: rpt. Business Text afterRender only (it reads context.grafana).\nconst rpt = (() => {\n  const grafana = (typeof context !== 'undefined' && context.grafana) || {};\n  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');\n\n  const esc = (x) => String(x == null ? '' : x).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\n  const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));\n  // Thousands commas.\n  const fmt = (x) => (num(x) === null ? '—' : Math.round(num(x)).toLocaleString('en-US'));\n  // Percent: whole, one decimal under 10% (DESIGN Typography).\n  const pct = (x) => { const n = num(x); if (n === null) { return '—'; } return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\n  // Scores: two decimals.\n  const score = (x) => (num(x) === null ? '—' : num(x).toFixed(2));\n  const yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\n\n  const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];\n  // Postgres dates arrive as ms numbers or 'YYYY-MM-DD' strings; read them as UTC days.\n  const toDate = (x) => { if (x == null || x === '') { return null; } const d = typeof x === 'number' ? new Date(x) : new Date(String(x).slice(0, 10) + 'T00:00:00Z'); return isNaN(d) ? null : d; };\n  const day = (x) => { const d = toDate(x); return d ? d.getUTCDate() + '-' + MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n  const month = (x) => { const d = toDate(x); return d ? MONTHS[d.getUTCMonth()] + '-' + d.getUTCFullYear() : ''; };\n\n  // Rows of the frame with refId ref, as objects.\n  const rows = (ref) => {\n    const series = (context.panelData && context.panelData.series) || [];\n    const f = series.find((s) => s.refId === ref);\n    if (!f) { return []; }\n    const cols = f.fields.map((x) => [x.name, Array.from(x.values)]);\n    const n = cols.length ? cols[0][1].length : 0;\n    return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, vals]) => [k, vals[i]])));\n  };\n\n  // report_flags rows from a flags_json column (json_agg of {report, flag_reason, patients_n}) on each row.\n  const flagsFrom = (list) => [].concat(...(list || []).map((r) => {\n    let parsed = [];\n    try { parsed = r.flags_json ? JSON.parse(r.flags_json) : []; } catch (e) { parsed = []; }\n    return (Array.isArray(parsed) ? parsed : []).map((f) => Object.assign({ org_unit_id: r.org_unit_id, org_unit_name: r.org_unit_name }, f));\n  }));\n\n  // Variables, read in the browser so no access query is needed.\n  const orgUnit = () => { const o = v('org_unit').trim(); return o && o !== '0' ? o : '0'; };\n  const reportingMonth = () => v('reporting_month');\n  const allowed = () => v('isAllowed') === '1';\n\n  // Tabs from the builder's TABS list: [{report, title, slug}].\n  const TABS = [{\"report\":\"adherence\",\"title\":\"Right medicines\",\"slug\":\"Right-medicines\"},{\"report\":\"titration\",\"title\":\"Stepping up\",\"slug\":\"Stepping-up\"},{\"report\":\"fudging\",\"title\":\"BP readings check\",\"slug\":\"BP-readings-check\"},{\"report\":\"statins\",\"title\":\"Statins\",\"slug\":\"Statins\"},{\"report\":\"calling\",\"title\":\"Overdue calls\",\"slug\":\"Overdue-calls\"}];\n  const tab = (report) => TABS.find((t) => t.report === report) || null;\n  // AD-29 deep link; keeps the location and month unless given.\n  const link = (report, org, mon) => {\n    const t = tab(report);\n    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)\n      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';\n  };\n\n  // --- States (DESIGN States, FR-32) ---\n  // Existing HTN access banner, verbatim (program dashboard overdue list).\n  const banner = () => '<div class=\"rpt-warn\"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';\n  const NO_DATA = 'No data for this place.';\n  const NO_FACILITIES = 'No facilities for this location.';\n  const NO_FLAGS = 'No facility is flagged.';\n  const noData = (text) => '<div class=\"rpt-empty\">' + esc(text || NO_DATA) + '</div>';\n  // \"Need at least 20; this place has 12.\"\n  const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';\n  // Place for the subtitle: the selected name, or all locations.\n  const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));\n\n  // Thresholds from report_flag_thresholds rows ({report, key, value}).\n  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };\n\n  // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,\n  // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.\n  const mount = (selector, opts) => {\n    const root = context.element.querySelector(selector);\n    if (!root) { return null; }\n    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }\n    return root;\n  };\n\n  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,\n    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };\n})();\n// --- Reports shared facility table (dashboard_src/reports/_shared/table.js) ---\n// Declares one name: rptTable. Needs states.js (rpt) included first. DESIGN \"Shared facility table\".\n//\n// rptTable(root, {\n//   report: 'fudging',                  // this tab's report key (report_flags.report)\n//   rows: [...],                        // report_<name> rows; the selection row comes first\n//   flags: [...],                       // optional report_flags rows; default: each row's flags_json column\n//                                       // (one result set: a panel with two queries gets Business Text's frame picker)\n//   columns: [{ label, value: (r) => sortable, cell: (r) => html, num: true, guard: true, title: (r) => text }],\n//   flagNames: (r) => ['Pill text'],    // flag pill(s) of a flagged row, at most two shown\n//   reason: (r) => r.flag_reason,       // optional; sentence under the pills\n//   guardName: 'Too few readings',      // grey pill of a too_few row\n//   guardReason: (r) => 'Need at least 20; this place has 12.',\n//   check: { text: '◆ Looks fine, check readings', when: (r) => rpt.yes(r.looks_fine_check) },  // optional two-sided pill\n//   alsoOn: ['titration'],              // reports linked as \"Also flagged on …\" under a flagged row\n//   size: (r) => r.readings_n,          // patients or cases in scope, the last sort key\n//   caption: 'Facilities in view, flagged first',\n// })\n// 10 rows per page with the overdue list's pager (shown whenever there are rows, as on the overdue list).\n// Facility is the first column and `Why look here` the last; columns sit between them.\n// A row whose level is under 3 and is_selected is drawn as the bold `All places in view` row and stays on top.\nconst rptTable = (root, cfg) => {\n  const { esc, fmt, num, yes } = rpt;\n  const PAGE = 10;\n  const all = (cfg.rows || []).filter((r) => r && r.org_unit_id != null);\n  const isTotal = (r) => yes(r.is_selected) && (num(r.level) || 0) < 3;\n  const total = all.find(isTotal) || null;\n  const rows = all.filter((r) => r !== total);\n  if (!all.length) { root.innerHTML = rpt.noData(rpt.NO_FACILITIES); return; }\n\n  // report_flags per facility: { id: [{report, flag_reason, patients_n}] }\n  const flagsOf = {};\n  (cfg.flags || rpt.flagsFrom(all)).forEach((f) => { (flagsOf[f.org_unit_id] = flagsOf[f.org_unit_id] || []).push(f); });\n  const nFlags = (r) => (flagsOf[r.org_unit_id] || []).length;\n  const patients = (r) => { const f = (flagsOf[r.org_unit_id] || [])[0]; return f && num(f.patients_n) !== null ? num(f.patients_n) : (cfg.size ? num(cfg.size(r)) || 0 : 0); };\n  // 0 flagged, 1 too few, 2 clean.\n  const rank = (r) => (yes(r.flag) ? 0 : yes(r.too_few) ? 1 : 2);\n  const needsALook = (a, b) => rank(a) - rank(b) || nFlags(b) - nFlags(a) || patients(b) - patients(a)\n    || String(a.org_unit_name).localeCompare(String(b.org_unit_name));\n\n  const FACILITY = { label: 'Facility', value: (r) => String(r.org_unit_name || '') };\n  const WHY = { label: 'Why look here', value: (r) => rank(r) };\n  const cols = [FACILITY].concat(cfg.columns || [], [WHY]);\n  const state = { sort: -1, dir: 1, page: 0 };   // sort -1 = needs a look first\n\n  const pill = (cls, text) => '<span class=\"rpt-pill ' + cls + '\">' + esc(text) + '</span>';\n  const also = (r) => {\n    const mine = flagsOf[r.org_unit_id] || [];\n    const links = (cfg.alsoOn || []).filter((rep) => rep !== cfg.report && mine.some((f) => f.report === rep) && rpt.tab(rep))\n      .map((rep) => '<a class=\"rpt-link\" href=\"' + esc(rpt.link(rep)) + '\">' + esc(rpt.tab(rep).title) + '</a>');\n    return links.length ? '<div class=\"rpt-also\">Also flagged on ' + links.join(', ') + '</div>' : '';\n  };\n  const why = (r, totalRow) => {\n    if (yes(r.flag)) {\n      const names = [].concat(cfg.flagNames ? cfg.flagNames(r) : []).filter(Boolean).slice(0, 2);\n      const check = !totalRow && cfg.check && cfg.check.when(r) ? pill('rpt-pill-check', cfg.check.text) : '';\n      const reason = cfg.reason ? cfg.reason(r) : r.flag_reason;\n      return '<div class=\"rpt-pills\">' + check + names.map((n) => pill('rpt-pill-flag', n)).join('') + '</div>'\n        + (reason ? '<div class=\"rpt-reason\">' + esc(reason) + '</div>' : '') + (totalRow ? '' : also(r));\n    }\n    if (yes(r.too_few)) {\n      return '<div class=\"rpt-pills\">' + pill('rpt-pill-guard', cfg.guardName || 'Too few') + '</div>'\n        + (cfg.guardReason ? '<div class=\"rpt-reason\">' + esc(cfg.guardReason(r)) + '</div>' : '');\n    }\n    return '<span class=\"rpt-clean\">No flag</span>';\n  };\n  const cell = (c, r) => (c.guard && yes(r.too_few) ? '—' : c.cell ? c.cell(r) : esc(c.value(r)));\n  const tr = (r, totalRow) => '<tr class=\"' + (totalRow ? 'rpt-total' : rank(r) === 0 ? 'rpt-flagged' : '') + '\">'\n    + '<th scope=\"row\">' + (totalRow ? 'All places in view' : esc(r.org_unit_name)) + '</th>'\n    + (cfg.columns || []).map((c) => '<td class=\"' + (c.num ? 'num' : '') + '\"' + (c.title && c.title(r) ? ' title=\"' + esc(c.title(r)) + '\"' : '') + '>' + cell(c, r) + '</td>').join('')\n    + '<td class=\"rpt-why\">' + why(r, totalRow) + '</td></tr>';\n\n  const sorted = () => {\n    if (state.sort < 0) { return rows.slice().sort(needsALook); }\n    const c = cols[state.sort];\n    const key = (r) => (c.guard && yes(r.too_few) ? null : c.value(r));\n    return rows.slice().sort((a, b) => {\n      const x = key(a), y = key(b);\n      if (x === null || x === undefined) { return y === null || y === undefined ? needsALook(a, b) : 1; }   // blanks last\n      if (y === null || y === undefined) { return -1; }\n      const d = typeof x === 'number' && typeof y === 'number' ? x - y : String(x).localeCompare(String(y), 'en', { numeric: true });\n      return state.dir * d || needsALook(a, b);\n    });\n  };\n\n  const render = () => {\n    const list = sorted();\n    const pages = Math.max(1, Math.ceil(list.length / PAGE));\n    state.page = Math.min(Math.max(state.page, 0), pages - 1);\n    const shown = list.slice(state.page * PAGE, (state.page + 1) * PAGE);\n    const head = cols.map((c, i) => {\n      const on = state.sort === i;\n      const aria = on ? (state.dir > 0 ? 'ascending' : 'descending') : 'none';\n      return '<th scope=\"col\" aria-sort=\"' + aria + '\" class=\"' + (c.num ? 'num' : '') + '\">'\n        + '<button type=\"button\" class=\"rpt-sortbtn\" data-col=\"' + i + '\">' + esc(c.label)\n        + '<span class=\"rpt-sort\" aria-hidden=\"true\">' + (on ? (state.dir > 0 ? ' ↑' : ' ↓') : '') + '</span></button></th>';\n    }).join('');\n    const byNeed = state.sort < 0;\n    root.innerHTML = '<div class=\"rpt-chips\">'\n      + '<button type=\"button\" class=\"rpt-chip' + (byNeed ? ' on' : '') + '\" data-reset=\"1\" aria-pressed=\"' + byNeed + '\">Sort: needs a look first</button></div>'\n      + '<div class=\"rpt-wrap\"><table class=\"rpt-table\">'\n      + '<caption class=\"rpt-sr\">' + esc(cfg.caption || 'Facilities in view. Flagged facilities come first.') + '</caption>'\n      + '<thead><tr>' + head + '</tr></thead><tbody>'\n      + (total && rows.length ? tr(total, true) : '')\n      + (shown.length ? shown.map((r) => tr(r, false)).join('') : total ? tr(total, false) : '')\n      + '</tbody></table></div>'\n      + (list.length ? '<div class=\"rpt-pager\">'\n        + '<button type=\"button\" data-page=\"-1\"' + (state.page ? '' : ' disabled') + ' aria-label=\"Previous page\">‹</button>'\n        + '<span>' + fmt(state.page * PAGE + 1) + '–' + fmt(state.page * PAGE + shown.length) + ' of ' + fmt(list.length) + '</span>'\n        + '<button type=\"button\" data-page=\"1\"' + (state.page < pages - 1 ? '' : ' disabled') + ' aria-label=\"Next page\">›</button></div>' : '');\n  };\n  render();\n\n  root.addEventListener('click', (e) => {\n    const b = e.target.closest('button');\n    if (!b || !root.contains(b)) { return; }\n    let focus = null;\n    if (b.dataset.reset) { state.sort = -1; state.dir = 1; state.page = 0; focus = '[data-reset]'; }\n    else if (b.dataset.page) { state.page += Number(b.dataset.page); focus = '[data-page=\"' + b.dataset.page + '\"]'; }\n    else if (b.dataset.col) {\n      const i = Number(b.dataset.col);\n      // First click: names A to Z, numbers high to low; a second click flips it.\n      state.dir = state.sort === i ? -state.dir : (cols[i].num ? -1 : 1);\n      state.sort = i; state.page = 0; focus = '[data-col=\"' + i + '\"]';\n    } else { return; }\n    render();\n    const f = focus && root.querySelector(focus);\n    if (f && !f.disabled) { f.focus(); }\n  });\n};\n// Facility table: Facility, BP controlled, 135–139, 140–144, Bunching score, Why look here.\nconst root = rpt.mount('.rpt-fud-table');\nif (!root) { return; }\nconst { fmt, num, yes } = rpt;\nconst counted = (r) => (num(r.band_135_139_n) || 0) + (num(r.band_140_144_n) || 0);\nrptTable(root, {\n  report: 'fudging',\n  rows: rpt.rows('A'),\n  caption: 'BP readings just under and just over 140, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'BP controlled', num: true, value: (r) => num(r.control_pct), cell: (r) => (num(r.control_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.control_pct) + '</span>') },\n    { label: '135–139', num: true, value: (r) => num(r.band_135_139_n), cell: (r) => fmt(r.band_135_139_n) },\n    { label: '140–144', num: true, value: (r) => num(r.band_140_144_n), cell: (r) => fmt(r.band_140_144_n) },\n    { label: 'Bunching score', num: true, guard: true, value: (r) => num(r.score), cell: (r) => rpt.score(r.score),\n      title: (r) => fmt(r.band_135_139_n) + ' readings of 135 to 139 and ' + fmt(r.band_140_144_n) + ' of 140 to 144' }\n  ],\n  flagNames: () => ['Readings bunch under 140'],\n  guardName: 'Too few readings',\n  guardReason: (r) => rpt.needAtLeast(r.min_readings, counted(r)),\n  check: { text: '◆ Looks fine, check readings', when: (r) => yes(r.looks_fine_check) },\n  alsoOn: ['titration'],\n  size: (r) => num(r.readings_n)\n});\n",
+                "content": "<div class=\"rpt rpt-fud-table\"></div>",
+                "contentPartials": [],
+                "defaultContent": "<div class=\"rpt rpt-fud-table\"></div>",
+                "editor": {
+                  "format": "auto",
+                  "language": "html"
+                },
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
+                "externalStyles": [],
+                "helpers": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
+                "wrap": true
+              }
+            }
+          }
+        }
+      },
+      "panel-fudging-note": {
         "kind": "Panel",
         "spec": {
           "data": {
@@ -201,9 +637,10 @@
             }
           },
           "description": "",
-          "id": 2,
+          "id": 8,
           "links": [],
           "title": "",
+          "transparent": true,
           "vizConfig": {
             "group": "marcusolsson-dynamictext-panel",
             "kind": "VizConfig",
@@ -215,18 +652,21 @@
               },
               "options": {
                 "afterRender": "",
-                "content": "This report is being built.",
+                "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Counts readings with a top BP number of 135–139 and of 140–144 in the last 3 months, and divides the first by the second. A high score is a reason to look at how BP is measured. The cuff, habit, training or rounding could each cause it. The score does not prove any of them.</div>",
                 "contentPartials": [],
-                "defaultContent": "This report is being built.",
+                "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Counts readings with a top BP number of 135–139 and of 140–144 in the last 3 months, and divides the first by the second. A high score is a reason to look at how BP is measured. The cuff, habit, training or rounding could each cause it. The score does not prove any of them.</div>",
                 "editor": {
                   "format": "auto",
-                  "language": "markdown"
+                  "language": "html"
                 },
-                "editors": [],
+                "editors": [
+                  "styles",
+                  "afterRender"
+                ],
                 "externalStyles": [],
                 "helpers": "",
-                "renderMode": "everyRow",
-                "styles": "",
+                "renderMode": "allRows",
+                "styles": "/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---\n   Business Text styles. Every class starts rpt-; put class \"rpt\" on the panel's root div.\n   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy\n   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */\n.rpt {\n  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;\n  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;\n  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;\n  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;\n  font-size: 13px; line-height: 1.35; color: var(--text-primary);\n}\n.rpt a.rpt-link { color: #0075eb; text-decoration: none; }\n.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }\n.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }\n.rpt-muted { color: var(--text-muted); }\n.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }\n\n/* Title strip: question (card-title), then \"{place} · {period}\" (microcopy, muted). */\n.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }\n.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }\n\n/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */\n.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }\n.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }\n.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }\n.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }\n.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }\n.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }\n.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }\n\n/* Look at these first: at most three items. */\n.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }\n.rpt-look { list-style: none; margin: 0; padding: 0; }\n.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }\n.rpt-look-name { font-weight: 600; }\n.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }\n\n/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */\n.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }\n.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }\n.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }\na.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }\n.rpt-wrap { overflow-x: auto; }\n.rpt-table { width: 100%; border-collapse: collapse; border: 0; }\n.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }\n.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }\n.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }\n.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }\n.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }\n.rpt-table thead th.num .rpt-sortbtn { text-align: right; }\n.rpt-table td.rpt-why { width: 42%; min-width: 260px; }\n.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }\n.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }\n/* Flagged row: 4px orange bar and light tint. */\n.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }\n.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }\n/* All places in view: bold first row. */\n.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }\n.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }\n.rpt-ctl { color: var(--controlled); font-weight: 600; }\n/* Pills: text, never colour only. */\n.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }\n.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }\n.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }\n.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }\n.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }\n.rpt-also { font-size: 12px; margin-top: 3px; }\n.rpt-also a { color: #0075eb; text-decoration: none; }\n.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }\n.rpt-clean { color: var(--text-muted); }\n/* Pager: overdue list. */\n.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }\n.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }\n.rpt-pager button:disabled { opacity: 0.35; cursor: default; }\n/* Access banner: the overdue list's .ovq-warn. */\n.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }\n\n/* How this is worked out. */\n.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }\n\n/* Needs-a-look strip (shell row above the tabs). */\n.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }\n.rpt-nal-title { font-size: 14px; font-weight: 600; }\n.rpt-demo { font-size: 12px; color: var(--text-muted); }\n.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }\n.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }\n.rpt-nal-name { font-weight: 600; }\n.rpt-nal-n { color: var(--text-muted); font-size: 12px; }\n.rpt-nal .rpt-chips { margin: 0; gap: 4px; }\n.rpt-nal .rpt-chip { padding: 1px 8px; }",
                 "wrap": true
               }
             }
@@ -271,6 +711,34 @@
               "hideHeader": true,
               "title": "",
               "layout": {
+                "kind": "GridLayout",
+                "spec": {
+                  "items": [
+                    {
+                      "kind": "GridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-strip-flags"
+                        },
+                        "height": 4,
+                        "width": 24,
+                        "x": 0,
+                        "y": 0
+                      }
+                    }
+                  ]
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "hideHeader": true,
+              "title": "",
+              "layout": {
                 "kind": "TabsLayout",
                 "spec": {
                   "tabs": [
@@ -279,20 +747,113 @@
                       "spec": {
                         "title": "BP readings check",
                         "layout": {
-                          "kind": "GridLayout",
+                          "kind": "RowsLayout",
                           "spec": {
-                            "items": [
+                            "rows": [
                               {
-                                "kind": "GridLayoutItem",
+                                "kind": "RowsLayoutRow",
                                 "spec": {
-                                  "element": {
-                                    "kind": "ElementReference",
-                                    "name": "panel-fudging-placeholder"
-                                  },
-                                  "height": 3,
-                                  "width": 24,
-                                  "x": 0,
-                                  "y": 0
+                                  "collapse": false,
+                                  "title": "Summary",
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-title"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-headline"
+                                            },
+                                            "height": 4,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 2
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-chart"
+                                            },
+                                            "height": 9,
+                                            "width": 14,
+                                            "x": 0,
+                                            "y": 6
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-look"
+                                            },
+                                            "height": 9,
+                                            "width": 10,
+                                            "x": 14,
+                                            "y": 6
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              },
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "collapse": false,
+                                  "title": "Facility comparison",
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-table"
+                                            },
+                                            "height": 14,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-fudging-note"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 14
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
                                 }
                               }
                             ]

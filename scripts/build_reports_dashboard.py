@@ -21,6 +21,17 @@ that differs from TABS, a layout reference to an undefined element, or a shell
 without exactly one empty TabsLayout. Panel ids are renumbered 1..N in output
 order. Keys starting with "_" in _shell.json are notes and are dropped.
 
+Shared snippets (story 5.13; dashboard_src/reports/_shared/README.md):
+  Any JSON string value in _shell.json or a tab file may contain
+    {{shared:<file>}}  replaced by the text of dashboard_src/reports/_shared/<file>
+                       (trailing newlines trimmed). Use it inside afterRender,
+                       styles, getOption, content or rawSql. One level only: an
+                       included file may not contain {{shared:...}} itself.
+    {{tabs}}           replaced (after includes) by the TABS list as JSON:
+                       [{"report": "<internal slug>", "title": ..., "slug": ...}]
+  A missing file, a bad name or a leftover "{{shared:" fails the build.
+  Handlebars {{...}} in Business Text content is left alone.
+
 Tab deep link (AD-29, PD-4):
   /d/heart360_reports?var-org_unit=<id>&var-reporting_month=<YYYY-MM-DD>&-dtab=<Tab-slug>
 """
@@ -29,12 +40,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "dashboard_src" / "reports"
 SHELL = SRC / "_shell.json"
+SHARED_DIR = "_shared"
 OUT = ROOT / "grafana_provisioning" / "dashboards" / "HEARTS360 Dashboards" / "heart360.reports.json"
 UID = "heart360_reports"
 
@@ -51,6 +64,11 @@ INTERNAL_SLUGS = ("adherence", "titration", "fudging", "statins", "calling")
 
 class BuildError(Exception):
     pass
+
+
+INCLUDE_RE = re.compile(r"\{\{shared:([^{}]*)\}\}")
+INCLUDE_NAME_RE = re.compile(r"[A-Za-z0-9_][A-Za-z0-9_.-]*")
+TABS_TOKEN = "{{tabs}}"
 
 
 def rel(path: Path) -> str:
@@ -92,6 +110,43 @@ def load_strict(path: Path):
         raise BuildError(f"{rel(path)}: invalid JSON: {exc}") from exc
 
 
+def tabs_json() -> str:
+    """The TABS list as compact JSON, for the {{tabs}} token (report key, visible title, URL slug)."""
+    return json.dumps(
+        [{"report": internal_slug(source), "title": title, "slug": slug} for title, slug, source in TABS],
+        ensure_ascii=False, separators=(",", ":"),
+    )
+
+
+def expand_shared(node, src: Path, where: str, cache: dict[str, str]):
+    """Replace {{shared:<file>}} and {{tabs}} in every string of node (returns a new node)."""
+    if isinstance(node, dict):
+        return {key: expand_shared(value, src, where, cache) for key, value in node.items()}
+    if isinstance(node, list):
+        return [expand_shared(value, src, where, cache) for value in node]
+    if not isinstance(node, str) or ("{{shared:" not in node and TABS_TOKEN not in node):
+        return node
+
+    def include(match: re.Match) -> str:
+        name = match.group(1)
+        if not INCLUDE_NAME_RE.fullmatch(name):
+            raise BuildError(f"{where}: bad shared include name {name!r}")
+        if name not in cache:
+            path = src / SHARED_DIR / name
+            if not path.is_file():
+                raise BuildError(f"{where}: {{{{shared:{name}}}}} not found ({rel(path)})")
+            text = path.read_text(encoding="utf-8").rstrip("\n")
+            if "{{shared:" in text:
+                raise BuildError(f"{rel(path)}: shared files may not include other shared files")
+            cache[name] = text
+        return cache[name]
+
+    text = INCLUDE_RE.sub(include, node)
+    if "{{shared:" in text:
+        raise BuildError(f"{where}: malformed {{{{shared:...}}}} placeholder")
+    return text.replace(TABS_TOKEN, tabs_json())
+
+
 def element_refs(node) -> list[str]:
     found: list[str] = []
     if isinstance(node, dict):
@@ -118,8 +173,10 @@ def find_tabs_layouts(node, out: list[dict]) -> list[dict]:
 
 
 def build(src: Path = SRC, log=print) -> str:
+    cache: dict[str, str] = {}
     shell = load_strict(src / "_shell.json")
     shell = {k: v for k, v in shell.items() if not k.startswith("_")}
+    shell = expand_shared(shell, src, "_shell.json", cache)
     spec = shell["spec"]
     if shell.get("uid") != UID:
         raise BuildError(f"_shell.json: uid must be {UID!r}")
@@ -146,7 +203,7 @@ def build(src: Path = SRC, log=print) -> str:
         if not path.exists():
             log(f"note: {source} not found; tab {title!r} skipped")
             continue
-        tab = load_strict(path)
+        tab = expand_shared(load_strict(path), src, source, cache)
         if set(tab) != {"title", "elements", "layout"}:
             raise BuildError(f"{source}: top-level keys must be exactly title, elements, layout (found {sorted(tab)})")
         if tab["title"] != title:
@@ -176,7 +233,10 @@ def main(argv: list[str] | None = None) -> int:
             "Tabs (title / URL slug / source): "
             + "; ".join(f"{t} / {s} / {f}" for t, s, f in TABS)
             + ". A missing tab source file is skipped with a printed note (the tab is left out), "
-            "in both build and --check mode; --check still compares the full output."
+            "in both build and --check mode; --check still compares the full output. "
+            "Shared snippets: a JSON string may contain {{shared:<file>}}, replaced by "
+            "dashboard_src/reports/_shared/<file> (one level, no nesting), and {{tabs}}, replaced by "
+            "the TABS list as JSON [{report, title, slug}]. See dashboard_src/reports/_shared/README.md."
         ),
     )
     parser.add_argument("--check", action="store_true",
