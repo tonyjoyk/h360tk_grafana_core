@@ -8,6 +8,11 @@
 # docker compose reads the same .env. Browser code finds h360-api at Grafana's port + 5090.
 # Values already in the environment win over .env. Defaults match a stock install.
 
+if [ -z "${BASH_VERSION:-}" ]; then
+    echo "scripts/h360_env.sh: source it from bash, e.g. bash -c 'source scripts/h360_env.sh; ...'" >&2
+    return 1 2>/dev/null || exit 1
+fi
+
 _h360_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 if [[ -f "$_h360_root/.env" ]]; then
     while IFS='=' read -r _k _v; do
@@ -16,8 +21,10 @@ if [[ -f "$_h360_root/.env" ]]; then
 fi
 unset _k _v
 
-export H360_CONTAINER_PREFIX="${H360_CONTAINER_PREFIX:-}"
-export H360_PG_CONTAINER="${H360_CONTAINER_PREFIX}postgres"
+# Never export an empty prefix: docker compose prefers the shell's value over .env, so an empty
+# export would make compose rename this stack's containers to the stock names of another stack.
+if [[ -n "${H360_CONTAINER_PREFIX:-}" ]]; then export H360_CONTAINER_PREFIX; fi
+export H360_PG_CONTAINER="${H360_CONTAINER_PREFIX:-}postgres"
 export GRAFANA_URL="${GRAFANA_URL:-http://localhost:${GRAFANA_PORT:-3000}}"
 export H360_API_URL="${H360_API_URL:-http://localhost:${H360_API_PORT:-8090}}"
 export H360_ORIGIN="${H360_ORIGIN:-$GRAFANA_URL}"
