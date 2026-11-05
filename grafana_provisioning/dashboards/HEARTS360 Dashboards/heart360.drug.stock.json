@@ -30,6 +30,18 @@
       "tooltip": "Reports",
       "type": "link",
       "url": "/d/heart360_reports"
+    },
+    {
+      "asDropdown": false,
+      "icon": "doc",
+      "includeVars": true,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Enter stock",
+      "tooltip": "Enter stock for one facility",
+      "type": "link",
+      "url": "/d/heart360_drug_stock?viewPanel=12"
     }
   ],
   "panels": [
@@ -386,6 +398,59 @@
         }
       ],
       "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-hypertension"
+      },
+      "description": "Type this month's stock of each protocol medicine for one facility. Blank means not counted; 0 means none in stock.",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 12,
+      "options": {
+        "afterRender": "// Enter stock form (story 3.5). One number per protocol drug and strength for one facility\n// and month. Saves to h360-api, which takes identity from the Grafana session.\nconst root = context.element.querySelector('.dse');\nif (!root) { return; }\n\nconst series = (context.panelData && context.panelData.series) || [];\nconst frame = series.find((s) => s.refId === 'A');\nconst all = (() => {\n  if (!frame) { return []; }\n  const cols = frame.fields.map((x) => [x.name, Array.from(x.values)]);\n  const n = cols.length ? cols[0][1].length : 0;\n  return Array.from({ length: n }, (_, i) => Object.fromEntries(cols.map(([k, v]) => [k, v[i]])));\n})();\nconst flags = all[0] || {};\nconst rows = all.filter((r) => r.drug_code != null);\n\nconst esc = (v) => String(v == null ? '' : v).replace(/[&<>\"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '\"': '&quot;', \"'\": '&#39;' }[c]));\nconst warn = (html) => '<div class=\"dse-warn\"><span>\u26a0\ufe0f</span><span>' + html + '</span></div>';\n\nif (Number(flags.isAllowed) !== 1) {\n  root.innerHTML = warn('<strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + (flags.requiredGroups || ''));\n  return;\n}\nif (Number(flags.isFacility) !== 1 || !rows.length) {\n  root.innerHTML = '<div class=\"dse-note\">Pick one facility to enter stock.</div>';\n  return;\n}\n\nconst MAX = 1000000;\nconst orgId = Number(flags.org_unit_id);\nconst months = [...new Map(rows.map((r) => [r.month, r.month_label])).entries()];\n// Kept across the refresh that follows a save, so the form reopens on the saved month with its note.\nconst memo = (window.__h360StockEntry = window.__h360StockEntry || {});\nconst recent = memo.org === orgId && Date.now() - (memo.at || 0) < 8000 ? memo : null;\nlet month = (recent && recent.month) || flags.this_month;\nif (!months.some(([m]) => m === month)) { month = months[0][0]; }\n\nconst fmt = (n) => Number(n).toLocaleString('en-US');\nconst ofMonth = (m) => rows.filter((r) => r.month === m);\n\nconst render = () => {\n  const list = ofMonth(month);\n  const last = list.filter((r) => r.saved_on).sort((a, b) => String(b.saved_on).localeCompare(String(a.saved_on)))[0];\n  root.innerHTML = '<h2 class=\"dse-title\">Enter stock</h2>'\n    + '<div class=\"dse-head\">' + esc(flags.place) + '. Count tablets in stock. Leave blank if not counted. Enter 0 if none.</div>'\n    + '<form class=\"dse-form\" novalidate>'\n    + '<label class=\"dse-field dse-month-field\"><span>Month</span><select class=\"dse-month\">'\n    + months.map(([m, label]) => '<option value=\"' + esc(m) + '\"' + (m === month ? ' selected' : '') + '>' + esc(label) + '</option>').join('')\n    + '</select></label>'\n    + '<div class=\"dse-grid\">'\n    + list.map((r) => '<label class=\"dse-field\"><span>' + esc(r.drug_label) + '</span>'\n      + '<input type=\"number\" inputmode=\"numeric\" min=\"0\" max=\"' + MAX + '\" step=\"1\" placeholder=\"Not counted\"'\n      + ' data-code=\"' + esc(r.drug_code) + '\" value=\"' + (r.in_stock == null ? '' : esc(r.in_stock)) + '\"></label>').join('')\n    + '</div>'\n    + '<div class=\"dse-actions\"><button type=\"submit\" class=\"dse-save\">Save stock</button>'\n    + '<span class=\"dse-msg\" aria-live=\"polite\"></span></div>'\n    + '<div class=\"dse-last\">' + (last ? 'Last saved ' + esc(last.saved_on) + (last.saved_by ? ' by ' + esc(last.saved_by) : '') + '.' : 'Nothing saved for this month yet.') + '</div>'\n    + '</form>';\n  if (recent && recent.month === month && recent.note) { message(recent.note, recent.cls); }\n};\n\nconst message = (text, cls) => {\n  const m = root.querySelector('.dse-msg');\n  if (m) { m.className = 'dse-msg ' + (cls || ''); m.textContent = text; }\n};\n\n// --- Saving: posted to h360-api, which takes identity from the Grafana session.\nconst H360_API = location.protocol + '//' + location.hostname + ':8090';\nconst save = async (entries) => {\n  const body = JSON.stringify({ org_unit_id: orgId, month, entries });\n  const res = await fetch(H360_API + '/write/drug-stock', {method:'POST', credentials:'include', headers:{'Content-Type':'application/json','X-H360-Request':'1'}, body});\n  const saved = await res.json().catch(() => ({}));\n  const err = res.ok && saved.ok !== false ? '' : (saved.message || res.statusText);\n  if (err) { throw new Error(err); }\n  return saved;\n};\n\nconst refreshBoard = () => {\n  const g = context.grafana || {};\n  const shown = typeof g.replaceVariables === 'function' ? g.replaceVariables('${reporting_month}') : '';\n  if (shown !== month && g.locationService && typeof g.locationService.partial === 'function') {\n    g.locationService.partial({ 'var-reporting_month': month }, true);\n  } else if (typeof g.refresh === 'function') {\n    g.refresh();\n  }\n};\n\nroot.addEventListener('change', (e) => {\n  if (e.target.classList.contains('dse-month')) { month = e.target.value; render(); }\n});\n\nroot.addEventListener('input', (e) => {\n  if (e.target.dataset.code) { e.target.classList.remove('bad'); message(''); }\n});\n\nroot.addEventListener('submit', async (e) => {\n  e.preventDefault();\n  const inputs = Array.from(root.querySelectorAll('input[data-code]'));\n  let bad = false;\n  const entries = inputs.map((el) => {\n    const raw = el.value.trim();\n    // A number input reports '' for text it cannot parse; validity tells that apart from blank.\n    const blank = raw === '' && !(el.validity && el.validity.badInput);\n    const ok = blank || (/^\\d+$/.test(raw) && Number(raw) <= MAX);\n    el.classList.toggle('bad', !ok);\n    if (!ok) { bad = true; }\n    return { drug_code: el.dataset.code, stock: blank ? null : Number(raw) };\n  });\n  if (bad) { message('Use whole numbers from 0 to ' + fmt(MAX) + ', or leave blank.', 'err'); return; }\n\n  const btn = root.querySelector('.dse-save');\n  btn.disabled = true;\n  message('Saving\u2026');\n  try {\n    const saved = await save(entries);\n    const kept = Number(saved.kept_newer || 0);\n    const note = 'Saved \u2713' + (kept ? ' A newer count is kept for ' + kept + (kept === 1 ? ' medicine.' : ' medicines.') : '');\n    entries.forEach((en) => {\n      const r = ofMonth(month).find((x) => x.drug_code === en.drug_code);\n      if (r && !kept) { r.in_stock = en.stock; }\n    });\n    Object.assign(memo, { org: orgId, month, note, cls: 'ok', at: Date.now() });\n    message(note, 'ok');\n    refreshBoard();\n  } catch (err) {\n    message(\"Couldn't save. \" + (err.message || 'Try again.'), 'err');\n    if (context.grafana && context.grafana.notifyError) { context.grafana.notifyError([\"Couldn't save stock\", err.message]); }\n  } finally {\n    btn.disabled = false;\n  }\n});\n\nrender();\n",
+        "content": "<div class=\"dse\"></div>",
+        "contentPartials": [],
+        "defaultContent": "<div class=\"dse\"></div>",
+        "editor": {
+          "format": "auto",
+          "language": "html"
+        },
+        "editors": [
+          "styles",
+          "afterRender"
+        ],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "allRows",
+        "styles": ".dse { font-size: 13px; line-height: 1.35; }\n.dse-title { font-size: 18px; font-weight: 700; margin: 0 0 4px; }\n.dse-head { margin: 0 0 10px; }\n.dse-note { font-size: 13px; color: #6E6E6E; padding: 4px 2px; }\n.dse-form select, .dse-form input { font: inherit; color: #1c1c1c; background: #fff; border: 1px solid #d9e3ff; border-radius: 4px;\n  padding: 4px 6px; height: 30px; line-height: 1.2; box-sizing: border-box; width: 100%; }\n.dse-form input.bad { border-color: red; }\n.dse-field { display: flex; flex-direction: column; gap: 3px; font-weight: 600; font-size: 12px; }\n.dse-month-field { max-width: 200px; margin-bottom: 10px; }\n.dse-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 10px 14px; margin-bottom: 12px; }\n.dse-actions { display: flex; align-items: center; gap: 12px; }\n.dse-save { font: inherit; font-weight: 600; background: #0075eb; border: 1px solid #0075eb; color: #fff; border-radius: 4px; padding: 5px 14px; cursor: pointer; }\n.dse-save:disabled { opacity: 0.6; cursor: default; }\n.dse-msg { font-size: 12px; }\n.dse-msg.ok { color: #3bb231; }\n.dse-msg.err { color: red; }\n.dse-last { font-size: 12px; color: #6E6E6E; margin-top: 8px; }\n.dse-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }",
+        "wrap": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "-- Enter stock form (story 3.5). Row 1 always exists and carries the flags; the rest are\n-- one row per protocol drug and strength per month (the six months of Reporting Month).\n-- Saving goes to h360-api; this datasource is read-only.\nSELECT flags.*, d.* FROM (\n  SELECT\n    COALESCE(NULLIF('${isAllowed}', ''), '0')::int AS \"isAllowed\",\n    '${requiredGroups}'::text AS \"requiredGroups\",\n    o.id AS org_unit_id,\n    o.name AS place,\n    CASE WHEN o.id IS NOT NULL\n          AND o.level = COALESCE((SELECT hc.level FROM heart360tk_schema.hierarchy_config hc WHERE hc.var_name = 'facility'), 3)\n          AND EXISTS (SELECT 1 FROM heart360tk_schema.drug_stock_form_cohort c WHERE c.org_unit_id = o.id)\n         THEN 1 ELSE 0 END AS \"isFacility\",\n    to_char(date_trunc('month', CURRENT_DATE), 'YYYY-MM-DD') AS this_month,\n    -- Names the board month so a change of Reporting Month after a save re-runs this query.\n    '${reporting_month}'::text AS board_month\n  FROM (SELECT 1) one\n  LEFT JOIN heart360tk_schema.org_units o ON o.id = CASE WHEN TRIM(BOTH FROM '${org_unit}') ~ '^[0-9]{1,9}$' THEN TRIM(BOTH FROM '${org_unit}')::int END\n) flags LEFT JOIN (\n  SELECT * FROM (\n    SELECT\n      dr.rxnorm_code AS drug_code,\n      dr.drug_name,\n      dr.drug_name || ' ' || dr.dosage AS drug_label,\n      to_char(m.month_start, 'YYYY-MM-DD') AS month,\n      to_char(m.month_start, 'FMMon YYYY') AS month_label,\n      s.in_stock,\n      to_char(s.submitted_at, 'FMDD Mon YYYY') AS saved_on,\n      s.submitted_by AS saved_by,\n      CASE dr.drug_category WHEN 'CCB' THEN 1 WHEN 'ARB' THEN 2 WHEN 'Diuretic' THEN 3 ELSE 4 END AS cat_ord,\n      COALESCE(substring(dr.dosage FROM '^[0-9]+[.]?[0-9]*')::numeric, 0) AS dose_ord\n    FROM heart360tk_schema.active_stock_tracked_drugs dr\n    CROSS JOIN generate_series(\n      date_trunc('month', CURRENT_DATE)::date - interval '5 months',\n      date_trunc('month', CURRENT_DATE)::date,\n      interval '1 month'\n    ) AS m(month_start)\n    LEFT JOIN heart360tk_schema.drug_stock_submission s\n      ON s.org_unit_id = CASE WHEN TRIM(BOTH FROM '${org_unit}') ~ '^[0-9]{1,9}$' THEN TRIM(BOTH FROM '${org_unit}')::int END\n     AND s.reporting_month = m.month_start::date\n     AND s.rxnorm_code = dr.rxnorm_code\n     AND s.country_code = dr.country_code\n     AND s.programme_code = dr.programme_code\n  ) AS master_access_control\n  WHERE '${isAllowed}' = '1'\n) d ON true\nORDER BY d.month DESC NULLS FIRST, d.cat_ord, d.drug_name, d.dose_ord",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
     }
   ],
   "preload": false,

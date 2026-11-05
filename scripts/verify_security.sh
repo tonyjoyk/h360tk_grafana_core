@@ -67,6 +67,7 @@ MATRIX = {
     "h360_api": [
         "heart360tk_schema.h360_access_allows(boolean, text[], integer)",
         "heart360tk_schema.save_call_result(text, bigint, boolean, text[], bigint, text)",
+        "heart360tk_schema.save_drug_stock_entry(text, text, boolean, text[], integer, date, jsonb)",
     ],
 }
 
