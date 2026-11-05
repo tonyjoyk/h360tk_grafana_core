@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-04-2026 19:24
-last_updated: 11-05-2026 08:30
+last_updated: 11-05-2026 11:30
 project: h360tk_grafana_core
 project_key: NOKEY
 tracking_system: file-system
@@ -60,7 +60,7 @@ development_status:
   3-2-patient-days-with-blank-strength-a-correct-all-row-and-subtr: done
   3-3-wide-form-sheet-puller: done
   3-4-drug-stock-board-access-gate-coverage-line-and-reports-link: done
-  3-5-drug-stock-entry-form: backlog
+  3-5-drug-stock-entry-form: done
   epic-3-retrospective: optional
 
   epic-4: in-progress
@@ -74,37 +74,37 @@ development_status:
   4-8-insert-only-seed-guard: done
   epic-4-retrospective: optional
 
-  epic-5: backlog
-  5-1-report-common-window-thresholds-and-control-helper: backlog
-  5-2-bp-readings-report-sql-report_fudging: backlog
-  5-3-bp-readings-histogram-report_fudging_histogram: backlog
-  5-4-stepping-up-report-sql-report_titration: backlog
-  5-5-overdue-calls-report-sql-report_calling: backlog
-  5-6-new-patients-report-sql-report_new_patients: backlog
-  5-7-right-medicines-report-sql-report_adherence: backlog
-  5-8-statins-report-sql-report_statins: backlog
-  5-9-statins-patient-list-sql-report_statins_patients: backlog
-  5-10-report_flags-union: backlog
-  5-11-reports-builder-and-dashboard-shell: backlog
-  5-12-needs-a-look-strip: backlog
-  5-13-tab-bp-readings-check: backlog
-  5-14-tab-stepping-up: backlog
-  5-15-tab-overdue-calls: backlog
-  5-16-tab-right-medicines: backlog
-  5-17-tab-statins: backlog
-  5-18-overdue-section-on-hypertension-tab: backlog
+  epic-5: in-progress
+  5-1-report-common-window-thresholds-and-control-helper: done
+  5-2-bp-readings-report-sql-report_fudging: done
+  5-3-bp-readings-histogram-report_fudging_histogram: done
+  5-4-stepping-up-report-sql-report_titration: done
+  5-5-overdue-calls-report-sql-report_calling: done
+  5-6-new-patients-report-sql-report_new_patients: done
+  5-7-right-medicines-report-sql-report_adherence: done
+  5-8-statins-report-sql-report_statins: done
+  5-9-statins-patient-list-sql-report_statins_patients: done
+  5-10-report_flags-union: done
+  5-11-reports-builder-and-dashboard-shell: done
+  5-12-needs-a-look-strip: done
+  5-13-tab-bp-readings-check: done
+  5-14-tab-stepping-up: done
+  5-15-tab-overdue-calls: done
+  5-16-tab-right-medicines: done
+  5-17-tab-statins: done
+  5-18-overdue-section-on-hypertension-tab: done
   epic-5-retrospective: optional
 
-  epic-6: backlog
-  6-1-chat-sql-control-summary-stock-gate-and-call-plan: backlog
-  6-2-chat-sql-district-facility-ranking: backlog
-  6-3-chat-registry-chips-and-access: backlog
-  6-4-evidence-ranker: backlog
-  6-5-offline-wording-plan-and-honesty-line: backlog
-  6-6-claude-wording: backlog
-  6-7-district-answers-visit_first: backlog
-  6-8-widget-injection-button-panel-and-chips: backlog
-  6-9-widget-answer-card-plan-card-badges-and-clearance: backlog
+  epic-6: in-progress
+  6-1-chat-sql-control-summary-stock-gate-and-call-plan: done
+  6-2-chat-sql-district-facility-ranking: done
+  6-3-chat-registry-chips-and-access: done
+  6-4-evidence-ranker: done
+  6-5-offline-wording-plan-and-honesty-line: done
+  6-6-claude-wording: done
+  6-7-district-answers-visit_first: done
+  6-8-widget-injection-button-panel-and-chips: done
+  6-9-widget-answer-card-plan-card-badges-and-clearance: done
   epic-6-retrospective: optional
 
   epic-7: backlog
