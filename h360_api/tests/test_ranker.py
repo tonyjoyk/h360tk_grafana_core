@@ -241,7 +241,7 @@ class SeriesTests(unittest.TestCase):
         self.assertEqual([r["lever"] for r in facts["reasons"]][:2], ["fudging_score", "titration_rate"])
         answer = wording.render_offline(facts)
         self.assertEqual(answer["reasons"][0]["text"],
-                         "Many BP readings sit just under 140: 367 of 135–139 against 68 of 140–144 in Aug–Oct 2026. "
+                         "Many BP readings sit just under 140: 367 of 130–139 against 68 of 140–149 in Aug–Oct 2026. "
                          "That is 5.4 to 1. This may mean readings are rounded down.")
         self.assertEqual(len(facts["reasons"][1]["series"]), 6)
         self.assertEqual(wording.check_answer(answer, facts), [])

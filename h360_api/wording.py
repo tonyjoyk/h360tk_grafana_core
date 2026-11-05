@@ -244,10 +244,10 @@ LINE_SPECS = {
     },
     "fudging_score": {
         "title": "BP readings check",
-        "definition": "Readings of 135–139 for every reading of 140–144. 2.0 or more is a reason to check "
-                      "how BP is measured, not proof. Months with under 20 readings of 140–144 are not drawn.",
-        "num_label": "readings of 135–139", "den_label": "readings of 140–144",
-        "unit": "", "decimals": 1, "target_key": "fudging.flag_score", "lower_is_better": True,
+        "definition": "Readings of 130–139 for every reading of 140–149, per quarter. 2.0 or more is a reason "
+                      "to check how BP is measured, not proof. Quarters with under 20 readings are not drawn.",
+        "num_label": "readings of 130–139", "den_label": "readings of 140–149",
+        "unit": "", "decimals": 1, "target_key": "fudging.flag_ratio", "lower_is_better": True,
     },
     "statin_gap": {
         "title": "Statins",

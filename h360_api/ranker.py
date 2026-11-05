@@ -48,7 +48,7 @@ THRESHOLDS: dict[str, Decimal] = {
 }
 
 # Plain constants the sentences use. They are part of the facts, so the number check covers them.
-#   per_one, band_*: the readings ratio as report_fudging counts it (135-139 against 140-144);
+#   per_one, band_*: the readings ratio as report_fudging counts it (130-139 against 140-149, PRD);
 #     q_*: as report_fudging_quarterly counts it (130-139 against 140-149, the BP Fudging PRD).
 #   calls_per_nurse_week: one nurse's weekly calls in the Dr Rai action plan ("Assign one nurse to
 #     call 25 overdue patients each week"); the plan is sized from it, never from the whole list.
@@ -57,10 +57,10 @@ THRESHOLDS: dict[str, Decimal] = {
 CONSTANTS = {
     "bp_line": 140,
     "per_one": 1,
-    "band_low_from": 135,
+    "band_low_from": 130,
     "band_low_to": 139,
     "band_high_from": 140,
-    "band_high_to": 144,
+    "band_high_to": 149,
     "q_low_from": 130,
     "q_low_to": 139,
     "q_high_from": 140,
@@ -250,7 +250,7 @@ class Ranker:
                     n, back = dec(row.get("new_patients_n")), dec(row.get("new_returned_n"))
                     point["num"] = None if n is None or back is None else int(n - back)
                 if name == "fudging_score" and (dec(point["den"]) or 0) < THRESHOLDS["fudging.min_readings"]:
-                    # A ratio over a handful of 140-144 readings is noise: the month is not drawn.
+                    # A ratio over a handful of 140-149 readings is noise: the month is not drawn.
                     point["value"] = None
                     point["thin"] = True
             points.append(point)
