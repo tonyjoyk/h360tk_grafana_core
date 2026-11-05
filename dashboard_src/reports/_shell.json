@@ -1,0 +1,652 @@
+{
+  "_builder_notes": [
+    "Source for heart360.reports.json. Edit here, then run scripts/build_reports_dashboard.py. Keys starting with _ are dropped by the builder.",
+    "Tabs come from the TABS list in the builder; they are placed in the one row whose layout is a TabsLayout (tabs: []).",
+    "Story 5.12 strip: add a RowsLayoutRow (hideHeader: true) between 'Change location' and the tabs row, with its element keyed panel-strip-*.",
+    "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. reporting_month default 2026-10-01 is pinned for the demo (PD-9, C8); revert to the latest completed month after the demo."
+  ],
+  "uid": "heart360_reports",
+  "apiVersion": "dashboard.grafana.app/v2",
+  "kind": "Dashboard",
+  "metadata": {
+    "name": "heart360_reports"
+  },
+  "spec": {
+    "annotations": [
+      {
+        "kind": "AnnotationQuery",
+        "spec": {
+          "builtIn": true,
+          "enable": true,
+          "hide": true,
+          "iconColor": "rgba(0, 211, 255, 1)",
+          "name": "Annotations & Alerts",
+          "query": {
+            "datasource": {
+              "name": "-- Grafana --"
+            },
+            "group": "grafana",
+            "kind": "DataQuery",
+            "spec": {},
+            "version": "v0"
+          }
+        }
+      }
+    ],
+    "cursorSync": "Off",
+    "description": "Demo data. Facility names and numbers are made up.",
+    "editable": true,
+    "elements": {
+      "panel-shell-tree": {
+        "kind": "Panel",
+        "spec": {
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "spec": {
+                        "dataset": "heart360tk_database",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT 0 as id, 'All Locations' as name, 0 as level, NULL::integer as parent_id WHERE EXISTS (SELECT 1 FROM org_units) UNION ALL SELECT id, name, level, COALESCE(parent_id, 0) as parent_id FROM org_units UNION ALL SELECT NULL, 'No data', NULL, NULL WHERE NOT EXISTS (SELECT 1 FROM org_units) ORDER BY parent_id NULLS FIRST, name",
+                        "sql": {
+                          "columns": [
+                            {
+                              "parameters": [],
+                              "type": "function"
+                            }
+                          ],
+                          "groupBy": [
+                            {
+                              "property": {
+                                "type": "string"
+                              },
+                              "type": "groupBy"
+                            }
+                          ],
+                          "limit": 50
+                        }
+                      },
+                      "version": "v0"
+                    },
+                    "refId": "A"
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": [
+                {
+                  "id": "filterByValue",
+                  "options": {
+                    "filters": [
+                      {
+                        "fieldName": "id",
+                        "config": {
+                          "id": "isNotNull"
+                        }
+                      }
+                    ],
+                    "type": "include",
+                    "match": "all"
+                  }
+                }
+              ]
+            }
+          },
+          "description": "",
+          "id": 22,
+          "links": [],
+          "title": "",
+          "vizConfig": {
+            "group": "equansdatahub-tree-panel",
+            "kind": "VizConfig",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "additionalColumns": "",
+                "clickMode": "SetVariable",
+                "compactMode": true,
+                "dashboardVariableName": "org_unit",
+                "dataLinkNewTab": false,
+                "disabledColumn": "disabled",
+                "displayedTreeDepth": 100,
+                "enableSelectDeselectAll": false,
+                "iconClickMode": "doNothing",
+                "iconClickTooltip": "One or more nodes contains an icon.",
+                "iconColorMappings": {
+                  "valueMappings": [
+                    {
+                      "result": {
+                        "text": ""
+                      },
+                      "type": "value",
+                      "value": ""
+                    }
+                  ]
+                },
+                "iconFilterLabel": "Alerts only",
+                "iconMappings": {
+                  "valueMappings": [
+                    {
+                      "result": {
+                        "text": "check-square"
+                      },
+                      "type": "value",
+                      "value": ""
+                    }
+                  ]
+                },
+                "idColumn": "id",
+                "includeDisabled": false,
+                "labelColumn": "name",
+                "multiSelect": false,
+                "orderLevels": "asc",
+                "parentIconColorMappings": {
+                  "valueMappings": [
+                    {
+                      "result": {
+                        "text": ""
+                      },
+                      "type": "value",
+                      "value": ""
+                    }
+                  ]
+                },
+                "parentIconMappings": {
+                  "valueMappings": [
+                    {
+                      "result": {
+                        "text": "check-square"
+                      },
+                      "type": "value",
+                      "value": ""
+                    }
+                  ]
+                },
+                "parentIdColumn": "parent_id",
+                "searchPlaceholder": "Search",
+                "showCheckbox": false,
+                "showColumnHeaders": false,
+                "showGridLines": false,
+                "showIconFilter": false,
+                "showItemCount": false,
+                "showSearch": true,
+                "supportsDisabled": false,
+                "toggleSelectMode": "singleClick",
+                "valueMappings": {}
+              }
+            },
+            "version": "1.7.7"
+          },
+          "transparent": true
+        }
+      }
+    },
+    "layout": {
+      "kind": "RowsLayout",
+      "spec": {
+        "rows": [
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": true,
+              "title": "Change location",
+              "layout": {
+                "kind": "AutoGridLayout",
+                "spec": {
+                  "columnWidthMode": "standard",
+                  "items": [
+                    {
+                      "kind": "AutoGridLayoutItem",
+                      "spec": {
+                        "element": {
+                          "kind": "ElementReference",
+                          "name": "panel-shell-tree"
+                        }
+                      }
+                    }
+                  ],
+                  "maxColumnCount": 3,
+                  "rowHeightMode": "standard"
+                }
+              }
+            }
+          },
+          {
+            "kind": "RowsLayoutRow",
+            "spec": {
+              "collapse": false,
+              "hideHeader": true,
+              "title": "",
+              "layout": {
+                "kind": "TabsLayout",
+                "spec": {
+                  "tabs": []
+                }
+              }
+            }
+          }
+        ]
+      }
+    },
+    "links": [
+      {
+        "asDropdown": false,
+        "icon": "",
+        "includeVars": true,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": false,
+        "title": "← Program dashboard",
+        "tooltip": "Hypertension and Diabetes Program",
+        "type": "link",
+        "url": "/d/heart360_showcase"
+      },
+      {
+        "asDropdown": false,
+        "icon": "",
+        "includeVars": true,
+        "keepTime": false,
+        "tags": [],
+        "targetBlank": false,
+        "title": "Drug Stock",
+        "tooltip": "Drug Stock",
+        "type": "link",
+        "url": "/d/heart360_drug_stock"
+      }
+    ],
+    "liveNow": false,
+    "preload": false,
+    "tags": [
+      "hearts360",
+      "reports"
+    ],
+    "timeSettings": {
+      "autoRefresh": "",
+      "autoRefreshIntervals": [
+        "5s",
+        "10s",
+        "30s",
+        "1m",
+        "5m",
+        "15m",
+        "30m",
+        "1h",
+        "2h",
+        "1d"
+      ],
+      "fiscalYearStartMonth": 0,
+      "from": "now-1y",
+      "hideTimepicker": true,
+      "timezone": "browser",
+      "to": "now"
+    },
+    "title": "HEARTS360 Reports",
+    "variables": [
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "definition": "SELECT '' AS __value",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "org_unit",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-hypertension"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT '' AS __value",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "alphabeticalAsc"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "Oct-2026",
+            "value": "2026-10-01"
+          },
+          "definition": "SELECT to_char(m::date, 'FMMon-YYYY') AS __text, to_char(m::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '12 months', date_trunc('month', CURRENT_DATE)::date - interval '1 month', interval '1 month') AS m ORDER BY m DESC",
+          "description": "First day of the month the reports cover. Last 12 completed months.",
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "Reporting Month",
+          "multi": false,
+          "name": "reporting_month",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-hypertension"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT to_char(m::date, 'FMMon-YYYY') AS __text, to_char(m::date, 'YYYY-MM-DD') AS __value FROM generate_series(date_trunc('month', CURRENT_DATE)::date - interval '12 months', date_trunc('month', CURRENT_DATE)::date - interval '1 month', interval '1 month') AS m ORDER BY m DESC",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": false,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "CustomVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "Established patients only",
+            "value": "false"
+          },
+          "description": "Which patients the Right medicines tab counts.",
+          "hide": "dontHide",
+          "includeAll": false,
+          "label": "Patients counted",
+          "multi": false,
+          "name": "include_new",
+          "options": [
+            {
+              "selected": true,
+              "text": "Established patients only",
+              "value": "false"
+            },
+            {
+              "selected": false,
+              "text": "Include new patients",
+              "value": "true"
+            }
+          ],
+          "query": "Established patients only : false, Include new patients : true",
+          "skipUrlSync": false
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "1",
+            "value": "1"
+          },
+          "definition": "SELECT CASE WHEN is_admin = true THEN 1 ELSE 0 END AS __value FROM grafana_schema.user WHERE id = ${__user.id} LIMIT 1",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "isAdmin",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-grafana"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT CASE WHEN is_admin = true THEN 1 ELSE 0 END AS __value FROM grafana_schema.user WHERE id = ${__user.id} LIMIT 1",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "1",
+            "value": "1"
+          },
+          "definition": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name IN (\n                  'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                  'heart360tk_' || hc.var_name || '_view_patients_ALL'\n              )\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'aggregated') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                  UNION\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name IN (\n                      'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                      'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                  )\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "isAllowed",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-grafana"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name IN (\n                  'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                  'heart360tk_' || hc.var_name || '_view_patients_ALL'\n              )\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'aggregated') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                  UNION\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name IN (\n                      'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                      'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                  )\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">heart360tk_region_view_patients_demo_region</span>, <span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">heart360tk_region_view_aggregated_demo_region</span>, or an <span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team",
+            "value": "<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">heart360tk_region_view_patients_demo_region</span>, <span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">heart360tk_region_view_aggregated_demo_region</span>, or an <span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team"
+          },
+          "definition": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) — admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "requiredGroups",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-grafana"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT CASE\n  WHEN NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL THEN\n    'Nationwide (All) — admin or an _ALL access team'\n  ELSE COALESCE(\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'patients') LIMIT 1) ||\n    '</span>, ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">' ||\n    (SELECT group_name FROM heart360tk_schema.get_access_groups(NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int, 'aggregated') LIMIT 1) ||\n    '</span>, or an ' ||\n    '<span style=\"border: 1px solid rgba(224, 36, 36, 0.3); padding: 1px 5px; border-radius: 3px; font-family: monospace; color: #ff7875; word-break: break-all;\">_ALL</span> access team',\n    'None'\n  )\nEND AS required_groups",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "definition": "SELECT COALESCE((SELECT ou.level FROM org_units ou  WHERE ou.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') LIMIT 1), 0) AS __value",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "selected_level",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-hypertension"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT COALESCE((SELECT ou.level FROM org_units ou  WHERE ou.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') LIMIT 1), 0) AS __value",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,69 @@
+{
+  "title": "BP readings check",
+  "elements": {
+    "panel-fudging-placeholder": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "",
+              "content": "This report is being built.",
+              "contentPartials": [],
+              "defaultContent": "This report is being built.",
+              "editor": {
+                "format": "auto",
+                "language": "markdown"
+              },
+              "editors": [],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "everyRow",
+              "styles": "",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "GridLayout",
+    "spec": {
+      "items": [
+        {
+          "kind": "GridLayoutItem",
+          "spec": {
+            "element": {
+              "kind": "ElementReference",
+              "name": "panel-fudging-placeholder"
+            },
+            "height": 3,
+            "width": 24,
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    }
+  }
+}

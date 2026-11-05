@@ -18,7 +18,20 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [],
+  "links": [
+    {
+      "asDropdown": false,
+      "icon": "external link",
+      "includeVars": false,
+      "keepTime": false,
+      "tags": [],
+      "targetBlank": false,
+      "title": "Reports",
+      "tooltip": "HEARTS360 Reports",
+      "type": "link",
+      "url": "/d/heart360_reports"
+    }
+  ],
   "panels": [
     {
       "fieldConfig": {
