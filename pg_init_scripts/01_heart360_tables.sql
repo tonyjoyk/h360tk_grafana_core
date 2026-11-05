@@ -2269,3 +2269,4 @@ GRANT SELECT ON heart360tk_schema.HEART360_DM_PATIENTS_CATAGORY TO heart360tk;
 \ir migrations/0.6.12_to_0.6.13.sql
 \ir migrations/0.6.13_to_0.6.14.sql
 \ir migrations/0.6.14_to_0.6.15.sql
+\ir migrations/0.6.15_to_0.6.16.sql
