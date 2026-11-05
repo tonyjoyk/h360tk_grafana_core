@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-04-2026 19:24
-last_updated: 11-05-2026 11:30
+last_updated: 11-05-2026 19:00
 project: h360tk_grafana_core
 project_key: NOKEY
 tracking_system: file-system
@@ -52,7 +52,7 @@ development_status:
   2-9-h360-api-skeleton-auth-and-compose-service: done
   2-10-write-endpoint-and-overdue-save-through-h360-api: done
   2-11-verify_security-sh-part-2-write-path-checks: done
-  2-12-gate-g1b: backlog
+  2-12-gate-g1b: done
   epic-2-retrospective: optional
 
   epic-3: in-progress
@@ -113,8 +113,8 @@ development_status:
   7-3-banned-word-and-plain-language-check: done
   7-4-fresh-install-upgrade-parity-and-clean-boot: done
   7-5-chat-verification: done
-  7-6-slow-laptop-browser-pass: backlog
-  7-7-report-docs-demo-runbook-and-image-freeze: backlog
+  7-6-slow-laptop-browser-pass: done
+  7-7-report-docs-demo-runbook-and-image-freeze: done
   7-8-rehearsal-and-backup-recording: backlog
-  7-9-ux-audit-of-all-dashboards: backlog
+  7-9-ux-audit-of-all-dashboards: done
   epic-7-retrospective: optional
