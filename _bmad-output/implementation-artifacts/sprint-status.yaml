@@ -29,7 +29,7 @@
 # - Dev moves story to 'review', then runs code-review (fresh context, different LLM recommended)
 # - Retrospective appends its action items to action_items; the status view surfaces open ones
 generated: 11-04-2026 19:24
-last_updated: 11-04-2026 19:24
+last_updated: 11-05-2026 08:30
 project: h360tk_grafana_core
 project_key: NOKEY
 tracking_system: file-system
@@ -48,7 +48,7 @@ development_status:
   2-5-demo-viewers-for-access-tests: done
   2-6-dashboard-query-verifier: done
   2-7-verify_security-sh-part-1-g1a-checks: done
-  2-8-gate-g1a: backlog
+  2-8-gate-g1a: done
   2-9-h360-api-skeleton-auth-and-compose-service: done
   2-10-write-endpoint-and-overdue-save-through-h360-api: done
   2-11-verify_security-sh-part-2-write-path-checks: done
@@ -66,11 +66,11 @@ development_status:
   4-1-medicines-catalogue-and-protocol-drug-link: done
   4-2-prescription-storage-parse_obat-and-cvd-history: done
   4-3-htn-ladder-and-the-visit-classifier: done
-  4-4-seed-10-visits-phones-and-cvd-history: backlog
-  4-5-seed-20-prescriptions-and-statin-use: backlog
-  4-6-seed-30-overdue-calls: backlog
-  4-7-seed-40-drug-stock-submissions: backlog
-  4-8-insert-only-seed-guard: backlog
+  4-4-seed-10-visits-phones-and-cvd-history: done
+  4-5-seed-20-prescriptions-and-statin-use: done
+  4-6-seed-30-overdue-calls: done
+  4-7-seed-40-drug-stock-submissions: done
+  4-8-insert-only-seed-guard: done
   epic-4-retrospective: optional
 
   epic-5: backlog
