@@ -2,7 +2,8 @@
 // Declares one name: rpt. Business Text afterRender only (it reads context.grafana).
 const rpt = (() => {
   const grafana = (typeof context !== 'undefined' && context.grafana) || {};
-  const v = (name) => (grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : '');
+  // A variable's value; '' when the dashboard has no such variable (replaceVariables leaves `${name}`).
+  const v = (name) => { const x = grafana.replaceVariables ? String(grafana.replaceVariables('${' + name + '}')) : ''; return x === '${' + name + '}' ? '' : x; };
 
   const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const num = (x) => (x === null || x === undefined || x === '' || isNaN(Number(x)) ? null : Number(x));
@@ -42,19 +43,44 @@ const rpt = (() => {
   const reportingMonth = () => v('reporting_month');
   const allowed = () => v('isAllowed') === '1';
 
-  // Tabs from the builder's TABS list: [{report, title, slug}].
+  // The user's home unit (hidden variable home_org_unit, the home dashboard's UserOrgUnitId query).
+  // '' for admins and users with access everywhere.
+  const homeUnit = () => { const h = v('home_org_unit').trim(); return h && h !== '0' ? h : ''; };
+
+  // Tabs from the builder's TABS list: [{report, title, slug}], in tab order. TABS[0] is `Start here`.
   const TABS = {{tabs}};
+  // The five report tabs (every tab but `Start here`), in tab order.
+  const REPORTS = TABS.filter((t) => t.report !== 'start');
   const tab = (report) => TABS.find((t) => t.report === report) || null;
-  // AD-29 deep link; keeps the location and month unless given.
-  const link = (report, org, mon) => {
+  // AD-29 deep link; keeps the location and month unless given. extra: more URL parameters,
+  // for example { 'var-include_new': 'true' }.
+  const link = (report, org, mon, extra) => {
     const t = tab(report);
-    return t ? '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)
-      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + '&-dtab=' + encodeURIComponent(t.slug) : '';
+    if (!t) { return ''; }
+    const more = Object.keys(extra || {}).map((k) => '&' + encodeURIComponent(k) + '=' + encodeURIComponent(extra[k])).join('');
+    return '/d/heart360_reports?var-org_unit=' + encodeURIComponent(org == null ? orgUnit() : org)
+      + '&var-reporting_month=' + encodeURIComponent(mon == null ? reportingMonth() : mon) + more + '&-dtab=' + encodeURIComponent(t.slug);
   };
+  // A facility name that narrows this tab to that facility (UX-15). Plain text when it is already the place in view.
+  const placeLink = (report, id, name) => (id == null || String(id) === orgUnit() || !tab(report)
+    ? esc(name) : '<a class="rpt-link" href="' + esc(link(report, id)) + '" title="' + esc('Show ' + name + ' only') + '">' + esc(name) + '</a>');
+  // `Next step` line at the end of a tab: one link, sentence case.
+  const nextStep = (text, href) => '<div class="rpt-next"><span class="rpt-next-label">Next step</span>'
+    + '<a class="rpt-link" href="' + esc(href) + '">' + esc(text) + ' →</a></div>';
 
   // --- States (DESIGN States, FR-32) ---
-  // Existing HTN access banner, verbatim (program dashboard overdue list).
-  const banner = () => '<div class="rpt-warn"><span>⚠️</span><span><strong>Access Denied:</strong> Ask admin to add to one of these teams: ' + v('requiredGroups') + '</span></div>';
+  // Grey note, no warning tone (Voice rule 8, UX-21). html is trusted markup; use esc() on data.
+  const info = (html) => '<div class="rpt-info">' + html + '</div>';
+  // No access: plain words and the next step. The access team names sit in a closed `Details` for the admin.
+  const banner = () => {
+    const teams = v('requiredGroups').replace(/<[^>]*>/g, '').trim();
+    return info('<span>You cannot see this place. Pick your own area in <strong>Change location</strong> above.</span>'
+      + (teams ? '<details class="rpt-details"><summary>Details for your admin</summary>Access comes from: ' + esc(teams) + '</details>' : ''));
+  };
+  // Shown while the page moves a user with no location to their home unit (UX-02).
+  const OPENING_HOME = 'Opening your area…';
+  // For views that need one facility (patient lists): a grey line with the next step.
+  const PICK_FACILITY = 'Pick a facility in Change location above to see its patients.';
   const NO_DATA = 'No data for this place.';
   const NO_FACILITIES = 'No facilities for this location.';
   const NO_FLAGS = 'No facility is flagged.';
@@ -67,15 +93,38 @@ const rpt = (() => {
   // Thresholds from report_flag_thresholds rows ({report, key, value}).
   const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };
 
+  // UX-02: a user with no location who may not see all places is moved to their home unit, keeping
+  // the month and tab. Returns true when it does so.
+  const goHome = () => {
+    const home = homeUnit();
+    if (allowed() || orgUnit() !== '0' || !home) { return false; }
+    // Several panels call this on one render; move once (a later blank pick moves again).
+    if (Date.now() - (window.__rptGoHome || 0) > 3000) {
+      window.__rptGoHome = Date.now();
+      const ls = grafana.locationService;
+      if (ls && ls.partial) { ls.partial({ 'var-org_unit': home }, true); }
+      else { const u = new URL(window.location.href); u.searchParams.set('var-org_unit', home); window.location.replace(u.toString()); }
+    }
+    return true;
+  };
+  // True while the panel's query is still running.
+  const loading = () => !!(context.panelData && context.panelData.state === 'Loading');
+
   // Mount: returns the root element, or null when access is denied. The banner is drawn once per tab,
   // by the panel mounted with { banner: true } (the title strip); other panels stay empty under it.
+  // A user with no location is first moved to their home unit (UX-02); meanwhile the banner panel
+  // shows `Opening your area…`. opts.loading: a line to show while the query runs (null is returned).
   const mount = (selector, opts) => {
+    const o = opts || {};
     const root = context.element.querySelector(selector);
     if (!root) { return null; }
-    if (!allowed()) { root.innerHTML = opts && opts.banner ? banner() : ''; return null; }
+    if (goHome()) { root.innerHTML = o.banner ? '<div class="rpt-muted">' + esc(OPENING_HOME) + '</div>' : ''; return null; }
+    if (!allowed()) { root.innerHTML = o.banner ? banner() : ''; return null; }
+    if (o.loading && loading()) { root.innerHTML = '<div class="rpt-muted rpt-loading">' + esc(o.loading) + '</div>'; return null; }
     return root;
   };
 
-  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed,
-    TABS, tab, link, flagsFrom, banner, NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, mount };
+  return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed, homeUnit,
+    TABS, REPORTS, tab, link, placeLink, nextStep, flagsFrom, info, banner, OPENING_HOME, PICK_FACILITY,
+    NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, loading, goHome, mount };
 })();

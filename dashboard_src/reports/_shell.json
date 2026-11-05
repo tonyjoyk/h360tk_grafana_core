@@ -1,9 +1,9 @@
 {
   "_builder_notes": [
     "Source for heart360.reports.json. Edit here, then run scripts/build_reports_dashboard.py. Keys starting with _ are dropped by the builder.",
-    "Tabs come from the TABS list in the builder; they are placed in the one row whose layout is a TabsLayout (tabs: []).",
-    "Story 5.12 strip: the header-less row between 'Change location' and the tabs row holds panel-strip-flags (report_flags, PD-7) and the PD-19 demo notice. Shared code comes from _shared/ via {{shared:<file>}}.",
-    "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. reporting_month default 2026-10-01 is pinned for the demo (PD-9, C8); revert to the latest completed month after the demo."
+    "Tabs come from the TABS list in the builder; they are placed in the one row whose layout is a TabsLayout (tabs: []). The first tab, Start here (0-start.json), replaces the story 5.12 strip and the tabs' Look at these first cards (story 7.9, UX-14).",
+    "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. home_org_unit is the home dashboard's UserOrgUnitId query verbatim; states.js rpt.mount moves a user with no location and no access to all places to that unit (UX-02). place_name names the place in the Change location row title (UX-18).",
+    "include_new is hidden (UX-38): the Right medicines tab links to var-include_new=true and back. reporting_month default 2026-10-01 is pinned for the demo (PD-9, C8); revert to the latest completed month after the demo."
   ],
   "uid": "heart360_reports",
   "apiVersion": "dashboard.grafana.app/v2",
@@ -194,77 +194,6 @@
           },
           "transparent": true
         }
-      },
-      "panel-strip-flags": {
-        "kind": "Panel",
-        "spec": {
-          "data": {
-            "kind": "QueryGroup",
-            "spec": {
-              "queries": [
-                {
-                  "kind": "PanelQuery",
-                  "spec": {
-                    "hidden": false,
-                    "query": {
-                      "datasource": {
-                        "name": "postgres-hypertension"
-                      },
-                      "group": "grafana-postgresql-datasource",
-                      "kind": "DataQuery",
-                      "spec": {
-                        "editorMode": "code",
-                        "format": "table",
-                        "rawQuery": true,
-                        "rawSql": "SELECT org_unit_id, org_unit_name, report, flag_reason, patients_n\nFROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\nWHERE '$isAllowed' = '1'",
-                        "refId": "A"
-                      },
-                      "version": "v0"
-                    },
-                    "refId": "A"
-                  }
-                }
-              ],
-              "queryOptions": {},
-              "transformations": []
-            }
-          },
-          "description": "",
-          "id": 0,
-          "links": [],
-          "title": "",
-          "transparent": false,
-          "vizConfig": {
-            "group": "marcusolsson-dynamictext-panel",
-            "kind": "VizConfig",
-            "version": "6.3.1",
-            "spec": {
-              "fieldConfig": {
-                "defaults": {},
-                "overrides": []
-              },
-              "options": {
-                "afterRender": "{{shared:states.js}}\n// Needs-a-look strip (story 5.12, PD-7): at most three facilities from report_flags, those flagged on\n// two or more reports first, then most patients. Chips open the tab with the same location and month.\nconst root = context.element.querySelector('.rpt-nal-root');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst head = '<div class=\"rpt-nal-head\"><span class=\"rpt-nal-title\">Needs a look first</span>'\n  + '<span class=\"rpt-demo\">Demo data. Facility names and numbers are made up.</span></div>';\nif (!rpt.allowed()) { root.innerHTML = head + rpt.banner(); return; }\nconst tabOrder = rpt.TABS.map((t) => t.report);\nconst by = {};\nrpt.rows('A').filter((f) => tabOrder.includes(f.report)).forEach((f) => {\n  const k = String(f.org_unit_id);\n  (by[k] = by[k] || { name: String(f.org_unit_name || ''), patients: num(f.patients_n) || 0, items: [] }).items.push(f);\n});\n// Ties on patients go to the facility with more flags, then by name.\nconst list = Object.values(by).sort((a, b) => (b.items.length >= 2) - (a.items.length >= 2) || b.patients - a.patients\n  || b.items.length - a.items.length || a.name.localeCompare(b.name)).slice(0, 3);\nconst chip = (f) => '<a class=\"rpt-chip\" href=\"' + esc(rpt.link(f.report)) + '\" title=\"' + esc(f.flag_reason) + '\">' + esc(rpt.tab(f.report).title) + '</a>';\nroot.innerHTML = head + (list.length\n  ? '<ul class=\"rpt-nal\">' + list.map((f) => '<li><span class=\"rpt-nal-name\">' + esc(f.name) + '</span>'\n    + '<span class=\"rpt-nal-n\">' + fmt(f.patients) + ' patients</span>'\n    + '<div class=\"rpt-chips\" aria-label=\"Reports that flag ' + esc(f.name) + '\">'\n    + f.items.slice().sort((a, b) => tabOrder.indexOf(a.report) - tabOrder.indexOf(b.report)).map(chip).join('') + '</div></li>').join('') + '</ul>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + '</div>');\n",
-                "content": "<div class=\"rpt rpt-nal-root\"></div>",
-                "contentPartials": [],
-                "defaultContent": "<div class=\"rpt rpt-nal-root\"></div>",
-                "editor": {
-                  "format": "auto",
-                  "language": "html"
-                },
-                "editors": [
-                  "styles",
-                  "afterRender"
-                ],
-                "externalStyles": [],
-                "helpers": "",
-                "renderMode": "allRows",
-                "styles": "{{shared:styles.css}}",
-                "wrap": true
-              }
-            }
-          }
-        }
       }
     },
     "layout": {
@@ -275,7 +204,7 @@
             "kind": "RowsLayoutRow",
             "spec": {
               "collapse": true,
-              "title": "Change location",
+              "title": "Change location · ${place_name}",
               "layout": {
                 "kind": "AutoGridLayout",
                 "spec": {
@@ -293,34 +222,6 @@
                   ],
                   "maxColumnCount": 3,
                   "rowHeightMode": "standard"
-                }
-              }
-            }
-          },
-          {
-            "kind": "RowsLayoutRow",
-            "spec": {
-              "collapse": false,
-              "hideHeader": true,
-              "title": "",
-              "layout": {
-                "kind": "GridLayout",
-                "spec": {
-                  "items": [
-                    {
-                      "kind": "GridLayoutItem",
-                      "spec": {
-                        "element": {
-                          "kind": "ElementReference",
-                          "name": "panel-strip-flags"
-                        },
-                        "height": 4,
-                        "width": 24,
-                        "x": 0,
-                        "y": 0
-                      }
-                    }
-                  ]
                 }
               }
             }
@@ -350,10 +251,10 @@
         "keepTime": false,
         "tags": [],
         "targetBlank": false,
-        "title": "← Program dashboard",
-        "tooltip": "Hypertension and Diabetes Program",
+        "title": "← Hypertension dashboard",
+        "tooltip": "Back to the Hypertension tab, same place and month",
         "type": "link",
-        "url": "/d/heart360_showcase"
+        "url": "/d/heart360_showcase/hypertension-and-diabetes-program?-dtab=Hypertension"
       },
       {
         "asDropdown": false,
@@ -362,8 +263,8 @@
         "keepTime": false,
         "tags": [],
         "targetBlank": false,
-        "title": "Drug Stock",
-        "tooltip": "Drug Stock",
+        "title": "Medicine stock",
+        "tooltip": "Medicine stock, same place and month",
         "type": "link",
         "url": "/d/heart360_drug_stock"
       }
@@ -513,7 +414,7 @@
             "value": "false"
           },
           "description": "Which patients the Right medicines tab counts.",
-          "hide": "dontHide",
+          "hide": "hideVariable",
           "includeAll": false,
           "label": "Patients counted",
           "multi": false,
@@ -744,6 +645,114 @@
           "regexApplyTo": "value",
           "skipUrlSync": true,
           "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "",
+            "value": ""
+          },
+          "definition": "{{shared:user_home_unit.sql}}",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "home_org_unit",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-grafana"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "{{shared:user_home_unit.sql}}",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onDashboardLoad",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled",
+          "description": "The user's home unit (_shared/user_home_unit.sql, the home dashboard's UserOrgUnitId query). Empty for admins and users with access everywhere."
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": false,
+          "current": {
+            "text": "All locations",
+            "value": "All locations"
+          },
+          "definition": "SELECT COALESCE((SELECT ou.name FROM org_units ou WHERE ou.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') LIMIT 1), 'All locations') AS __value",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "place_name",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-hypertension"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT COALESCE((SELECT ou.name FROM org_units ou WHERE ou.id::text = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') LIMIT 1), 'All locations') AS __value",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled",
+          "description": "Name of the place in view, for the Change location row title."
         }
       }
     ]

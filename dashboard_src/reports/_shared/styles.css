@@ -79,13 +79,37 @@ a.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }
 /* How this is worked out. */
 .rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
 
-/* Needs-a-look strip (shell row above the tabs). */
-.rpt-nal-head { display: flex; justify-content: space-between; align-items: baseline; gap: 12px; flex-wrap: wrap; margin-bottom: 6px; }
-.rpt-nal-title { font-size: 14px; font-weight: 600; }
-.rpt-demo { font-size: 12px; color: var(--text-muted); }
-.rpt-nal { list-style: none; margin: 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px 16px; }
-.rpt-nal li { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; padding-left: 10px; border-left: 4px solid var(--flag-bar); min-height: 24px; }
-.rpt-nal-name { font-weight: 600; }
-.rpt-nal-n { color: var(--text-muted); font-size: 12px; }
-.rpt-nal .rpt-chips { margin: 0; gap: 4px; }
-.rpt-nal .rpt-chip { padding: 1px 8px; }
+.rpt-demo { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+/* Grey note (no warning tone, UX-21): no access, pick a facility, and other next-step lines. */
+.rpt-info { color: var(--text-primary); background: #F4F5F5; border-left: 4px solid var(--border-subtle); padding: 8px 14px; font-size: 13px; line-height: 1.45; border-radius: 2px; }
+.rpt-details { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+.rpt-details summary { cursor: pointer; }
+.rpt-loading { padding: 8px 0; }
+
+/* Next step: one link at the end of a tab. */
+.rpt-next { display: flex; align-items: baseline; gap: 10px; font-size: 14px; padding: 4px 0; }
+.rpt-next-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.rpt-next a.rpt-link { font-weight: 500; }
+
+/* Start here grid: facilities down the side, reports across; each cell is a link. */
+.rpt-start-do { margin: 6px 0 10px; font-size: 14px; }
+.rpt-grid { table-layout: fixed; }
+.rpt-grid thead th:first-child, .rpt-grid tbody th { width: 16%; }
+.rpt-grid tbody th { font-weight: 600; vertical-align: middle; }
+.rpt-table.rpt-grid td.rpt-cell { padding: 3px; vertical-align: middle; }
+.rpt-cell a { display: block; padding: 5px 8px; border-radius: 4px; text-decoration: none; color: inherit; border: 1px solid transparent; line-height: 1.3; }
+.rpt-cell a:hover, .rpt-cell a:focus-visible { border-color: var(--accent); outline: none; }
+.rpt-cell-word { display: block; font-weight: 600; font-size: 13px; }
+.rpt-cell-n { display: block; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rpt-cell-flag a { background: var(--flag-pill-bg); border-color: var(--flag-bar); }
+.rpt-cell-flag .rpt-cell-word { color: var(--flag-pill-text); }
+.rpt-cell-flag .rpt-cell-n { color: var(--flag-pill-text); }
+.rpt-cell-check a { background: #FFFFFF; border-color: var(--flag-bar); border-style: dashed; }
+.rpt-cell-check .rpt-cell-word { color: var(--flag-pill-text); }
+.rpt-cell-few a { background: var(--cell-missing-bg); }
+.rpt-cell-few .rpt-cell-word { color: var(--guard-pill-text); }
+.rpt-cell-fine .rpt-cell-word { font-weight: 400; color: var(--text-muted); }
+.rpt-cell-none { color: var(--text-muted); text-align: center; }
+.rpt-start-key { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.rpt-start-key b { color: var(--text-primary); font-weight: 600; }

@@ -6,6 +6,7 @@ Inputs (dashboard_src/reports/):
                      one row whose layout is an empty TabsLayout (tabs: []).
   <n>-<slug>.json    one tab: {"title", "elements", "layout"}. Every element key
                      starts with panel-<slug>-; the title equals its TABS title.
+                     0-start.json is the `Start here` overview tab (panel-start-*).
 
 Output (generated, committed):
   grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.reports.json
@@ -52,14 +53,18 @@ OUT = ROOT / "grafana_provisioning" / "dashboards" / "HEARTS360 Dashboards" / "h
 UID = "heart360_reports"
 
 # (visible title, URL tab slug, source file). Order = tab order. Internal slug comes from the file name.
+# Story 7.9 (UX-17, UX-14): `Start here` first, then the cause order low control -> missed visits -> statins.
+# The file numbers are unchanged; only the list order sets the tab order.
 TABS = [
-    ("Right medicines", "Right-medicines", "1-adherence.json"),
+    ("Start here", "Start-here", "0-start.json"),
     ("Stepping up", "Stepping-up", "2-titration.json"),
+    ("Right medicines", "Right-medicines", "1-adherence.json"),
     ("BP readings check", "BP-readings-check", "3-fudging.json"),
-    ("Statins", "Statins", "4-statins.json"),
     ("Overdue calls", "Overdue-calls", "5-calling.json"),
+    ("Statins", "Statins", "4-statins.json"),
 ]
-INTERNAL_SLUGS = ("adherence", "titration", "fudging", "statins", "calling")
+# "start" is the overview tab (panel-start-*); it has no report_flags.report of its own.
+INTERNAL_SLUGS = ("start", "adherence", "titration", "fudging", "statins", "calling")
 
 
 class BuildError(Exception):

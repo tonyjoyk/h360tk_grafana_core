@@ -12,7 +12,10 @@
 //   guardName: 'Too few readings',      // grey pill of a too_few row
 //   guardReason: (r) => 'Need at least 20; this place has 12.',
 //   check: { text: '◆ Looks fine, check readings', when: (r) => rpt.yes(r.looks_fine_check) },  // optional two-sided pill
-//   alsoOn: ['titration'],              // reports linked as "Also flagged on …" under a flagged row
+//   alsoOn: false,                      // optional; false hides `Also flagged on …`. Default: every other report
+//                                       // that flags this facility in report_flags (UX-16). An array is ignored.
+//   nameLinks: false,                   // optional; false keeps facility names as plain text. Default: each name
+//                                       // links to this tab narrowed to that facility (UX-15).
 //   size: (r) => r.readings_n,          // patients or cases in scope, the last sort key
 //   order: 'size',                      // optional; within flagged / too few / clean, sort by size (high first)
 //                                       // instead of number of report_flags entries, then patients
@@ -48,12 +51,16 @@ const rptTable = (root, cfg) => {
   const state = { sort: -1, dir: 1, page: 0 };   // sort -1 = needs a look first
 
   const pill = (cls, text) => '<span class="rpt-pill ' + cls + '">' + esc(text) + '</span>';
+  // `Also flagged on`: every other report tab that flags this facility in report_flags, in tab order.
+  // Each link opens that tab for this facility.
   const also = (r) => {
+    if (cfg.alsoOn === false) { return ''; }
     const mine = flagsOf[r.org_unit_id] || [];
-    const links = (cfg.alsoOn || []).filter((rep) => rep !== cfg.report && mine.some((f) => f.report === rep) && rpt.tab(rep))
-      .map((rep) => '<a class="rpt-link" href="' + esc(rpt.link(rep)) + '">' + esc(rpt.tab(rep).title) + '</a>');
+    const links = rpt.REPORTS.filter((t) => t.report !== cfg.report && mine.some((f) => f.report === t.report))
+      .map((t) => '<a class="rpt-link" href="' + esc(rpt.link(t.report, r.org_unit_id)) + '">' + esc(t.title) + '</a>');
     return links.length ? '<div class="rpt-also">Also flagged on ' + links.join(', ') + '</div>' : '';
   };
+  const name = (r) => (cfg.nameLinks === false ? esc(r.org_unit_name) : rpt.placeLink(cfg.report, r.org_unit_id, r.org_unit_name));
   const why = (r, totalRow) => {
     if (yes(r.flag)) {
       const names = [].concat(cfg.flagNames ? cfg.flagNames(r) : []).filter(Boolean).slice(0, 2);
@@ -70,7 +77,7 @@ const rptTable = (root, cfg) => {
   };
   const cell = (c, r) => (c.guard && yes(r.too_few) ? '—' : c.cell ? c.cell(r) : esc(c.value(r)));
   const tr = (r, totalRow) => '<tr class="' + (totalRow ? 'rpt-total' : rank(r) === 0 ? 'rpt-flagged' : '') + '">'
-    + '<th scope="row">' + (totalRow ? 'All places in view' : esc(r.org_unit_name)) + '</th>'
+    + '<th scope="row">' + (totalRow ? 'All places in view' : name(r)) + '</th>'
     + (cfg.columns || []).map((c) => '<td class="' + (c.num ? 'num' : '') + '"' + (c.title && c.title(r) ? ' title="' + esc(c.title(r)) + '"' : '') + '>' + cell(c, r) + '</td>').join('')
     + '<td class="rpt-why">' + why(r, totalRow) + '</td></tr>';
 
