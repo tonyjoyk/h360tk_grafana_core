@@ -22,7 +22,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT w.window_start, w.window_end, w.data_end,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_age') AS min_age\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                      "rawSql": "SELECT w.window_end, (date_trunc('month', w.window_end) - interval '8 months')::date AS first_month,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_age') AS min_age\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -50,7 +50,7 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · {Mon-YYYY} · eligible = ...\".\nconst root = rpt.mount('.rpt-sta-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst age = rpt.num(w.min_age) === null ? '' : 'aged ' + rpt.fmt(w.min_age) + ' or older ';\nroot.innerHTML = '<h2 class=\"rpt-title\">Which eligible patients are not on a statin?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(rpt.month(rpt.reportingMonth()))\n  + ' · eligible = ' + rpt.esc(age) + 'with diabetes, or a heart attack or stroke</div>';\n",
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · {first month} to {last month} · eligible = ...\".\nconst root = rpt.mount('.rpt-sta-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst age = rpt.num(w.min_age) === null ? '' : 'aged ' + rpt.fmt(w.min_age) + ' or older ';\nroot.innerHTML = '<h2 class=\"rpt-title\">Which eligible patients are not on a statin?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(rpt.month(w.first_month) + ' to ' + rpt.month(w.window_end))\n  + ' · eligible = ' + rpt.esc(age) + 'with diabetes, or a heart attack or stroke</div>';\n",
               "content": "<div class=\"rpt rpt-sta-title\"></div>",
               "contentPartials": [],
               "defaultContent": "<div class=\"rpt rpt-sta-title\"></div>",
@@ -93,7 +93,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT s.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_eligible') AS min_eligible\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE s.is_selected AND '$isAllowed' = '1'",
+                      "rawSql": "SELECT s.*, a.eligible_n AS avg_d, a.on_statin_n AS avg_n, a.on_statin_pct AS avg_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_eligible') AS min_eligible\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nLEFT JOIN report_statins('${reporting_month}'::date, NULL) a ON a.is_selected\nWHERE s.is_selected AND '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -121,7 +121,7 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Headline strip: eligible patients, on a statin, not on a statin.\nconst root = rpt.mount('.rpt-sta-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, cls, color, label, line) => '<div>'\n  + '<div class=\"rpt-big' + (cls ? ' ' + cls : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nif (!r) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + col('—', '', '', 'Eligible patients', rpt.NO_DATA) + col('—', '', '', 'On a statin', rpt.NO_DATA)\n    + col('—', '', '', 'Not on a statin', rpt.NO_DATA) + '</div>';\n  return;\n}\nconst N = num(r.eligible_n) || 0, on = num(r.on_statin_n) || 0, off = num(r.not_on_statin_n) || 0;\nconst first = col(fmt(N), '', 'var(--text-primary)', 'Eligible patients', 'alive and under care');\nif (!N) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + first + col('—', '', '', 'On a statin', rpt.NO_DATA) + col('—', '', '', 'Not on a statin', rpt.NO_DATA) + '</div>';\n  return;\n}\nconst flagAt = num(r.flag_below_pct);\nconst second = yes(r.too_few)\n  ? col('Too few patients', 'rpt-few', '', 'On a statin', rpt.needAtLeast(r.min_eligible, N))\n  : col(pct(r.on_statin_pct), '', yes(r.flag) ? 'var(--flag-bar)' : 'var(--controlled)', 'On a statin',\n    fmt(on) + ' of ' + fmt(N) + ' eligible patients' + (flagAt !== null ? '. Under ' + pct(flagAt) + ' is flagged.' : ''));\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first + second\n  + col(fmt(off), '', 'var(--no-visit)', 'Not on a statin', 'These patients need a review.') + '</div>';\n",
+              "afterRender": "{{shared:states.js}}\nconst col = (big, color, label, lines, title, few) => '<div' + (title ? ' title=\"' + rpt.esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + rpt.esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + rpt.esc(label) + '</div>' + [].concat(lines).filter(Boolean).map((l) => '<div class=\"rpt-line\">' + rpt.esc(l) + '</div>').join('') + '</div>';\n// Headline strip: On a statin, Average of all places, Not on a statin.\nconst root = rpt.mount('.rpt-sta-head');\nif (!root) { return; }\nconst { fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst L = ['On a statin', 'Average of all places', 'Not on a statin'];\nif (!r) { root.innerHTML = '<div class=\"rpt-strip3\">' + L.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>'; return; }\nconst N = num(r.eligible_n) || 0;\nconst when = 'Eligible at the end of ' + rpt.month(rpt.reportingMonth());\nconst first = !N ? col('—', '', L[0], 'No eligible patients here.')\n  : yes(r.too_few) ? col('Too few patients', '', L[0], rpt.needAtLeast(r.min_eligible, N), '', true)\n  : col(pct(r.on_statin_pct), yes(r.flag) ? 'var(--flag-bar)' : 'var(--controlled)', L[0],\n    [fmt(r.on_statin_n) + ' of ' + fmt(N) + ' eligible patients', when]);\nconst avg = num(r.avg_pct) === null ? col('—', '', L[1], rpt.NO_DATA)\n  : col(pct(r.avg_pct), '#9B7FD4', L[1], [fmt(r.avg_n) + ' of ' + fmt(r.avg_d) + ' eligible patients, all places together', when]);\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first + avg\n  + col(fmt(r.not_on_statin_n), 'var(--no-visit)', L[2], ['Eligible patients with no statin on their latest prescription', 'They may need a review.']) + '</div>';\n",
               "content": "<div class=\"rpt rpt-sta-head\"></div>",
               "contentPartials": [],
               "defaultContent": "<div class=\"rpt rpt-sta-head\"></div>",
@@ -143,7 +143,7 @@
         }
       }
     },
-    "panel-statins-chart": {
+    "panel-statins-line": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -164,7 +164,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT s.org_unit_id, s.org_unit_name, s.level, s.is_selected, s.too_few, s.flag,\n  s.eligible_n, s.on_statin_n, s.on_statin_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_eligible') AS min_eligible\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE '$isAllowed' = '1'",
+                      "rawSql": "SELECT s.month_date, s.org_unit_name, s.too_few, s.eligible_n, s.on_statin_n, s.rate_pct,\n  s.average_eligible_n, s.average_on_statin_n, s.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_statins_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE s.is_selected AND '$isAllowed' = '1'\nORDER BY s.month_date",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -177,10 +177,10 @@
             "transformations": []
           }
         },
-        "description": "Share of eligible patients on a statin at each facility in view. The dashed line marks 25%. Facilities under it are flagged.",
+        "description": "Share of eligible patients with a statin on their latest prescription, at each month end. Average is all places together.",
         "id": 0,
         "links": [],
-        "title": "Eligible patients on a statin, by facility",
+        "title": "On a statin by month",
         "vizConfig": {
           "group": "volkovlabs-echarts-panel",
           "kind": "VizConfig",
@@ -218,13 +218,13 @@
                 "dataset": [],
                 "series": []
               },
-              "getOption": "{{shared:tip.js}}\n// Bars by facility: share of eligible patients on a statin, with a dashed flag line (PD-8). No month line.\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst val = (x) => (x === null || x === undefined || x === '' ? null : Number(x));\nconst ids = col('org_unit_id');\nlet rows = ids.map((id, i) => ({ name: String(col('org_unit_name')[i]), level: val(col('level')[i]) || 0, sel: yes(col('is_selected')[i]),\n  few: yes(col('too_few')[i]), flag: yes(col('flag')[i]), n: val(col('eligible_n')[i]) || 0, on: val(col('on_statin_n')[i]) || 0, p: val(col('on_statin_pct')[i]) }));\nconst flagAt = val(col('flag_below_pct')[0]);\nconst minN = val(col('min_eligible')[0]);\n// Above facility level the selection row is the total; the bars are the facilities in view.\nconst facilities = rows.filter((r) => !(r.sel && r.level < 3));\nrows = (facilities.length ? facilities : rows).filter((r) => r.n > 0 || r.sel);\nif (!rows.length) {\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\n// Lowest share first; too few after the rest.\nrows.sort((a, b) => (a.few - b.few) || ((a.p === null ? 999 : a.p) - (b.p === null ? 999 : b.p)) || a.name.localeCompare(b.name));\nconst pctTxt = (v) => (v === null ? '—' : (Math.abs(v) < 10 ? v.toFixed(1) : String(Math.round(v))) + '%');\nconst lines = (r) => (r.few ? ['Too few patients', soft('Need at least ' + fmt(minN) + '; this place has ' + fmt(r.n) + '.')]\n  : r.p === null ? ['No eligible patients'] : ['On a statin: ' + pctTxt(r.p), soft(fmt(r.on) + ' of ' + fmt(r.n) + ' eligible patients')]\n    .concat(r.flag ? [soft('Few on a statin')] : []));\nreturn {\n  animation: false,\n  grid: { left: 8, right: 104, top: 34, bottom: 8, containLabel: true },\n  tooltip: tip((k) => lines(rows[k]), (k) => rows[k].name, { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  xAxis: { type: 'category', data: rows.map((r) => r.name), axisTick: { show: false },\n    axisLabel: { color: C.axis, fontSize: 11, interval: 0 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  yAxis: { type: 'value', min: 0, max: 100, interval: 25, axisLabel: { color: C.axis, fontSize: 11, formatter: (v) => v + '%' },\n    splitLine: { lineStyle: { color: C.grid } } },\n  series: [{\n    type: 'bar', name: 'On a statin', barMaxWidth: 56,\n    data: rows.map((r) => ({ value: r.few || r.p === null ? 0 : r.p,\n      itemStyle: { color: r.few ? C.estimated : r.flag ? C.noVisit : C.controlled, borderRadius: [2, 2, 0, 0] } })),\n    label: { show: true, position: 'top', color: C.text, fontSize: 12,\n      formatter: (p) => { const r = rows[p.dataIndex]; return r.few ? 'Too few' : pctTxt(r.p); } },\n    markLine: flagAt === null ? undefined : {\n      silent: true, symbol: ['none', 'none'], animation: false,\n      lineStyle: { type: 'dashed', color: C.text, width: 1.5 },\n      label: { formatter: 'Flag line: ' + pctTxt(flagAt), position: 'end', color: C.text, fontSize: 12 },\n      data: [{ yAxis: flagAt }]\n    }\n  }]\n};\n"
+              "getOption": "{{shared:tip.js}}\n// % of eligible patients on a statin by month: the place in view against the average of all places\n// (the Metabase statins graph, UX-06).\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nconst val = (x) => (x === null || x === undefined || x === '' ? null : Number(x));\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst few = col('too_few').map(yes);\nconst d = col('eligible_n'), n = col('on_statin_n'), ad = col('average_eligible_n'), an = col('average_on_statin_n');\nconst place = col('place')[0] || 'All locations you can access';\nreturn lineVsAverage({\n  months: col('month_date'), place: String(place),\n  value: col('rate_pct').map((v, k) => (few[k] ? null : val(v))), avg: col('average_rate_pct').map(val),\n  placeLines: (k) => [few[k] ? 'Too few patients' : fmt(n[k]) + ' of ' + fmt(d[k]) + ' eligible patients'],\n  avgLines: (k) => [fmt(an[k]) + ' of ' + fmt(ad[k]) + ' eligible patients'],\n  empty: allowed ? 'No data for this place.' : ''\n});\n"
             }
           }
         }
       }
     },
-    "panel-statins-look": {
+    "panel-statins-monthly": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -245,7 +245,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT s.org_unit_id, s.org_unit_name, s.eligible_n, s.on_statin_n, s.on_statin_pct, s.not_on_statin_n, fl.patients_n\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nJOIN report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) fl ON fl.org_unit_id = s.org_unit_id AND fl.report = 'statins'\nWHERE s.flag AND '$isAllowed' = '1'",
+                      "rawSql": "SELECT s.month_date, s.org_unit_name, s.too_few, s.eligible_n, s.on_statin_n, s.rate_pct,\n  s.average_eligible_n, s.average_on_statin_n, s.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_statins_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE s.is_selected AND '$isAllowed' = '1'\nORDER BY s.month_date",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -258,10 +258,10 @@
             "transformations": []
           }
         },
-        "description": "",
+        "description": "The Metabase statins table. Each month counts eligible patients at its end. The newest month is the number in the strip above.",
         "id": 0,
         "links": [],
-        "title": "",
+        "title": "On a statin by month, against the average",
         "transparent": false,
         "vizConfig": {
           "group": "marcusolsson-dynamictext-panel",
@@ -273,10 +273,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-sta-look');\nif (!root) { return; }\nconst { esc, fmt, num, pct } = rpt;\nconst here = rpt.orgUnit();\nconst list = rpt.rows('A').sort((a, b) => (num(b.patients_n) || 0) - (num(a.patients_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + '<div class=\"rpt-look-line\">Only ' + pct(r.on_statin_pct) + ' of ' + fmt(r.eligible_n) + ' eligible patients are on a statin.</div>'\n    + '<div class=\"rpt-look-line\">' + fmt(r.not_on_statin_n) + ' patients need a review.'\n    + (String(r.org_unit_id) === here ? '' : ' <a class=\"rpt-link\" href=\"' + esc(rpt.link('statins', r.org_unit_id)) + '\">Open the patient list</a>')\n    + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
-              "content": "<div class=\"rpt rpt-sta-look\"></div>",
+              "afterRender": "{{shared:states.js}}\n{{shared:monthly.js}}\n// The Metabase statins table: month, eligible patients, on a statin, %; the place beside the average.\nconst root = rpt.mount('.rpt-sta-monthly');\nif (!root) { return; }\nconst rows = rpt.rows('A');\nrptMonthly(root, {\n  rows: rows,\n  place: rpt.place(rows.length ? rows[0].place : ''),\n  cols: [\n    { label: 'Eligible', place: 'eligible_n', avg: 'average_eligible_n' },\n    { label: 'On a statin', place: 'on_statin_n', avg: 'average_on_statin_n' },\n    { label: '%', place: 'rate_pct', avg: 'average_rate_pct', pct: true, of: [1, 0] }\n  ],\n  tooFew: 'Too few patients',\n  caption: 'Eligible patients on a statin by month, against the average of all places.'\n});\n",
+              "content": "<div class=\"rpt rpt-sta-monthly\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-sta-look\"></div>",
+              "defaultContent": "<div class=\"rpt rpt-sta-monthly\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -344,10 +344,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, Eligible, On a statin, Not on a statin, % on a statin, Why look here.\nconst root = rpt.mount('.rpt-sta-table');\nif (!root) { return; }\nconst { fmt, num, pct } = rpt;\nrptTable(root, {\n  report: 'statins',\n  rows: rpt.rows('A'),\n  caption: 'Eligible patients on a statin, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Eligible', num: true, value: (r) => num(r.eligible_n), cell: (r) => fmt(r.eligible_n) },\n    { label: 'On a statin', num: true, value: (r) => num(r.on_statin_n), cell: (r) => fmt(r.on_statin_n) },\n    { label: 'Not on a statin', num: true, value: (r) => num(r.not_on_statin_n), cell: (r) => fmt(r.not_on_statin_n) },\n    { label: '% on a statin', num: true, guard: true, value: (r) => num(r.on_statin_pct), cell: (r) => pct(r.on_statin_pct),\n      title: (r) => fmt(r.on_statin_n) + ' of ' + fmt(r.eligible_n) + ' eligible patients' }\n  ],\n  flagNames: () => ['Few on a statin'],\n  reason: (r) => 'Only ' + pct(r.on_statin_pct) + ' of ' + fmt(r.eligible_n) + ' eligible patients are on a statin.',\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_eligible, r.eligible_n),\n  alsoOn: ['adherence', 'titration', 'fudging', 'calling'],\n  size: (r) => num(r.eligible_n)\n});\n",
-              "content": "<div class=\"rpt rpt-sta-table\"></div>",
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, Eligible, On a statin, Not on a statin, % on a statin, Why look here.\nconst root = rpt.mount('.rpt-sta-table');\nif (!root) { return; }\nconst { fmt, num, pct } = rpt;\nrptTable(root, {\n  report: 'statins',\n  rows: rpt.rows('A'),\n  caption: 'Eligible patients on a statin, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Eligible', num: true, value: (r) => num(r.eligible_n), cell: (r) => fmt(r.eligible_n) },\n    { label: 'On a statin', num: true, value: (r) => num(r.on_statin_n), cell: (r) => fmt(r.on_statin_n) },\n    { label: 'Not on a statin', num: true, value: (r) => num(r.not_on_statin_n), cell: (r) => fmt(r.not_on_statin_n) },\n    { label: '% on a statin', num: true, guard: true, value: (r) => num(r.on_statin_pct), cell: (r) => pct(r.on_statin_pct),\n      title: (r) => fmt(r.on_statin_n) + ' of ' + fmt(r.eligible_n) + ' eligible patients' }\n  ],\n  flagNames: () => ['Few on a statin'],\n  reason: (r) => 'Only ' + pct(r.on_statin_pct) + ' of ' + fmt(r.eligible_n) + ' eligible patients are on a statin.',\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_eligible, r.eligible_n),\n  size: (r) => num(r.eligible_n)\n});\n",
+              "content": "<div class=\"rpt rpt-sta-table\" id=\"rpt-sta-table\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-sta-table\"></div>",
+              "defaultContent": "<div class=\"rpt rpt-sta-table\" id=\"rpt-sta-table\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -392,10 +392,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "",
-              "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Eligible means aged 40 or older, with diabetes or a recorded heart attack or stroke. They are alive and had a visit in the last 12 months. On a statin means atorvastatin, simvastatin or rosuvastatin on the latest prescription. A facility under 25% is flagged.</div>",
+              "afterRender": "{{shared:states.js}}\n// How this is worked out, then the Next step: the patient list at a facility, else pick a facility (UX-21).\nconst root = rpt.mount('.rpt-sta-note');\nif (!root) { return; }\nrpt.wireScroll(root);\nroot.innerHTML = '<div class=\"rpt-note\"><strong>How this is worked out.</strong> Eligible means aged 40 or older, with diabetes or a recorded heart attack or stroke. '\n  + 'They are alive and had a visit in the last 12 months. '\n  + 'On a statin means atorvastatin, simvastatin or rosuvastatin on the latest prescription. '\n  + 'Average is all places together. A facility under 25% is flagged.</div>'\n  + (rpt.atFacility() ? rpt.nextStep('Open the patient list', '#rpt-pl')\n    : rpt.nextStep('Pick a facility to see its patients', '#rpt-sta-table'));\n",
+              "content": "<div class=\"rpt rpt-sta-note\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Eligible means aged 40 or older, with diabetes or a recorded heart attack or stroke. They are alive and had a visit in the last 12 months. On a statin means atorvastatin, simvastatin or rosuvastatin on the latest prescription. A facility under 25% is flagged.</div>",
+              "defaultContent": "<div class=\"rpt rpt-sta-note\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -463,10 +463,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Patients to review: eligible patients not on a statin, facility level only. Overdue list pattern:\n// reason chips with counts, search by name or Patient ID, 20 rows per page, pager. No download.\nconst root = rpt.mount('.rpt-pl');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst all = rpt.rows('A');\nconst head = all[0] || {};\nconst level = num(head.level) !== null ? num(head.level) : num(rpt.v('selected_level')) || 0;\nconst warn = (html) => '<div class=\"rpt-warn\"><span>⚠️</span><span>' + html + '</span></div>';\nif (rpt.orgUnit() === '0' || level < 3) {\n  root.innerHTML = warn('<strong>The patient list is available only at the facility level.</strong>');\n  return;\n}\nconst rows = all.filter((r) => r.patient_id != null);\nconst total = num(head.not_on_statin_n);\nconst place = rpt.place(head.place);\nconst title = '<h3 class=\"rpt-pl-title\">Patients to review</h3>'\n  + '<div class=\"rpt-pl-head\">' + fmt(total === null ? rows.length : total) + ' eligible patients not on a statin at ' + esc(place) + '</div>';\nif (!rows.length) { root.innerHTML = title + rpt.noData('No patients to review here.'); return; }\n\nconst PAGE = 20;\nconst REASONS = ['Diabetes', 'Heart attack or stroke', 'Both'];\n// Most recent visit first: these patients are the easiest to reach at their next visit.\nconst time = (r) => { const d = rpt.toDate(r.last_visit_date); return d ? d.getTime() : 0; };\nrows.sort((a, b) => time(b) - time(a) || String(a.patient_name).localeCompare(String(b.patient_name)));\nconst state = { reason: 'All', q: '', page: 0 };\nconst visible = () => {\n  const q = state.q.trim().toLowerCase();\n  return rows.filter((r) => state.reason === 'All' || r.reason_eligible === state.reason)\n    .filter((r) => !q || [r.patient_name, r.patient_id].some((v) => String(v || '').toLowerCase().includes(q)));\n};\nconst COLS = [\n  ['Patient', (r) => esc(r.patient_name) + '<div class=\"rpt-pl-id\">' + esc(r.patient_id) + '</div>'],\n  ['Age', (r) => esc(r.age), 'num'],\n  ['Why eligible', (r) => esc(r.reason_eligible)],\n  ['Last visit', (r) => esc(rpt.day(r.last_visit_date))],\n];\nconst cls = (c) => (c ? ' class=\"' + c + '\"' : '');\nconst renderChips = () => {\n  const n = (g) => rows.filter((r) => r.reason_eligible === g).length;\n  root.querySelector('.rpt-chips').innerHTML = [['All', rows.length]].concat(REASONS.map((g) => [g, n(g)]))\n    .map(([g, c]) => '<button type=\"button\" class=\"rpt-chip' + (state.reason === g ? ' on' : '') + '\" data-reason=\"' + esc(g) + '\" aria-pressed=\"' + (state.reason === g) + '\">'\n      + esc(g) + ': ' + fmt(c) + '</button>').join('');\n};\nconst renderBody = () => {\n  const list = visible();\n  const pages = Math.max(1, Math.ceil(list.length / PAGE));\n  state.page = Math.min(Math.max(state.page, 0), pages - 1);\n  const shown = list.slice(state.page * PAGE, (state.page + 1) * PAGE);\n  root.querySelector('tbody').innerHTML = shown.length\n    ? shown.map((r) => '<tr>' + COLS.map(([, cell, c], i) => (i ? '<td' + cls(c) + '>' + cell(r) + '</td>' : '<th scope=\"row\">' + cell(r) + '</th>')).join('') + '</tr>').join('')\n    : '<tr><td class=\"rpt-empty\" colspan=\"' + COLS.length + '\">No patients match these filters.</td></tr>';\n  root.querySelector('.rpt-pager').innerHTML = list.length\n    ? '<button type=\"button\" data-page=\"-1\"' + (state.page ? '' : ' disabled') + ' aria-label=\"Previous page\">‹</button>'\n      + '<span>' + fmt(state.page * PAGE + 1) + '–' + fmt(state.page * PAGE + shown.length) + ' of ' + fmt(list.length) + '</span>'\n      + '<button type=\"button\" data-page=\"1\"' + (state.page < pages - 1 ? '' : ' disabled') + ' aria-label=\"Next page\">›</button>'\n    : '';\n  renderChips();\n};\nroot.innerHTML = title\n  + '<div class=\"rpt-chips\" role=\"group\" aria-label=\"Filter by why eligible\"></div>'\n  + '<div class=\"rpt-pl-tools\"><input type=\"search\" class=\"rpt-pl-q\" placeholder=\"Search name or Patient ID\" aria-label=\"Search patients\"></div>'\n  + '<div class=\"rpt-wrap\"><table class=\"rpt-table\"><caption class=\"rpt-sr\">Eligible patients not on a statin, most recent visit first.</caption><thead><tr>'\n  + COLS.map(([h, , c]) => '<th scope=\"col\"' + cls(c) + '>' + h + '</th>').join('')\n  + '</tr></thead><tbody></tbody></table></div><div class=\"rpt-pager\"></div>';\nrenderBody();\nroot.addEventListener('input', (e) => {\n  if (e.target.classList.contains('rpt-pl-q')) { state.q = e.target.value; state.page = 0; renderBody(); }\n});\nroot.addEventListener('click', (e) => {\n  const b = e.target.closest('button');\n  if (!b || !root.contains(b)) { return; }\n  if (b.dataset.reason) { state.reason = b.dataset.reason; state.page = 0; renderBody(); const f = root.querySelector('[data-reason=\"' + b.dataset.reason + '\"]'); if (f) { f.focus(); } return; }\n  if (b.dataset.page) { state.page += Number(b.dataset.page); renderBody(); const f = root.querySelector('[data-page=\"' + b.dataset.page + '\"]'); if (f && !f.disabled) { f.focus(); } }\n});\n",
-              "content": "<div class=\"rpt rpt-pl\"></div>",
+              "afterRender": "{{shared:states.js}}\n// Patients to review: eligible patients not on a statin, facility level only. Overdue list pattern:\n// reason chips with counts, search by name or Patient ID, 10 rows per page, pager. No download.\nconst root = rpt.mount('.rpt-pl');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst all = rpt.rows('A');\nconst head = all[0] || {};\nconst level = num(head.level) !== null ? num(head.level) : num(rpt.v('selected_level')) || 0;\n// Above facility level the row is hidden (conditional rendering); if shown, a grey line with the next step (UX-21).\nif (rpt.orgUnit() === '0' || level < 3) {\n  root.innerHTML = rpt.info(rpt.esc(rpt.PICK_FACILITY));\n  return;\n}\nconst rows = all.filter((r) => r.patient_id != null);\nconst total = num(head.not_on_statin_n);\nconst place = rpt.place(head.place);\nconst title = '<h3 class=\"rpt-pl-title\">Patients to review</h3>'\n  + '<div class=\"rpt-pl-head\">' + fmt(total === null ? rows.length : total) + ' eligible patients not on a statin at ' + esc(place) + '</div>';\nif (!rows.length) { root.innerHTML = title + rpt.noData('No patients to review here.'); return; }\n\nconst PAGE = 10;\nconst REASONS = ['Diabetes', 'Heart attack or stroke', 'Both'];\n// Most recent visit first: these patients are the easiest to reach at their next visit.\nconst time = (r) => { const d = rpt.toDate(r.last_visit_date); return d ? d.getTime() : 0; };\nrows.sort((a, b) => time(b) - time(a) || String(a.patient_name).localeCompare(String(b.patient_name)));\nconst state = { reason: 'All', q: '', page: 0 };\nconst visible = () => {\n  const q = state.q.trim().toLowerCase();\n  return rows.filter((r) => state.reason === 'All' || r.reason_eligible === state.reason)\n    .filter((r) => !q || [r.patient_name, r.patient_id].some((v) => String(v || '').toLowerCase().includes(q)));\n};\nconst COLS = [\n  ['Patient', (r) => esc(r.patient_name) + '<div class=\"rpt-pl-id\">' + esc(r.patient_id) + '</div>'],\n  ['Age', (r) => esc(r.age), 'num'],\n  ['Why eligible', (r) => esc(r.reason_eligible)],\n  ['Last visit', (r) => esc(rpt.day(r.last_visit_date))],\n];\nconst cls = (c) => (c ? ' class=\"' + c + '\"' : '');\nconst renderChips = () => {\n  const n = (g) => rows.filter((r) => r.reason_eligible === g).length;\n  root.querySelector('.rpt-chips').innerHTML = [['All', rows.length]].concat(REASONS.map((g) => [g, n(g)]))\n    .map(([g, c]) => '<button type=\"button\" class=\"rpt-chip' + (state.reason === g ? ' on' : '') + '\" data-reason=\"' + esc(g) + '\" aria-pressed=\"' + (state.reason === g) + '\">'\n      + esc(g) + ': ' + fmt(c) + '</button>').join('');\n};\nconst renderBody = () => {\n  const list = visible();\n  const pages = Math.max(1, Math.ceil(list.length / PAGE));\n  state.page = Math.min(Math.max(state.page, 0), pages - 1);\n  const shown = list.slice(state.page * PAGE, (state.page + 1) * PAGE);\n  root.querySelector('tbody').innerHTML = shown.length\n    ? shown.map((r) => '<tr>' + COLS.map(([, cell, c], i) => (i ? '<td' + cls(c) + '>' + cell(r) + '</td>' : '<th scope=\"row\">' + cell(r) + '</th>')).join('') + '</tr>').join('')\n    : '<tr><td class=\"rpt-empty\" colspan=\"' + COLS.length + '\">No patients match these filters.</td></tr>';\n  root.querySelector('.rpt-pager').innerHTML = list.length\n    ? '<button type=\"button\" data-page=\"-1\"' + (state.page ? '' : ' disabled') + ' aria-label=\"Previous page\">‹</button>'\n      + '<span>' + fmt(state.page * PAGE + 1) + '–' + fmt(state.page * PAGE + shown.length) + ' of ' + fmt(list.length) + '</span>'\n      + '<button type=\"button\" data-page=\"1\"' + (state.page < pages - 1 ? '' : ' disabled') + ' aria-label=\"Next page\">›</button>'\n    : '';\n  renderChips();\n};\nroot.innerHTML = title\n  + '<div class=\"rpt-chips\" role=\"group\" aria-label=\"Filter by why eligible\"></div>'\n  + '<div class=\"rpt-pl-tools\"><input type=\"search\" class=\"rpt-pl-q\" placeholder=\"Search name or Patient ID\" aria-label=\"Search patients\"></div>'\n  + '<div class=\"rpt-wrap\"><table class=\"rpt-table\"><caption class=\"rpt-sr\">Eligible patients not on a statin, most recent visit first.</caption><thead><tr>'\n  + COLS.map(([h, , c]) => '<th scope=\"col\"' + cls(c) + '>' + h + '</th>').join('')\n  + '</tr></thead><tbody></tbody></table></div><div class=\"rpt-pager\"></div>';\nrenderBody();\nroot.addEventListener('input', (e) => {\n  if (e.target.classList.contains('rpt-pl-q')) { state.q = e.target.value; state.page = 0; renderBody(); }\n});\nroot.addEventListener('click', (e) => {\n  const b = e.target.closest('button');\n  if (!b || !root.contains(b)) { return; }\n  if (b.dataset.reason) { state.reason = b.dataset.reason; state.page = 0; renderBody(); const f = root.querySelector('[data-reason=\"' + b.dataset.reason + '\"]'); if (f) { f.focus(); } return; }\n  if (b.dataset.page) { state.page += Number(b.dataset.page); renderBody(); const f = root.querySelector('[data-page=\"' + b.dataset.page + '\"]'); if (f && !f.disabled) { f.focus(); } }\n});\n",
+              "content": "<div class=\"rpt rpt-pl\" id=\"rpt-pl\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-pl\"></div>",
+              "defaultContent": "<div class=\"rpt rpt-pl\" id=\"rpt-pl\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -530,10 +530,10 @@
                     "spec": {
                       "element": {
                         "kind": "ElementReference",
-                        "name": "panel-statins-chart"
+                        "name": "panel-statins-line"
                       },
-                      "height": 9,
-                      "width": 14,
+                      "height": 10,
+                      "width": 12,
                       "x": 0,
                       "y": 6
                     }
@@ -543,11 +543,11 @@
                     "spec": {
                       "element": {
                         "kind": "ElementReference",
-                        "name": "panel-statins-look"
+                        "name": "panel-statins-monthly"
                       },
-                      "height": 9,
-                      "width": 10,
-                      "x": 14,
+                      "height": 10,
+                      "width": 12,
+                      "x": 12,
                       "y": 6
                     }
                   }
@@ -572,7 +572,7 @@
                         "kind": "ElementReference",
                         "name": "panel-statins-table"
                       },
-                      "height": 14,
+                      "height": 11,
                       "width": 24,
                       "x": 0,
                       "y": 0
@@ -585,10 +585,10 @@
                         "kind": "ElementReference",
                         "name": "panel-statins-note"
                       },
-                      "height": 2,
+                      "height": 3,
                       "width": 24,
                       "x": 0,
-                      "y": 14
+                      "y": 11
                     }
                   }
                 ]
@@ -612,10 +612,27 @@
                         "kind": "ElementReference",
                         "name": "panel-statins-patients"
                       },
-                      "height": 22,
+                      "height": 18,
                       "width": 24,
                       "x": 0,
                       "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "conditionalRendering": {
+              "kind": "ConditionalRenderingGroup",
+              "spec": {
+                "visibility": "show",
+                "condition": "and",
+                "items": [
+                  {
+                    "kind": "ConditionalRenderingVariable",
+                    "spec": {
+                      "variable": "selected_level",
+                      "operator": "matches",
+                      "value": "^([3-9]|10)$"
                     }
                   }
                 ]

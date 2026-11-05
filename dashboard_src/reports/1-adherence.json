@@ -22,7 +22,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT w.window_start, w.window_end, a.cohort_n,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nLEFT JOIN report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a ON a.is_selected\nWHERE '$isAllowed' = '1'",
+                      "rawSql": "SELECT w.window_start, w.window_end,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -50,7 +50,7 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · 90 days to {date} · {N} patients counted (...)\".\nconst root = rpt.mount('.rpt-adh-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst parts = [rpt.place(w.place), w.window_end ? '90 days to ' + rpt.day(w.window_end) : '90 days'];\nif (rpt.num(w.cohort_n) !== null) {\n  parts.push(rpt.fmt(w.cohort_n) + ' patients counted ' + (rpt.v('include_new') === 'true' ? '(new patients included)' : '(registered before ' + rpt.day(w.window_start) + ')'));\n}\nroot.innerHTML = '<h2 class=\"rpt-title\">Are patients on the medicines the protocol says?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(parts.join(' · ')) + '</div>';\n",
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · latest visit up to {date}\", and the Patients counted switch (UX-38).\nconst root = rpt.mount('.rpt-adh-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst withNew = rpt.v('include_new') === 'true';\nconst chip = (on, text, val) => (on ? '<span class=\"rpt-chip on\" aria-current=\"true\">' + rpt.esc(text) + '</span>'\n  : '<a class=\"rpt-chip\" href=\"' + rpt.esc(rpt.link('adherence', null, null, { 'var-include_new': val })) + '\">' + rpt.esc(text) + '</a>');\nroot.innerHTML = '<div class=\"rpt-adh-row\"><div><h2 class=\"rpt-title\">Are patients on the medicines the protocol says?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · medicines at the latest visit up to ' + rpt.esc(rpt.day(w.window_end)) + '</div></div>'\n  + '<div class=\"rpt-chips\" role=\"group\" aria-label=\"Patients counted\"><span class=\"rpt-sub\">Patients counted:</span>'\n  + chip(!withNew, 'Registered before ' + rpt.day(w.window_start), 'false') + chip(withNew, 'Include new patients', 'true') + '</div></div>';\n",
               "content": "<div class=\"rpt rpt-adh-title\"></div>",
               "contentPartials": [],
               "defaultContent": "<div class=\"rpt rpt-adh-title\"></div>",
@@ -65,7 +65,7 @@
               "externalStyles": [],
               "helpers": "",
               "renderMode": "allRows",
-              "styles": "{{shared:styles.css}}",
+              "styles": "{{shared:styles.css}}\n.rpt-adh-row { display: flex; justify-content: space-between; align-items: flex-start; gap: 16px; flex-wrap: wrap; }\n.rpt-adh-row .rpt-chips { align-items: center; margin: 0; }",
               "wrap": true
             }
           }
@@ -93,7 +93,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT a.*, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean)\n) b\nWHERE a.is_selected AND '$isAllowed' = '1'",
+                      "rawSql": "SELECT a.*, (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort, (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line\nFROM report_adherence_summary('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nWHERE a.is_selected AND '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -121,7 +121,7 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Headline strip: BP controlled, On two or more medicines, Off protocol.\nconst root = rpt.mount('.rpt-adh-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, color, label, line, title, few) => '<div' + (title ? ' title=\"' + esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nconst LABELS = ['BP controlled', 'On two or more medicines', 'Off protocol'];\nconst N = r ? num(r.cohort_n) || 0 : 0;\nif (!r || !N) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + LABELS.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>';\n  return;\n}\nif (yes(r.too_few)) {\n  const need = rpt.needAtLeast(r.min_cohort, N);\n  root.innerHTML = '<div class=\"rpt-strip3\">' + LABELS.map((l) => col('Too few patients', '', l, need, '', true)).join('') + '</div>';\n  return;\n}\n// Round to one decimal first, so 9.95 reads 10%, not 10.0%.\nconst p = (k) => rpt.pct(Math.round(1000 * (num(k) || 0) / N) / 10);\nroot.innerHTML = '<div class=\"rpt-strip3\">'\n  + col(p(r.controlled_n), 'var(--controlled)', 'BP controlled', fmt(r.controlled_n) + ' of ' + fmt(N) + ' patients with BP under 140/90 at their latest visit')\n  + col(p(r.two_three_n), 'var(--step-4)', 'On two or more medicines', fmt(r.two_three_n) + ' of ' + fmt(N) + ' patients on 2 or 3 medicines')\n  + col(p(r.off_n), 'var(--flag-bar)', 'Off protocol', fmt(r.off_n) + ' of ' + fmt(N) + ' patients on another combination or medicines outside the protocol')\n  + '</div>';\n",
+              "afterRender": "{{shared:states.js}}\nconst col = (big, color, label, lines, title, few) => '<div' + (title ? ' title=\"' + rpt.esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + rpt.esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + rpt.esc(label) + '</div>' + [].concat(lines).filter(Boolean).map((l) => '<div class=\"rpt-line\">' + rpt.esc(l) + '</div>').join('') + '</div>';\n// Headline strip: BP controlled (the Hypertension tab's number, UX-03), On step 3 or higher, Off protocol.\nconst root = rpt.mount('.rpt-adh-head');\nif (!root) { return; }\nconst { fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst L = ['BP controlled', 'On step 3 or higher', 'Off protocol'];\nif (!r) { root.innerHTML = '<div class=\"rpt-strip3\">' + L.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>'; return; }\nconst ctl = num(r.control_pct) === null ? col('—', '', L[0], rpt.NO_DATA)\n  : col(pct(r.control_pct), 'var(--controlled)', L[0], [fmt(r.controlled_n) + ' of ' + fmt(r.under_care_n) + ' patients under care', 'Same as the Hypertension tab']);\nconst N = num(r.cohort_n) || 0;\nconst seen = ' of ' + fmt(N) + ' patients seen in the last 3 months';\nif (!N || yes(r.too_few)) {\n  const why = N ? rpt.needAtLeast(r.min_cohort, N) : rpt.NO_DATA;\n  root.innerHTML = '<div class=\"rpt-strip3\">' + ctl + col(N ? 'Too few patients' : '—', '', L[1], why, '', !!N)\n    + col(N ? 'Too few patients' : '—', '', L[2], why, '', !!N) + '</div>';\n  return;\n}\nconst offHigh = num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nroot.innerHTML = '<div class=\"rpt-strip3\">' + ctl\n  + col(pct(r.step_3_plus_pct), 'var(--text-primary)', L[1], [fmt(r.step_3_plus_n) + seen, 'Steps 3 to 6: two or three medicines'])\n  + col(pct(r.off_protocol_pct), offHigh ? 'var(--flag-bar)' : 'var(--text-primary)', L[2],\n    [fmt(r.off_protocol_n) + seen, 'Another mix, or medicine outside the protocol']) + '</div>';\n",
               "content": "<div class=\"rpt rpt-adh-head\"></div>",
               "contentPartials": [],
               "defaultContent": "<div class=\"rpt rpt-adh-head\"></div>",
@@ -136,14 +136,14 @@
               "externalStyles": [],
               "helpers": "",
               "renderMode": "allRows",
-              "styles": "{{shared:styles.css}}\n.rpt { --step-4: #8578D3; }",
+              "styles": "{{shared:styles.css}}",
               "wrap": true
             }
           }
         }
       }
     },
-    "panel-adherence-chart": {
+    "panel-adherence-steps": {
       "kind": "Panel",
       "spec": {
         "data": {
@@ -164,7 +164,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "SELECT b.bucket, b.bucket_order, b.label, b.patients_n, b.controlled_n, b.controlled_pct\nFROM report_adherence_buckets('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) b\nWHERE '$isAllowed' = '1'",
+                      "rawSql": "SELECT s.*\nFROM report_adherence_steps('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) s\nWHERE '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -177,91 +177,10 @@
             "transformations": []
           }
         },
-        "description": "Each bar counts patients by the medicines on their latest prescription. The end label gives how many have BP under 140/90.",
+        "description": "The Excel protocol adherence table. Each patient is counted once, by the BP medicines at their latest visit. Came back counts patients seen in the last 3 months. Controlled means BP under 140/90 at that visit. Hover a percent to see its count.",
         "id": 0,
         "links": [],
-        "title": "Patients by medicine step, and how many are controlled",
-        "vizConfig": {
-          "group": "volkovlabs-echarts-panel",
-          "kind": "VizConfig",
-          "version": "7.2.5",
-          "spec": {
-            "fieldConfig": {
-              "defaults": {},
-              "overrides": []
-            },
-            "options": {
-              "baidu": {
-                "callback": "bmapReady",
-                "key": ""
-              },
-              "editor": {
-                "format": "auto"
-              },
-              "editorMode": "code",
-              "gaode": {
-                "key": "",
-                "plugin": "AMap.Scale,AMap.ToolBar"
-              },
-              "google": {
-                "callback": "gmapReady",
-                "key": ""
-              },
-              "map": "none",
-              "renderer": "canvas",
-              "themeEditor": {
-                "config": "{}",
-                "name": "default"
-              },
-              "visualEditor": {
-                "code": "return {}",
-                "dataset": [],
-                "series": []
-              },
-              "getOption": "{{shared:tip.js}}\n// Nine horizontal bars, indigo step ramp; labels from htn_ladder_steps.label (C16).\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\n// Percent as DESIGN: whole, one decimal under 10%.\nconst pc = (v) => { const n = Math.round(10 * Number(v)) / 10; return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst ord = col('bucket_order').map(Number);\nconst label = col('label'), cnt = col('patients_n').map((v) => Number(v) || 0), ctl = col('controlled_n').map((v) => Number(v) || 0);\nconst idx = ord.map((v, i) => i).sort((a, b) => ord[a] - ord[b]);\nconst N = cnt.reduce((s, v) => s + v, 0);\nif (!idx.length || !N) {\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\n// Steps 1-6 indigo ramp; 7 other protocol combination; 8 outside the protocol; 9 could not read (dashed).\nconst colorOf = (o) => (o <= 6 ? C.step[o - 1] : o === 7 ? C.stepOther : o === 8 ? C.stepOff : C.estimated);\nconst end = (i) => fmt(cnt[i]) + ' patients' + (cnt[i] ? ' · ' + pc(100 * ctl[i] / cnt[i]) + ' controlled' : '');\nreturn {\n  animation: false,\n  grid: { left: 14, right: 8, top: 8, bottom: 8, containLabel: true },\n  tooltip: tip((k) => {\n    const i = idx[k];\n    return [fmt(cnt[i]) + ' patients (' + pc(100 * cnt[i] / N) + ' of ' + fmt(N) + ')']\n      .concat(cnt[i] ? [soft(fmt(ctl[i]) + ' of ' + fmt(cnt[i]) + ' controlled (' + pc(100 * ctl[i] / cnt[i]) + ')')] : []);\n  }, (k) => label[idx[k]], { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  // No value axis: every bar carries its count; the spare width keeps the end labels inside the panel.\n  xAxis: { type: 'value', min: 0, max: (v) => v.max * 2, show: false },\n  yAxis: { type: 'category', inverse: true, data: idx.map((i) => label[i]), axisTick: { show: false },\n    axisLabel: { color: C.text, fontSize: 12 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  series: [{\n    type: 'bar', name: 'Patients', barMaxWidth: 22, barCategoryGap: '28%',\n    data: idx.map((i) => ({ value: cnt[i], itemStyle: ord[i] === 9\n      ? { color: colorOf(ord[i]), borderColor: C.stepOff, borderType: 'dashed', borderWidth: 1, borderRadius: [0, 2, 2, 0] }\n      : { color: colorOf(ord[i]), borderRadius: [0, 2, 2, 0] } })),\n    label: { show: true, position: 'right', color: C.text, fontSize: 12, formatter: (q) => end(idx[q.dataIndex]) }\n  }]\n};\n"
-            }
-          }
-        }
-      }
-    },
-    "panel-adherence-look": {
-      "kind": "Panel",
-      "spec": {
-        "data": {
-          "kind": "QueryGroup",
-          "spec": {
-            "queries": [
-              {
-                "kind": "PanelQuery",
-                "spec": {
-                  "hidden": false,
-                  "query": {
-                    "datasource": {
-                      "name": "postgres-hypertension"
-                    },
-                    "group": "grafana-postgresql-datasource",
-                    "kind": "DataQuery",
-                    "spec": {
-                      "editorMode": "code",
-                      "format": "table",
-                      "rawQuery": true,
-                      "rawSql": "SELECT a.org_unit_id, a.org_unit_name, a.cohort_n, a.off_protocol_pct, a.one_medicine_pct, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, a.org_unit_id, '${include_new}'::boolean)\n) b\nWHERE a.flag AND a.level >= 3 AND '$isAllowed' = '1'",
-                      "refId": "A"
-                    },
-                    "version": "v0"
-                  },
-                  "refId": "A"
-                }
-              }
-            ],
-            "queryOptions": {},
-            "transformations": []
-          }
-        },
-        "description": "",
-        "id": 0,
-        "links": [],
-        "title": "",
+        "title": "Patients by protocol step",
         "transparent": false,
         "vizConfig": {
           "group": "marcusolsson-dynamictext-panel",
@@ -273,10 +192,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-adh-look');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst share = (k, N) => (num(N) ? Math.round(1000 * (num(k) || 0) / num(N)) / 10 : null);\nconst offHit = (r) => num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nconst oneHit = (r) => num(r.one_medicine_pct) !== null && num(r.one_medicine_pct) >= num(r.one_medicine_pct_line);\nconst reasonOf = (r) => [\n  offHit(r) ? fmt(r.off_n) + ' of ' + fmt(r.cohort_n) + ' patients are off protocol (' + rpt.pct(share(r.off_n, r.cohort_n)) + ').' : '',\n  oneHit(r) ? fmt(r.one_n) + ' of ' + fmt(r.cohort_n) + ' patients are on one medicine (' + rpt.pct(share(r.one_n, r.cohort_n)) + ').' : ''\n].filter(Boolean).join(' ');\nconst list = rpt.rows('A').sort((a, b) => (num(b.cohort_n) || 0) - (num(a.cohort_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + '<div class=\"rpt-look-line\">' + esc(reasonOf(r)) + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
-              "content": "<div class=\"rpt rpt-adh-look\"></div>",
+              "afterRender": "{{shared:states.js}}\n// The Excel protocol adherence table (protocol_engine.py write_protocol_report_table, UX-05):\n// one row per medicine group, in the tool's order and columns. Blank where the tool leaves it blank.\nconst root = rpt.mount('.rpt-adh-steps');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst rows = rpt.rows('A').sort((a, b) => num(a.row_order) - num(b.row_order));\nif (!rows.length) { root.innerHTML = rpt.noData(); return; }\nconst by = {};\nrows.forEach((r) => { by[r.row_key] = r; });\nconst all = by.grand_total || {}, steps = by.steps_total || {};\nconst noCohort = (r) => r.row_key === 'no_htn_medicine';\n// Running sum of controlled patients from Step 1 to Step n, for the `n of N` behind `Control so far`.\nlet cum = 0;\nconst cumN = {};\nrows.forEach((r) => { if (num(r.step_no) !== null) { cum += num(r.cohort_controlled_n) || 0; cumN[r.row_key] = cum; } });\n// Percent whole (DESIGN), the exact value and its n of N on hover.\nconst pc = (v, n, d, what) => (num(v) === null ? '' : '<span title=\"' + esc(num(v) + '% · ' + fmt(n) + ' of ' + fmt(d) + ' ' + what) + '\">' + rpt.pct(v) + '</span>');\nconst cells = (r) => {\n  const step = num(r.step_no) !== null;\n  const blank = noCohort(r);\n  return [\n    fmt(r.patients_n),\n    pc(r.patients_pct, r.patients_n, all.patients_n, 'patients'),\n    pc(r.step_share_pct, r.patients_n, steps.patients_n, 'patients on a step'),\n    blank ? '' : fmt(r.cohort_n),\n    blank ? '' : fmt(r.cohort_controlled_n),\n    blank ? '' : pc(r.cohort_controlled_pct, r.cohort_controlled_n, r.cohort_n, 'controlled'),\n    step ? pc(r.controlled_share_cum_pct, cumN[r.row_key], steps.cohort_controlled_n, 'controlled patients on a step') : ''\n  ];\n};\nconst TOTALS = ['protocol_total', 'steps_total', 'grand_total'];\nconst HEAD = ['Patients', '% of all patients', '% of patients on a step', 'Came back in last 3 months', 'Controlled', '% controlled', 'Control so far (steps 1 to n)'];\nroot.innerHTML = '<div class=\"rpt-wrap\"><table class=\"rpt-table rpt-steps\">'\n  + '<caption class=\"rpt-sr\">Patients by the BP medicines at their latest visit, and how many are controlled.</caption>'\n  + '<thead><tr><th scope=\"col\">Medicines at latest visit</th>' + HEAD.map((h) => '<th scope=\"col\" class=\"num\">' + esc(h) + '</th>').join('') + '</tr></thead><tbody>'\n  + rows.map((r) => {\n    const step = num(r.step_no) !== null;\n    const cls = TOTALS.includes(r.row_key) ? 'rpt-steps-total' : step ? 'rpt-steps-step' : 'rpt-steps-group';\n    return '<tr class=\"' + cls + '\"><th scope=\"row\">' + esc(r.label) + '</th>' + cells(r).map((c) => '<td class=\"num\">' + c + '</td>').join('') + '</tr>';\n  }).join('') + '</tbody></table></div>';\n",
+              "content": "<div class=\"rpt rpt-adh-steps\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-adh-look\"></div>",
+              "defaultContent": "<div class=\"rpt rpt-adh-steps\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -288,7 +207,7 @@
               "externalStyles": [],
               "helpers": "",
               "renderMode": "allRows",
-              "styles": "{{shared:styles.css}}",
+              "styles": "{{shared:styles.css}}\n.rpt-steps { table-layout: fixed; }\n.rpt-steps th, .rpt-steps td { padding: 5px 8px; }\n.rpt-steps thead th, .rpt-steps thead th.num { white-space: normal; }\n.rpt-steps thead th:first-child { width: 40%; }\n.rpt-steps tbody tr > th { white-space: normal; }\n.rpt-steps tr.rpt-steps-total > * { font-weight: 700; background: rgba(0,117,235,0.04); }\n.rpt-steps tr.rpt-steps-group > th { font-weight: 600; }\n.rpt-steps tr.rpt-steps-step > th { padding-left: 28px; }\n.rpt-steps td span[title] { cursor: help; }",
               "wrap": true
             }
           }
@@ -316,7 +235,7 @@
                       "editorMode": "code",
                       "format": "table",
                       "rawQuery": true,
-                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT a.*, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line,\n  fl.flags_json\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, NULLIF(a.org_unit_id, 0), '${include_new}'::boolean)\n) b\nLEFT JOIN fl ON fl.org_unit_id = a.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT a.*, (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line, (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line,\n  fl.flags_json\nFROM report_adherence_summary('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nLEFT JOIN fl ON fl.org_unit_id = a.org_unit_id\nWHERE '$isAllowed' = '1'",
                       "refId": "A"
                     },
                     "version": "v0"
@@ -344,7 +263,7 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, Patients, On 2 or 3 medicines, Off protocol, BP controlled, Why look here.\nconst root = rpt.mount('.rpt-adh-table');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst share = (k, N) => (num(N) ? Math.round(1000 * (num(k) || 0) / num(N)) / 10 : null);\nconst offHit = (r) => num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nconst oneHit = (r) => num(r.one_medicine_pct) !== null && num(r.one_medicine_pct) >= num(r.one_medicine_pct_line);\nconst reasonOf = (r) => [\n  offHit(r) ? fmt(r.off_n) + ' of ' + fmt(r.cohort_n) + ' patients are off protocol (' + rpt.pct(share(r.off_n, r.cohort_n)) + ').' : '',\n  oneHit(r) ? fmt(r.one_n) + ' of ' + fmt(r.cohort_n) + ' patients are on one medicine (' + rpt.pct(share(r.one_n, r.cohort_n)) + ').' : ''\n].filter(Boolean).join(' ');\n// Percent with its count beside it, muted.\nconst pn = (k, r) => (num(r.cohort_n) ? rpt.pct(share(k, r.cohort_n)) + ' <span class=\"rpt-cnt\">' + esc(fmt(k)) + '</span>' : '—');\nconst of = (k, r) => fmt(k) + ' of ' + fmt(r.cohort_n) + ' patients';\nrptTable(root, {\n  report: 'adherence',\n  rows: rpt.rows('A'),\n  caption: 'Patients by medicines and BP control, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Patients', num: true, value: (r) => num(r.cohort_n), cell: (r) => fmt(r.cohort_n) },\n    { label: 'On 2 or 3 medicines', num: true, guard: true, value: (r) => share(r.two_three_n, r.cohort_n), cell: (r) => pn(r.two_three_n, r), title: (r) => of(r.two_three_n, r) },\n    { label: 'Off protocol', num: true, guard: true, value: (r) => num(r.off_protocol_pct), cell: (r) => pn(r.off_n, r), title: (r) => of(r.off_n, r) },\n    { label: 'BP controlled', num: true, guard: true, value: (r) => num(r.controlled_pct),\n      cell: (r) => (num(r.controlled_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.controlled_pct) + '</span> <span class=\"rpt-cnt\">' + esc(fmt(r.controlled_n)) + '</span>'),\n      title: (r) => of(r.controlled_n, r) + ' with BP under 140/90' }\n  ],\n  flagNames: (r) => [offHit(r) ? 'Many off protocol' : '', oneHit(r) ? 'Mostly one medicine' : ''],\n  reason: reasonOf,\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_cohort, r.cohort_n),\n  alsoOn: [],\n  size: (r) => num(r.cohort_n)\n});\n",
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility comparison (audit section 5): Facility, Patients, On step 3 or higher, Off protocol, BP controlled.\nconst root = rpt.mount('.rpt-adh-table');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst offHit = (r) => num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nconst oneHit = (r) => num(r.one_medicine_pct) !== null && num(r.one_medicine_pct) >= num(r.one_medicine_pct_line);\nconst reasonOf = (r) => [\n  oneHit(r) ? fmt(r.one_medicine_n) + ' of ' + fmt(r.cohort_n) + ' patients are on one medicine (' + rpt.pct(r.one_medicine_pct) + ').' : '',\n  offHit(r) ? fmt(r.off_protocol_n) + ' of ' + fmt(r.cohort_n) + ' patients are off protocol (' + rpt.pct(r.off_protocol_pct) + ').' : ''\n].filter(Boolean).join(' ');\n// Percent with its count beside it, muted.\nconst pn = (p, n) => (num(p) === null ? '—' : rpt.pct(p) + ' <span class=\"rpt-cnt\">' + esc(fmt(n)) + '</span>');\nconst of = (n, d, what) => fmt(n) + ' of ' + fmt(d) + ' ' + what;\nrptTable(root, {\n  report: 'adherence',\n  rows: rpt.rows('A'),\n  caption: 'Medicines and BP control, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Patients seen', num: true, value: (r) => num(r.cohort_n), cell: (r) => fmt(r.cohort_n), title: () => 'Patients seen in the last 3 months' },\n    { label: 'On step 3 or higher', num: true, guard: true, value: (r) => num(r.step_3_plus_pct), cell: (r) => pn(r.step_3_plus_pct, r.step_3_plus_n),\n      title: (r) => of(r.step_3_plus_n, r.cohort_n, 'patients seen') },\n    { label: 'Off protocol', num: true, guard: true, value: (r) => num(r.off_protocol_pct), cell: (r) => pn(r.off_protocol_pct, r.off_protocol_n),\n      title: (r) => of(r.off_protocol_n, r.cohort_n, 'patients seen') },\n    { label: 'BP controlled', num: true, value: (r) => num(r.control_pct),\n      cell: (r) => (num(r.control_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.control_pct) + '</span> <span class=\"rpt-cnt\">' + esc(fmt(r.controlled_n)) + '</span>'),\n      title: (r) => of(r.controlled_n, r.under_care_n, 'patients under care, as on the Hypertension tab') }\n  ],\n  flagNames: (r) => [oneHit(r) ? 'Mostly one medicine' : '', offHit(r) ? 'Many off protocol' : ''],\n  reason: reasonOf,\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_cohort, r.cohort_n),\n  size: (r) => num(r.cohort_n)\n});\n",
               "content": "<div class=\"rpt rpt-adh-table\"></div>",
               "contentPartials": [],
               "defaultContent": "<div class=\"rpt rpt-adh-table\"></div>",
@@ -392,10 +311,10 @@
               "overrides": []
             },
             "options": {
-              "afterRender": "",
-              "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Each patient's latest prescription in the last 90 days is placed on a six-step ladder of medicines and doses. Off protocol counts other protocol combinations and medicines outside the protocol. Controlled means BP under 140/90 at that visit. 'Patients counted' above changes who is included.</div>",
+              "afterRender": "{{shared:states.js}}\nconst stockHref = '/d/heart360_drug_stock?' + (rpt.orgUnit() !== '0' ? 'var-org_unit=' + encodeURIComponent(rpt.orgUnit()) + '&' : '')\n  + 'var-reporting_month=' + encodeURIComponent(rpt.reportingMonth());\n// How this is worked out, then the Next step.\nconst root = rpt.mount('.rpt-adh-note');\nif (!root) { return; }\nroot.innerHTML = '<div class=\"rpt-note\"><strong>How this is worked out.</strong> Each patient is counted once, by the BP medicines at their latest visit. '\n  + 'Steps follow the national protocol ladder. Came back counts patients seen in the last 3 months. '\n  + 'Controlled means BP under 140/90 at that visit. Off protocol is another mix of protocol medicines, or medicine outside the protocol. '\n  + 'BP controlled in the strip above uses all patients under care, as the Hypertension tab does.</div>'\n  + rpt.nextStep('Check medicine stock', stockHref);\n",
+              "content": "<div class=\"rpt rpt-adh-note\"></div>",
               "contentPartials": [],
-              "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Each patient's latest prescription in the last 90 days is placed on a six-step ladder of medicines and doses. Off protocol counts other protocol combinations and medicines outside the protocol. Controlled means BP under 140/90 at that visit. 'Patients counted' above changes who is included.</div>",
+              "defaultContent": "<div class=\"rpt rpt-adh-note\"></div>",
               "editor": {
                 "format": "auto",
                 "language": "html"
@@ -459,24 +378,11 @@
                     "spec": {
                       "element": {
                         "kind": "ElementReference",
-                        "name": "panel-adherence-chart"
+                        "name": "panel-adherence-steps"
                       },
-                      "height": 9,
-                      "width": 14,
+                      "height": 14,
+                      "width": 24,
                       "x": 0,
-                      "y": 6
-                    }
-                  },
-                  {
-                    "kind": "GridLayoutItem",
-                    "spec": {
-                      "element": {
-                        "kind": "ElementReference",
-                        "name": "panel-adherence-look"
-                      },
-                      "height": 9,
-                      "width": 10,
-                      "x": 14,
                       "y": 6
                     }
                   }
@@ -501,7 +407,7 @@
                         "kind": "ElementReference",
                         "name": "panel-adherence-table"
                       },
-                      "height": 14,
+                      "height": 16,
                       "width": 24,
                       "x": 0,
                       "y": 0
@@ -514,10 +420,10 @@
                         "kind": "ElementReference",
                         "name": "panel-adherence-note"
                       },
-                      "height": 2,
+                      "height": 3,
                       "width": 24,
                       "x": 0,
-                      "y": 14
+                      "y": 16
                     }
                   }
                 ]

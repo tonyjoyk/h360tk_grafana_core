@@ -67,6 +67,33 @@ const rpt = (() => {
   // `Next step` line at the end of a tab: one link, sentence case.
   const nextStep = (text, href) => '<div class="rpt-next"><span class="rpt-next-label">Next step</span>'
     + '<a class="rpt-link" href="' + esc(href) + '">' + esc(text) + ' →</a></div>';
+  // Same-page links: an <a href="#some-id"> inside el scrolls the element with that id into view
+  // (Grafana scrolls its own pane, so a plain hash link does not move it). Use with nextStep('...', '#id').
+  // Grafana draws panels lazily: while the target is not drawn yet, the pane scrolls down a screen at a
+  // time until it appears.
+  const wireScroll = (el) => {
+    if (!el || el.__rptScroll) { return; }
+    el.__rptScroll = true;
+    const pane = (node) => { let p = node.parentElement; while (p && !(p.scrollHeight > p.clientHeight && /auto|scroll/.test(getComputedStyle(p).overflowY))) { p = p.parentElement; } return p; };
+    el.addEventListener('click', (e) => {
+      const a = e.target.closest && e.target.closest('a[href^="#"]');
+      if (!a || !el.contains(a)) { return; }
+      e.preventDefault();
+      const id = a.getAttribute('href').slice(1);
+      const box = pane(el);
+      let tries = 0;
+      const go = () => {
+        const t = document.getElementById(id);
+        if (t) { t.scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+        if (!box || tries++ > 8) { return; }
+        box.scrollTop += Math.round(box.clientHeight * 0.8);
+        setTimeout(go, 350);
+      };
+      go();
+    });
+  };
+  // At or below the facility level (selected_level 3 or more): patient lists and the overdue list work here.
+  const atFacility = () => (num(v('selected_level')) || 0) >= 3;
 
   // --- States (DESIGN States, FR-32) ---
   // Grey note, no warning tone (Voice rule 8, UX-21). html is trusted markup; use esc() on data.
@@ -125,6 +152,6 @@ const rpt = (() => {
   };
 
   return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed, homeUnit,
-    TABS, REPORTS, tab, link, placeLink, nextStep, flagsFrom, info, banner, OPENING_HOME, PICK_FACILITY,
+    TABS, REPORTS, tab, link, placeLink, nextStep, wireScroll, atFacility, flagsFrom, info, banner, OPENING_HOME, PICK_FACILITY,
     NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, loading, goHome, mount };
 })();

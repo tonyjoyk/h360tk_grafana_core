@@ -24,6 +24,23 @@ Statins` (builder `TABS`). File names are unchanged. What this means for `1-adhe
 | `rpt.mount(sel, { loading: 'Finding facilities…' })` shows a line while the query runs (UX-39). | Optional. |
 | The Change location row is titled `Change location · <place>` (UX-18, hidden variable `place_name`). The header strip is gone. | Nothing. |
 
+## Story 7.9 established forms (UX audit groups D to H): additions
+
+Additive only; nothing above changed.
+
+| Addition | File | Use |
+| --- | --- | --- |
+| `rptMonthly(root, cfg)` | `monthly.js` (new; include after `states.js`) | The Metabase monthly table: one row per month, oldest first, the place in view beside `Average of all places`; newest month bold. Feed it `report_titration_monthly` / `report_statins_monthly` rows `WHERE is_selected`. Config is documented at the top of the file. |
+| `lineVsAverage(cfg)` | `tip.js` | ECharts option for the monthly line of the place against the average (place blue, average purple, values at the line ends, 0 to 100%). |
+| `chartColors.place`, `chartColors.average` | `tip.js` | `#3D71D9` and `#9B7FD4`; the monthly table's group underlines use the same colours. |
+| `rpt.wireScroll(el)` | `states.js` | Makes `<a href="#id">` links inside `el` scroll Grafana's pane to that element, scrolling down until a lazily drawn panel appears. Use with `rpt.nextStep('Pick a facility…', '#rpt-cal-table')`; give the target panel's root div that `id`. |
+| `rpt.atFacility()` | `states.js` | True when `selected_level` is 3 or more: the patient list and the overdue list work here. |
+| `.rpt-strip4` | `styles.css` | Headline strip with four numbers (Overdue calls). |
+| `.rpt-mt*` | `styles.css` | Monthly table styles for `rptMonthly`. |
+
+The Statins `Patients to review` row uses Grafana conditional rendering (`ConditionalRenderingVariable`
+on `selected_level`, regex `^([3-9]|10)$`), so above facility level the row is not drawn (UX-21).
+
 The `Start here` grid reads, per report, the row's `flag`, `too_few` and `looks_fine_check` (titration
 and fudging), and one number: `titration_pct`, `one_medicine_pct`, `score`, `called_pct`,
 `on_statin_pct`. A cell is `Flagged` when the row's `flag` is true or `report_flags` lists the facility
@@ -55,7 +72,8 @@ python3 scripts/build_reports_dashboard.py --check  # exit 1 if it is stale
 | `styles.css` | Business Text `styles` | classes `rpt-*`; put `class="rpt ..."` on the panel's root div |
 | `states.js` | Business Text `afterRender`, first | `rpt` (helpers, states, deep links, `{{tabs}}`) |
 | `table.js` | Business Text `afterRender`, after `states.js` | `rptTable(root, cfg)` |
-| `tip.js` | ECharts `getOption`, first | `fmt`, `soft`, `dot`, `pctStr`, `shareRows`, `tip`, `chartColors` |
+| `tip.js` | ECharts `getOption`, first | `fmt`, `soft`, `dot`, `pctStr`, `shareRows`, `tip`, `chartColors`, `lineVsAverage` |
+| `monthly.js` | Business Text `afterRender`, after `states.js` | `rptMonthly(root, cfg)` |
 | `user_home_unit.sql` | `_shell.json` variable `home_org_unit` (`definition`, `rawSql`) | the home dashboard's `UserOrgUnitId` query: the user's home unit id, or `''`. Keep the two texts equal (UX-02) |
 
 Snippets are pasted as code into one function body, so do not redeclare the names they declare.

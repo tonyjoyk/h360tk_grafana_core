@@ -113,3 +113,17 @@ a.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }
 .rpt-cell-none { color: var(--text-muted); text-align: center; }
 .rpt-start-key { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
 .rpt-start-key b { color: var(--text-primary); font-weight: 600; }
+
+/* Headline strip with four numbers (Overdue calls). */
+.rpt-strip4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: 100%; }
+.rpt-strip4 > div { padding: 2px 14px; border-left: 1px solid var(--border-subtle); min-width: 0; }
+.rpt-strip4 > div:first-child { border-left: 0; padding-left: 4px; }
+
+/* Monthly table, place against the average (monthly.js; Metabase titration and statins form). */
+.rpt-mt th, .rpt-mt td { padding: 5px 8px; }
+.rpt-mt thead tr.rpt-mt-group th { text-align: center; color: var(--text-primary); font-size: 12px; border-bottom: 0 !important; }
+.rpt-mt thead tr.rpt-mt-group th.rpt-mt-place { box-shadow: inset 0 -3px 0 #3D71D9; }
+.rpt-mt thead tr.rpt-mt-group th.rpt-mt-avg { box-shadow: inset 0 -3px 0 #9B7FD4; }
+.rpt-mt .rpt-mt-gap { border-left: 1px solid var(--border-subtle) !important; }
+.rpt-mt tbody tr.rpt-mt-last > * { font-weight: 700; }
+.rpt-mt-few { color: var(--text-muted); font-weight: 400; }
