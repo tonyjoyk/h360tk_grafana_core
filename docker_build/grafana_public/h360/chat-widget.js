@@ -542,7 +542,7 @@
     if (S.busy) { return; }
     var seq = ++S.reqSeq;
     var key = scopeKey(S.scope);
-    var reqBody = { org_unit_id: S.scope.org, reporting_month: S.scope.month || null };
+    var reqBody = { org_unit_id: payload.org_unit_id != null ? String(payload.org_unit_id) : S.scope.org, reporting_month: S.scope.month || null };
     if (payload.chip_id) { reqBody.chip_id = payload.chip_id; } else { reqBody.text = payload.text; }
 
     if (label && !opts.noBubble) {
@@ -716,13 +716,14 @@
     var card = el('div', 'h360c-card');
     var pname = placeName(d.place) || placeName(S.chipsData && S.chipsData.place);
 
-    // 1. Title and control line (the widget has no title field in AD-30; the question asked is the title).
-    var title = el('h3', 'h360c-title', question || pname || TXT.dialog);
+    // 1. Title and control line (`title` and `control_line` from the API; else the question asked).
+    var title = el('h3', 'h360c-title', d.title || question || pname || TXT.dialog);
     title.tabIndex = -1;
     title.setAttribute('data-h360-focus', '1');
     card.appendChild(title);
     var m = fmtMonth(d.month);
-    if (pname || m) { card.appendChild(el('p', 'h360c-muted', [pname, m].filter(Boolean).join(' \u00b7 '))); }
+    if (d.control_line) { card.appendChild(el('p', 'h360c-muted', d.control_line)); }
+    else if (pname || m) { card.appendChild(el('p', 'h360c-muted', [pname, m].filter(Boolean).join(' \u00b7 '))); }
     if (d.mode === 'offline_fallback') { card.appendChild(el('p', 'h360c-muted', TXT.fallback)); }
 
     // 2. Reasons (max three).
@@ -757,8 +758,13 @@
     var planNode = null;
     if (d.plan) { planNode = planCard(d.plan, pname, d.links); }
 
-    // 3. Nudge button.
-    if (d.nudge && d.nudge.label) {
+    // 3. Nudge button (a link when the API sends `nudge.url`).
+    var nudgeHref = d.nudge && d.nudge.label ? safeHref(d.nudge.url) : null;
+    if (nudgeHref) {
+      var na = el('a', 'h360c-btn', d.nudge.label);
+      na.href = nudgeHref;
+      card.appendChild(na);
+    } else if (d.nudge && d.nudge.label) {
       var nb = el('button', 'h360c-btn', d.nudge.label);
       nb.type = 'button';
       var planTarget = null;
@@ -767,7 +773,7 @@
         if (S.busy) { return; }
         var anchor = el('div', 'h360c-log');
         card.parentNode && card.parentNode.insertBefore(anchor, card.nextSibling);
-        ask({ chip_id: d.nudge.chip_id }, d.nudge.label, {
+        ask({ chip_id: d.nudge.chip_id, org_unit_id: d.nudge.org_unit_id }, d.nudge.label, {
           anchor: anchor,
           plan: true,
           onPlan: function (node) { planTarget = node; }

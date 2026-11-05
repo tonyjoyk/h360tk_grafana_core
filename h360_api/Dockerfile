@@ -11,7 +11,7 @@ RUN pip install --no-cache-dir -r /tmp/requirements.txt \
     && rm /tmp/requirements.txt \
     && useradd --create-home --uid 10001 --shell /usr/sbin/nologin h360
 
-COPY __init__.py app.py auth.py config.py /srv/h360_api/
+COPY __init__.py app.py auth.py config.py registry.py ranker.py wording.py /srv/h360_api/
 COPY routes /srv/h360_api/routes/
 
 USER h360
