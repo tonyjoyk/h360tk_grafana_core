@@ -14,6 +14,8 @@
 //   check: { text: '◆ Looks fine, check readings', when: (r) => rpt.yes(r.looks_fine_check) },  // optional two-sided pill
 //   alsoOn: ['titration'],              // reports linked as "Also flagged on …" under a flagged row
 //   size: (r) => r.readings_n,          // patients or cases in scope, the last sort key
+//   order: 'size',                      // optional; within flagged / too few / clean, sort by size (high first)
+//                                       // instead of number of report_flags entries, then patients
 //   caption: 'Facilities in view, flagged first',
 // })
 // 10 rows per page with the overdue list's pager (shown whenever there are rows, as on the overdue list).
@@ -35,7 +37,9 @@ const rptTable = (root, cfg) => {
   const patients = (r) => { const f = (flagsOf[r.org_unit_id] || [])[0]; return f && num(f.patients_n) !== null ? num(f.patients_n) : (cfg.size ? num(cfg.size(r)) || 0 : 0); };
   // 0 flagged, 1 too few, 2 clean.
   const rank = (r) => (yes(r.flag) ? 0 : yes(r.too_few) ? 1 : 2);
-  const needsALook = (a, b) => rank(a) - rank(b) || nFlags(b) - nFlags(a) || patients(b) - patients(a)
+  const sizeOf = (r) => (cfg.size ? num(cfg.size(r)) || 0 : 0);
+  const needsALook = (a, b) => rank(a) - rank(b)
+    || (cfg.order === 'size' ? sizeOf(b) - sizeOf(a) : nFlags(b) - nFlags(a) || patients(b) - patients(a))
     || String(a.org_unit_name).localeCompare(String(b.org_unit_name));
 
   const FACILITY = { label: 'Facility', value: (r) => String(r.org_unit_name || '') };

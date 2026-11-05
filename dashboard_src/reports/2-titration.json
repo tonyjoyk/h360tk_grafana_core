@@ -1,0 +1,531 @@
+{
+  "title": "Stepping up",
+  "elements": {
+    "panel-titration-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT w.window_start, w.window_end, w.data_end,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · 90 days to {date}\".\nconst root = rpt.mount('.rpt-tit-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst period = w.window_end ? '90 days to ' + rpt.day(w.window_end) : '90 days';\nroot.innerHTML = '<h2 class=\"rpt-title\">Are patients with high BP getting stronger treatment?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(period) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-tit-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nWHERE t.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Headline strip: Medicine stepped up, High-BP visits counted, Visits left out.\nconst root = rpt.mount('.rpt-tit-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, color, label, line, title, few) => '<div' + (title ? ' title=\"' + esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nif (!r) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + col('—', '', 'Medicine stepped up', rpt.NO_DATA) + col('—', '', 'High-BP visits counted', rpt.NO_DATA)\n    + col('—', '', 'Visits left out', rpt.NO_DATA) + '</div>';\n  return;\n}\nconst N = num(r.uncontrolled_visits_n) || 0, n = num(r.stepped_up_n) || 0;\nconst a = num(r.excluded_too_recent_n) || 0, b = num(r.excluded_no_baseline_n) || 0;\nconst line = num(r.flag_below_pct);\nconst counts = fmt(n) + ' of ' + fmt(N) + ' high-BP visits stepped up';\nlet first;\nif (yes(r.too_few)) {\n  first = col('Too few visits', '', 'Medicine stepped up', rpt.needAtLeast(r.min_visits, N), counts, true);\n} else if (num(r.titration_pct) === null) {\n  first = col('—', '', 'Medicine stepped up', rpt.NO_DATA);\n} else {\n  const ok = line === null || num(r.titration_pct) >= line;\n  first = col(rpt.pct(r.titration_pct), ok ? 'var(--controlled)' : 'var(--flag-bar)', 'Medicine stepped up',\n    fmt(n) + ' of ' + fmt(N) + ' visits with BP 140/90 or above were followed by a stronger prescription', counts);\n}\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first\n  + col(fmt(N), 'var(--text-primary)', 'High-BP visits counted', 'BP 140/90 or above, last 90 days')\n  + col(fmt(a + b), 'var(--text-muted)', 'Visits left out', fmt(a) + ' too recent to check, ' + fmt(b) + ' with no earlier prescription') + '</div>';\n",
+              "content": "<div class=\"rpt rpt-tit-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-chart": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.org_unit_id, t.org_unit_name, t.level, t.is_selected, t.too_few, t.flag, t.uncontrolled_visits_n, t.stepped_up_n, t.titration_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Each bar is the share of a facility's high-BP visits followed by a stronger prescription. Bars left of the dashed 40% line are flagged.",
+        "id": 0,
+        "links": [],
+        "title": "Share of high-BP visits stepped up, by facility",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// Bars by facility with a dashed flag line (PD-8: no month line chart).\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\n// Percent as DESIGN: whole, one decimal under 10%.\nconst pc = (v) => { const n = Math.round(10 * Number(v)) / 10; return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst ids = col('org_unit_id');\nconst name = col('org_unit_name'), lvl = col('level').map(Number), sel = col('is_selected');\nconst few = col('too_few'), flag = col('flag');\nconst N = col('uncontrolled_visits_n').map((v) => Number(v) || 0), n = col('stepped_up_n').map((v) => Number(v) || 0);\nconst p = col('titration_pct').map((v) => (v === null || v === undefined ? null : Number(v)));\nconst lineAt = Number(col('flag_below_pct')[0]);\n// Facilities only: the bold \"All places in view\" row is the headline, not a bar.\nlet idx = ids.map((v, i) => i).filter((i) => !(yes(sel[i]) && lvl[i] < 3));\nif (!idx.length) { idx = ids.map((v, i) => i); }\nif (!idx.length) {\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\n// Same order as the table: flagged, too few, clean; then more high-BP visits first.\nconst rank = (i) => (yes(flag[i]) ? 0 : yes(few[i]) ? 1 : 2);\nidx.sort((a, b) => rank(a) - rank(b) || N[b] - N[a] || String(name[a]).localeCompare(String(name[b])));\nconst colorOf = (i) => (yes(few[i]) || p[i] === null ? C.estimated : yes(flag[i]) ? C.noVisit : C.controlled);\nconst endLabel = (i) => (yes(few[i]) ? 'Too few visits · ' + fmt(N[i]) : p[i] === null ? 'No data' : pc(p[i]) + ' · ' + fmt(n[i]) + ' of ' + fmt(N[i]));\nreturn {\n  animation: false,\n  grid: { left: 8, right: 24, top: 28, bottom: 8, containLabel: true },\n  tooltip: tip((k) => {\n    const i = idx[k];\n    if (yes(few[i])) { return ['Too few visits', soft(fmt(N[i]) + ' high-BP visits; need at least 10')]; }\n    if (p[i] === null) { return ['No data for this place.']; }\n    return ['Stepped up: ' + pc(p[i]), soft(fmt(n[i]) + ' of ' + fmt(N[i]) + ' high-BP visits')];\n  }, (k) => name[idx[k]], { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  xAxis: { type: 'value', min: 0, max: 100, interval: 25, axisLabel: { color: C.axis, fontSize: 11, formatter: (v) => v + '%' },\n    splitLine: { lineStyle: { color: C.grid } } },\n  yAxis: { type: 'category', inverse: true, data: idx.map((i) => name[i]), axisTick: { show: false },\n    axisLabel: { color: C.text, fontSize: 12 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  series: [{\n    type: 'bar', name: 'Stepped up', barMaxWidth: 26,\n    data: idx.map((i) => ({ value: yes(few[i]) || p[i] === null ? 0 : p[i], itemStyle: { color: colorOf(i), borderRadius: [0, 2, 2, 0] } })),\n    label: { show: true, position: 'right', color: C.text, fontSize: 12, backgroundColor: '#FFFFFF', padding: [1, 3], formatter: (q) => endLabel(idx[q.dataIndex]) },\n    markLine: isNaN(lineAt) ? undefined : {\n      silent: true, symbol: ['none', 'none'], animation: false,\n      lineStyle: { type: 'dashed', color: C.text, width: 1.5 },\n      label: { formatter: 'Flag line: ' + pc(lineAt), position: 'start', color: C.text, fontSize: 12 },\n      data: [{ xAxis: lineAt }]\n    }\n  }]\n};\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-look": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.org_unit_id, t.org_unit_name, t.uncontrolled_visits_n, t.stepped_up_n, t.titration_pct, t.looks_fine_check, fl.patients_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nJOIN report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) fl ON fl.org_unit_id = t.org_unit_id AND fl.report = 'titration'\nWHERE t.flag AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-tit-look');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst reasonOf = (r) => 'Only ' + rpt.fmt(r.stepped_up_n) + ' of ' + rpt.fmt(r.uncontrolled_visits_n)\n  + ' high-BP visits led to a stronger prescription (' + rpt.pct(r.titration_pct) + ').'\n  + (rpt.num(r.flag_below_pct) !== null ? ' The line is ' + rpt.pct(r.flag_below_pct) + '.' : '');\nconst list = rpt.rows('A').sort((a, b) => (num(b.patients_n) || 0) - (num(a.patients_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + (yes(r.looks_fine_check) ? ' <span class=\"rpt-pill rpt-pill-check\">◆ Looks fine, check medicines</span>' : '')\n    + '<div class=\"rpt-look-line\">' + fmt(r.patients_n) + ' patients · ' + esc(reasonOf(r)) + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
+              "content": "<div class=\"rpt rpt-tit-look\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-look\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT t.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits,\n  fl.flags_json\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nLEFT JOIN fl ON fl.org_unit_id = t.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, BP controlled, High-BP visits, Stepped up, Share stepped up, Why look here.\nconst root = rpt.mount('.rpt-tit-table');\nif (!root) { return; }\nconst { fmt, num, yes } = rpt;\nconst reasonOf = (r) => 'Only ' + rpt.fmt(r.stepped_up_n) + ' of ' + rpt.fmt(r.uncontrolled_visits_n)\n  + ' high-BP visits led to a stronger prescription (' + rpt.pct(r.titration_pct) + ').'\n  + (rpt.num(r.flag_below_pct) !== null ? ' The line is ' + rpt.pct(r.flag_below_pct) + '.' : '');\nrptTable(root, {\n  report: 'titration',\n  rows: rpt.rows('A'),\n  caption: 'High-BP visits followed by a stronger prescription, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'BP controlled', num: true, value: (r) => num(r.control_pct), cell: (r) => (num(r.control_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.control_pct) + '</span>') },\n    { label: 'High-BP visits', num: true, value: (r) => num(r.uncontrolled_visits_n), cell: (r) => fmt(r.uncontrolled_visits_n) },\n    { label: 'Stepped up', num: true, value: (r) => num(r.stepped_up_n), cell: (r) => fmt(r.stepped_up_n) },\n    { label: 'Share stepped up', num: true, guard: true, value: (r) => num(r.titration_pct), cell: (r) => rpt.pct(r.titration_pct),\n      title: (r) => fmt(r.stepped_up_n) + ' of ' + fmt(r.uncontrolled_visits_n) + ' high-BP visits' }\n  ],\n  flagNames: () => ['Medicine rarely stepped up'],\n  reason: reasonOf,\n  guardName: 'Too few visits',\n  guardReason: (r) => rpt.needAtLeast(r.min_visits, r.uncontrolled_visits_n),\n  check: { text: '◆ Looks fine, check medicines', when: (r) => yes(r.looks_fine_check) },\n  alsoOn: ['fudging'],\n  size: (r) => num(r.uncontrolled_visits_n),\n  order: 'size'\n});\n",
+              "content": "<div class=\"rpt rpt-tit-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-note": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "",
+              "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Looks at visits with BP 140/90 or above in the last 90 days. A visit counts as stepped up if it, or the next within 30 days, has a stronger prescription. Stronger means more medicines or a higher dose than the visit before. Visits in the last 30 days of data are left out, as are visits with no earlier prescription.</div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Looks at visits with BP 140/90 or above in the last 90 days. A visit counts as stepped up if it, or the next within 30 days, has a stronger prescription. Stronger means more medicines or a higher dose than the visit before. Visits in the last 30 days of data are left out, as are visits with no earlier prescription.</div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "RowsLayout",
+    "spec": {
+      "rows": [
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-chart"
+                      },
+                      "height": 9,
+                      "width": 14,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-look"
+                      },
+                      "height": 9,
+                      "width": 10,
+                      "x": 14,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-table"
+                      },
+                      "height": 14,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-note"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 14
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

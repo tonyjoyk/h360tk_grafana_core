@@ -1,0 +1,531 @@
+{
+  "title": "Right medicines",
+  "elements": {
+    "panel-adherence-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT w.window_start, w.window_end, a.cohort_n,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nLEFT JOIN report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a ON a.is_selected\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · 90 days to {date} · {N} patients counted (...)\".\nconst root = rpt.mount('.rpt-adh-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst parts = [rpt.place(w.place), w.window_end ? '90 days to ' + rpt.day(w.window_end) : '90 days'];\nif (rpt.num(w.cohort_n) !== null) {\n  parts.push(rpt.fmt(w.cohort_n) + ' patients counted ' + (rpt.v('include_new') === 'true' ? '(new patients included)' : '(registered before ' + rpt.day(w.window_start) + ')'));\n}\nroot.innerHTML = '<h2 class=\"rpt-title\">Are patients on the medicines the protocol says?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(parts.join(' · ')) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-adh-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-adh-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-adherence-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT a.*, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean)\n) b\nWHERE a.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Headline strip: BP controlled, On two or more medicines, Off protocol.\nconst root = rpt.mount('.rpt-adh-head');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst r = rpt.rows('A')[0];\nconst col = (big, color, label, line, title, few) => '<div' + (title ? ' title=\"' + esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + esc(label) + '</div><div class=\"rpt-line\">' + esc(line) + '</div></div>';\nconst LABELS = ['BP controlled', 'On two or more medicines', 'Off protocol'];\nconst N = r ? num(r.cohort_n) || 0 : 0;\nif (!r || !N) {\n  root.innerHTML = '<div class=\"rpt-strip3\">' + LABELS.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>';\n  return;\n}\nif (yes(r.too_few)) {\n  const need = rpt.needAtLeast(r.min_cohort, N);\n  root.innerHTML = '<div class=\"rpt-strip3\">' + LABELS.map((l) => col('Too few patients', '', l, need, '', true)).join('') + '</div>';\n  return;\n}\n// Round to one decimal first, so 9.95 reads 10%, not 10.0%.\nconst p = (k) => rpt.pct(Math.round(1000 * (num(k) || 0) / N) / 10);\nroot.innerHTML = '<div class=\"rpt-strip3\">'\n  + col(p(r.controlled_n), 'var(--controlled)', 'BP controlled', fmt(r.controlled_n) + ' of ' + fmt(N) + ' patients with BP under 140/90 at their latest visit')\n  + col(p(r.two_three_n), 'var(--step-4)', 'On two or more medicines', fmt(r.two_three_n) + ' of ' + fmt(N) + ' patients on 2 or 3 medicines')\n  + col(p(r.off_n), 'var(--flag-bar)', 'Off protocol', fmt(r.off_n) + ' of ' + fmt(N) + ' patients on another combination or medicines outside the protocol')\n  + '</div>';\n",
+              "content": "<div class=\"rpt rpt-adh-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-adh-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}\n.rpt { --step-4: #8578D3; }",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-adherence-chart": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT b.bucket, b.bucket_order, b.label, b.patients_n, b.controlled_n, b.controlled_pct\nFROM report_adherence_buckets('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) b\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Each bar counts patients by the medicines on their latest prescription. The end label gives how many have BP under 140/90.",
+        "id": 0,
+        "links": [],
+        "title": "Patients by medicine step, and how many are controlled",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// Nine horizontal bars, indigo step ramp; labels from htn_ladder_steps.label (C16).\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\n// Percent as DESIGN: whole, one decimal under 10%.\nconst pc = (v) => { const n = Math.round(10 * Number(v)) / 10; return (Math.abs(n) < 10 ? n.toFixed(1) : String(Math.round(n))) + '%'; };\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst ord = col('bucket_order').map(Number);\nconst label = col('label'), cnt = col('patients_n').map((v) => Number(v) || 0), ctl = col('controlled_n').map((v) => Number(v) || 0);\nconst idx = ord.map((v, i) => i).sort((a, b) => ord[a] - ord[b]);\nconst N = cnt.reduce((s, v) => s + v, 0);\nif (!idx.length || !N) {\n  return { graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: 'No data for this place.', fontSize: 14, fill: C.muted } }] : [] };\n}\n// Steps 1-6 indigo ramp; 7 other protocol combination; 8 outside the protocol; 9 could not read (dashed).\nconst colorOf = (o) => (o <= 6 ? C.step[o - 1] : o === 7 ? C.stepOther : o === 8 ? C.stepOff : C.estimated);\nconst end = (i) => fmt(cnt[i]) + ' patients' + (cnt[i] ? ' · ' + pc(100 * ctl[i] / cnt[i]) + ' controlled' : '');\nreturn {\n  animation: false,\n  grid: { left: 14, right: 8, top: 8, bottom: 8, containLabel: true },\n  tooltip: tip((k) => {\n    const i = idx[k];\n    return [fmt(cnt[i]) + ' patients (' + pc(100 * cnt[i] / N) + ' of ' + fmt(N) + ')']\n      .concat(cnt[i] ? [soft(fmt(ctl[i]) + ' of ' + fmt(cnt[i]) + ' controlled (' + pc(100 * ctl[i] / cnt[i]) + ')')] : []);\n  }, (k) => label[idx[k]], { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  // No value axis: every bar carries its count; the spare width keeps the end labels inside the panel.\n  xAxis: { type: 'value', min: 0, max: (v) => v.max * 2, show: false },\n  yAxis: { type: 'category', inverse: true, data: idx.map((i) => label[i]), axisTick: { show: false },\n    axisLabel: { color: C.text, fontSize: 12 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  series: [{\n    type: 'bar', name: 'Patients', barMaxWidth: 22, barCategoryGap: '28%',\n    data: idx.map((i) => ({ value: cnt[i], itemStyle: ord[i] === 9\n      ? { color: colorOf(ord[i]), borderColor: C.stepOff, borderType: 'dashed', borderWidth: 1, borderRadius: [0, 2, 2, 0] }\n      : { color: colorOf(ord[i]), borderRadius: [0, 2, 2, 0] } })),\n    label: { show: true, position: 'right', color: C.text, fontSize: 12, formatter: (q) => end(idx[q.dataIndex]) }\n  }]\n};\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-adherence-look": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT a.org_unit_id, a.org_unit_name, a.cohort_n, a.off_protocol_pct, a.one_medicine_pct, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, a.org_unit_id, '${include_new}'::boolean)\n) b\nWHERE a.flag AND a.level >= 3 AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Look at these first: at most three flagged facilities, most patients first.\nconst root = rpt.mount('.rpt-adh-look');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst share = (k, N) => (num(N) ? Math.round(1000 * (num(k) || 0) / num(N)) / 10 : null);\nconst offHit = (r) => num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nconst oneHit = (r) => num(r.one_medicine_pct) !== null && num(r.one_medicine_pct) >= num(r.one_medicine_pct_line);\nconst reasonOf = (r) => [\n  offHit(r) ? fmt(r.off_n) + ' of ' + fmt(r.cohort_n) + ' patients are off protocol (' + rpt.pct(share(r.off_n, r.cohort_n)) + ').' : '',\n  oneHit(r) ? fmt(r.one_n) + ' of ' + fmt(r.cohort_n) + ' patients are on one medicine (' + rpt.pct(share(r.one_n, r.cohort_n)) + ').' : ''\n].filter(Boolean).join(' ');\nconst list = rpt.rows('A').sort((a, b) => (num(b.cohort_n) || 0) - (num(a.cohort_n) || 0)\n  || String(a.org_unit_name).localeCompare(String(b.org_unit_name))).slice(0, 3);\nroot.innerHTML = '<h3 class=\"rpt-card-title\">Look at these first</h3>' + (list.length\n  ? '<ol class=\"rpt-look\">' + list.map((r) => '<li><span class=\"rpt-look-name\">' + esc(r.org_unit_name) + '</span>'\n    + '<div class=\"rpt-look-line\">' + esc(reasonOf(r)) + '</div></li>').join('') + '</ol>'\n  : '<div class=\"rpt-muted\">' + esc(rpt.NO_FLAGS) + ' Check the table below.</div>');\n",
+              "content": "<div class=\"rpt rpt-adh-look\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-adh-look\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-adherence-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT a.*, b.one_n, b.two_three_n, b.off_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'min_cohort') AS min_cohort,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'off_protocol_pct') AS off_protocol_pct_line,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'adherence' AND key = 'one_medicine_pct') AS one_medicine_pct_line,\n  fl.flags_json\nFROM report_adherence('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int, '${include_new}'::boolean) a\nCROSS JOIN LATERAL (\n  SELECT sum(patients_n) FILTER (WHERE bucket_order IN (1, 2)) AS one_n,\n    sum(patients_n) FILTER (WHERE bucket_order BETWEEN 3 AND 6) AS two_three_n,\n    sum(patients_n) FILTER (WHERE bucket IN ('Other Protocol', 'Non-Protocol')) AS off_n\n  FROM report_adherence_buckets('${reporting_month}'::date, NULLIF(a.org_unit_id, 0), '${include_new}'::boolean)\n) b\nLEFT JOIN fl ON fl.org_unit_id = a.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, Patients, On 2 or 3 medicines, Off protocol, BP controlled, Why look here.\nconst root = rpt.mount('.rpt-adh-table');\nif (!root) { return; }\nconst { esc, fmt, num, yes } = rpt;\nconst share = (k, N) => (num(N) ? Math.round(1000 * (num(k) || 0) / num(N)) / 10 : null);\nconst offHit = (r) => num(r.off_protocol_pct) !== null && num(r.off_protocol_pct) >= num(r.off_protocol_pct_line);\nconst oneHit = (r) => num(r.one_medicine_pct) !== null && num(r.one_medicine_pct) >= num(r.one_medicine_pct_line);\nconst reasonOf = (r) => [\n  offHit(r) ? fmt(r.off_n) + ' of ' + fmt(r.cohort_n) + ' patients are off protocol (' + rpt.pct(share(r.off_n, r.cohort_n)) + ').' : '',\n  oneHit(r) ? fmt(r.one_n) + ' of ' + fmt(r.cohort_n) + ' patients are on one medicine (' + rpt.pct(share(r.one_n, r.cohort_n)) + ').' : ''\n].filter(Boolean).join(' ');\n// Percent with its count beside it, muted.\nconst pn = (k, r) => (num(r.cohort_n) ? rpt.pct(share(k, r.cohort_n)) + ' <span class=\"rpt-cnt\">' + esc(fmt(k)) + '</span>' : '—');\nconst of = (k, r) => fmt(k) + ' of ' + fmt(r.cohort_n) + ' patients';\nrptTable(root, {\n  report: 'adherence',\n  rows: rpt.rows('A'),\n  caption: 'Patients by medicines and BP control, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Patients', num: true, value: (r) => num(r.cohort_n), cell: (r) => fmt(r.cohort_n) },\n    { label: 'On 2 or 3 medicines', num: true, guard: true, value: (r) => share(r.two_three_n, r.cohort_n), cell: (r) => pn(r.two_three_n, r), title: (r) => of(r.two_three_n, r) },\n    { label: 'Off protocol', num: true, guard: true, value: (r) => num(r.off_protocol_pct), cell: (r) => pn(r.off_n, r), title: (r) => of(r.off_n, r) },\n    { label: 'BP controlled', num: true, guard: true, value: (r) => num(r.controlled_pct),\n      cell: (r) => (num(r.controlled_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.controlled_pct) + '</span> <span class=\"rpt-cnt\">' + esc(fmt(r.controlled_n)) + '</span>'),\n      title: (r) => of(r.controlled_n, r) + ' with BP under 140/90' }\n  ],\n  flagNames: (r) => [offHit(r) ? 'Many off protocol' : '', oneHit(r) ? 'Mostly one medicine' : ''],\n  reason: reasonOf,\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_cohort, r.cohort_n),\n  alsoOn: [],\n  size: (r) => num(r.cohort_n)\n});\n",
+              "content": "<div class=\"rpt rpt-adh-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-adh-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}\n.rpt-cnt { color: var(--text-muted); font-size: 12px; font-weight: 400; margin-left: 4px; }",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-adherence-note": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "",
+              "content": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Each patient's latest prescription in the last 90 days is placed on a six-step ladder of medicines and doses. Off protocol counts other protocol combinations and medicines outside the protocol. Controlled means BP under 140/90 at that visit. 'Patients counted' above changes who is included.</div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-note\"><strong>How this is worked out.</strong> Each patient's latest prescription in the last 90 days is placed on a six-step ladder of medicines and doses. Off protocol counts other protocol combinations and medicines outside the protocol. Controlled means BP under 140/90 at that visit. 'Patients counted' above changes who is included.</div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "RowsLayout",
+    "spec": {
+      "rows": [
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-chart"
+                      },
+                      "height": 9,
+                      "width": 14,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-look"
+                      },
+                      "height": 9,
+                      "width": 10,
+                      "x": 14,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-table"
+                      },
+                      "height": 14,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-adherence-note"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 14
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

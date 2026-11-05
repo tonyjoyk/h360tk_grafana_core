@@ -103,13 +103,15 @@ rptTable(root, {
   // check: { text: '◆ Looks fine, check medicines', when: (r) => rpt.yes(r.looks_fine_check) },
   alsoOn: [],                              // reports linked as `Also flagged on …`
   size: (r) => rpt.num(r.eligible_n),      // last sort key when report_flags has no patients_n
+  // order: 'size',                       // optional: sort by size (high first) within flagged / too few / clean
   caption: 'Eligible patients on a statin, by facility. Flagged facilities come first.',
 });
 ```
 
 `guard: true` shows `—` in that column on a `too_few` row. The default sort is flagged, then too
 few, then clean; within each, more `report_flags` entries first, then more patients, then name.
-Header clicks sort names A to Z and numbers high to low first; the chip resets.
+With `order: 'size'` the order within each group is `size` (high first), then name; `Stepping up` uses it to sort by
+high-BP visits. Header clicks sort names A to Z and numbers high to low first; the chip resets.
 
 ## ECharts (tip.js)
 
