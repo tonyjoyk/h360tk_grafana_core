@@ -5914,6 +5914,406 @@
             }
           }
         }
+      },
+      "panel-sta-head": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1530,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT 'Statins at ' || COALESCE((SELECT ou.name::text FROM org_units ou WHERE ou.id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int), 'all locations') || ', ' || to_char((date_trunc('month', now()) - interval '1 month')::date - interval '8 months', 'FMMonth YYYY')\n       || ' to ' || to_char((date_trunc('month', now()) - interval '1 month')::date, 'FMMonth YYYY') || ', with the average of all places.' AS line\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "left",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  }
+                },
+                "overrides": []
+              },
+              "options": {
+                "showHeader": false,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
+      },
+      "panel-sta-line": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1531,
+          "title": "% of eligible patients prescribed a statin, by month",
+          "description": "Share of eligible patients whose latest prescription includes a statin. Average is all places together.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "time_series",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH r AS (\n  SELECT * FROM report_statins_monthly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) WHERE is_selected\n)\nSELECT month_date::timestamp AS \"time\", org_unit_name AS metric, rate_pct AS value FROM r\nUNION ALL\nSELECT month_date::timestamp, 'Average', average_rate_pct FROM r\nORDER BY 1, 2\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "timeseries",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "unit": "percent",
+                  "decimals": 1,
+                  "min": 0,
+                  "custom": {
+                    "drawStyle": "line",
+                    "lineWidth": 2,
+                    "showPoints": "always",
+                    "pointSize": 6,
+                    "spanNulls": true,
+                    "fillOpacity": 0
+                  }
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "Average"
+                    },
+                    "properties": [
+                      {
+                        "id": "color",
+                        "value": {
+                          "mode": "fixed",
+                          "fixedColor": "#8e8e8e"
+                        }
+                      },
+                      {
+                        "id": "custom.lineStyle",
+                        "value": {
+                          "fill": "dash",
+                          "dash": [
+                            10,
+                            10
+                          ]
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "legend": {
+                  "displayMode": "list",
+                  "placement": "bottom",
+                  "showLegend": true,
+                  "calcs": []
+                },
+                "tooltip": {
+                  "mode": "multi",
+                  "sort": "none"
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-sta-table": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1532,
+          "title": "Statins by month",
+          "description": "The Metabase statins table: the place's months first, then the average of all places.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nWITH r AS (\n  SELECT * FROM report_statins_monthly((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) WHERE is_selected\n)\nSELECT \"Month\", \"Place\", \"Eligible patients\", \"On a statin\", \"% on a statin\" FROM (\n  SELECT 1 AS k, month_date, to_char(month_date, 'FMMonth YYYY') AS \"Month\", org_unit_name AS \"Place\",\n         eligible_n AS \"Eligible patients\", on_statin_n AS \"On a statin\", rate_pct AS \"% on a statin\"\n  FROM r\n  UNION ALL\n  SELECT 2, month_date, to_char(month_date, 'FMMonth YYYY'), 'Average',\n         average_eligible_n, average_on_statin_n, average_rate_pct\n  FROM r\n) t\nORDER BY k, month_date\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "decimals": 0
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "% on a statin"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-sta-facilities": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1533,
+          "title": "Facilities, latest month",
+          "description": "One row per facility in view for the latest completed month. Orange: below the statins flag threshold.",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [
+                {
+                  "kind": "PanelQuery",
+                  "spec": {
+                    "hidden": false,
+                    "refId": "A",
+                    "query": {
+                      "datasource": {
+                        "name": "postgres-hypertension"
+                      },
+                      "group": "grafana-postgresql-datasource",
+                      "kind": "DataQuery",
+                      "version": "v0",
+                      "spec": {
+                        "dataset": "metrics_db",
+                        "editorMode": "code",
+                        "format": "table",
+                        "rawQuery": true,
+                        "rawSql": "SELECT * FROM (\nSELECT org_unit_name AS \"Facility\", eligible_n AS \"Eligible patients\", on_statin_n AS \"On a statin\",\n       on_statin_pct AS \"% on a statin\"\nFROM report_statins((date_trunc('month', now()) - interval '1 month')::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int)\nWHERE NOT is_selected OR level >= 3\nORDER BY on_statin_pct NULLS LAST, org_unit_name\n) AS master_access_control WHERE '${isAllowed}' = '1'",
+                        "refId": "A"
+                      }
+                    }
+                  }
+                }
+              ],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "table",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {
+                  "custom": {
+                    "align": "auto",
+                    "cellOptions": {
+                      "type": "auto"
+                    },
+                    "inspect": false
+                  },
+                  "decimals": 0
+                },
+                "overrides": [
+                  {
+                    "matcher": {
+                      "id": "byName",
+                      "options": "% on a statin"
+                    },
+                    "properties": [
+                      {
+                        "id": "unit",
+                        "value": "percent"
+                      },
+                      {
+                        "id": "decimals",
+                        "value": 1
+                      },
+                      {
+                        "id": "thresholds",
+                        "value": {
+                          "mode": "absolute",
+                          "steps": [
+                            {
+                              "color": "orange",
+                              "value": null
+                            },
+                            {
+                              "color": "text",
+                              "value": 25
+                            }
+                          ]
+                        }
+                      },
+                      {
+                        "id": "custom.cellOptions",
+                        "value": {
+                          "type": "color-text"
+                        }
+                      }
+                    ]
+                  }
+                ]
+              },
+              "options": {
+                "showHeader": true,
+                "cellHeight": "sm",
+                "footer": {
+                  "show": false
+                }
+              }
+            }
+          }
+        }
+      },
+      "panel-sta-note": {
+        "kind": "Panel",
+        "spec": {
+          "id": 1534,
+          "title": "",
+          "description": "",
+          "links": [],
+          "data": {
+            "kind": "QueryGroup",
+            "spec": {
+              "queries": [],
+              "queryOptions": {},
+              "transformations": []
+            }
+          },
+          "vizConfig": {
+            "group": "text",
+            "kind": "VizConfig",
+            "version": "13.2.1",
+            "spec": {
+              "fieldConfig": {
+                "defaults": {},
+                "overrides": []
+              },
+              "options": {
+                "mode": "markdown",
+                "content": "<span style=\"opacity: 0.65\">Eligible: aged 40 or older with diabetes, or a heart attack or stroke. On a statin: atorvastatin, simvastatin or rosuvastatin on the latest prescription.</span>",
+                "code": {
+                  "language": "plaintext",
+                  "showLineNumbers": false,
+                  "showMiniMap": false
+                }
+              }
+            }
+          },
+          "transparent": true
+        }
       }
     },
     "layout": {
@@ -6548,6 +6948,99 @@
                                             "width": 24,
                                             "x": 0,
                                             "y": 14
+                                          }
+                                        }
+                                      ]
+                                    }
+                                  }
+                                }
+                              }
+                            ]
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "kind": "TabsLayoutTab",
+                      "spec": {
+                        "title": "Statins",
+                        "layout": {
+                          "kind": "RowsLayout",
+                          "spec": {
+                            "rows": [
+                              {
+                                "kind": "RowsLayoutRow",
+                                "spec": {
+                                  "title": "Statins",
+                                  "collapse": false,
+                                  "hideHeader": true,
+                                  "layout": {
+                                    "kind": "GridLayout",
+                                    "spec": {
+                                      "items": [
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-sta-head"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 0
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-sta-line"
+                                            },
+                                            "height": 9,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 2
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-sta-note"
+                                            },
+                                            "height": 2,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 11
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-sta-table"
+                                            },
+                                            "height": 20,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 13
+                                          }
+                                        },
+                                        {
+                                          "kind": "GridLayoutItem",
+                                          "spec": {
+                                            "element": {
+                                              "kind": "ElementReference",
+                                              "name": "panel-sta-facilities"
+                                            },
+                                            "height": 8,
+                                            "width": 24,
+                                            "x": 0,
+                                            "y": 33
                                           }
                                         }
                                       ]
