@@ -377,7 +377,7 @@
                         "kind": "ElementReference",
                         "name": "panel-fudging-headline"
                       },
-                      "height": 4,
+                      "height": 5,
                       "width": 24,
                       "x": 0,
                       "y": 2
@@ -393,7 +393,7 @@
                       "height": 10,
                       "width": 24,
                       "x": 0,
-                      "y": 6
+                      "y": 7
                     }
                   }
                 ]

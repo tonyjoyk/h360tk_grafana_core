@@ -485,7 +485,7 @@
                         "name": "panel-titration-line"
                       },
                       "height": 10,
-                      "width": 11,
+                      "width": 10,
                       "x": 0,
                       "y": 6
                     }
@@ -498,8 +498,8 @@
                         "name": "panel-titration-monthly"
                       },
                       "height": 10,
-                      "width": 13,
-                      "x": 11,
+                      "width": 14,
+                      "x": 10,
                       "y": 6
                     }
                   }

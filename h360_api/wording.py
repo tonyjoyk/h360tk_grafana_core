@@ -473,7 +473,8 @@ def _reason(r: dict, facts: dict, fmt: Fmt) -> dict:
                 number, figure = None, None
                 text = "No overdue patients have a phone number this month."
             else:
-                text = f"In {win}, {counts} overdue patients with a phone were called ({figure})."
+                # called_n counts first calls in the reporting month only (report_calling), not the window.
+                text = f"In {_month_name(month)}, {counts} overdue patients with a phone were called ({figure})."
         elif v.get("called_low") or v.get("early_pct") is None:
             text = f"Only {fmt.count(v['called_n'])} of {fmt.count(v['overdue_with_phone_n'])} overdue patients were called ({figure})."
             todo = " ".join(_calling_sizing(v, fmt, facts))

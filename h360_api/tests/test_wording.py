@@ -98,7 +98,7 @@ class OfflineShapeTests(unittest.TestCase):
         self.assertEqual(answer["reasons"][0]["text"],
                          "Many new patients do not come back. 110 of 368 missed their second visit (30%).")
         plan = wording.compose(facts_for("who_to_call", 3), "", "m")["reasons"][0]
-        self.assertEqual(plan["text"], "In Aug–Oct 2026, 156 of 1,421 overdue patients with a phone were called (11%).")
+        self.assertEqual(plan["text"], "In Oct, 156 of 1,421 overdue patients with a phone were called (11%).")
 
     def test_number_format(self):
         fmt = wording.Fmt([])
