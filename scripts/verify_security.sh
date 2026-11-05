@@ -122,6 +122,7 @@ REPORT_CHAT_NAMES = {
         "chat_facility_rank_district",
         "chat_new_patient_return",
         "chat_phone_capture",
+        "chat_home_unit",
     ],
 }
 

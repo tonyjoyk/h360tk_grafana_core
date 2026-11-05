@@ -26,6 +26,30 @@
 > - run `docker compose` for this branch from the release folder, or the other way round;
 > - remove the `.env` block while the release stack is running. Both stacks would then claim the same container names, and the scripts would talk to the wrong database.
 
+## Data for this experiment
+
+**One upload file holds everything about patients**: one row per visit, with the patient's details, the BP reading and the medicines given at that visit. Put all of a patient's visits in the file, in any order. Upload it on the upload page at http://localhost:8180 (sign in `admin` / `admin`), or copy it into `data/upload/`. The importer starts within seconds; the demo file takes a few minutes. Uploading the same file again changes nothing.
+
+Columns: `Registration Date`, `Patient ID`, `First Name`, `Middle Name`, `Last Name`, `Date of Birth`, `Gender`, `Phone Number`, `Region`, `District`, `Facility`, `Sub Facility`, `Systolic`, `Diastolic`, `Visit Time`, `Blood Sugar Type`, `Blood Sugar Value`, `Diagnosis 1`, `Diagnosis 2`, `Medicines`.
+
+An example row:
+
+| Registration Date | Patient ID | First Name | Last Name | Date of Birth | Gender | Phone Number | Region | District | Facility | Sub Facility | Systolic | Diastolic | Visit Time | Diagnosis 1 | Diagnosis 2 | Medicines |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 06-06-2026 00:00:00 | DEMO-00091 | Demo | Patient 00091 | 26-10-1968 | Female | 9122595524 | Region-A | District-A | PHC-A | SHC-A | 134 | 86 | 06-06-2026 12:15:00 | I10 | E11 | Amlodipine 5 mg - 1 x 1 Tablet Sehari; Metformin 500 mg - 2 x 1 Tablet Sehari; Atorvastatin 20 mg - 1 x 1 Tablet Sehari |
+
+`Medicines` lists each medicine as `<name> <strength> mg - <times a day> x <tablets> Tablet Sehari`, separated by `;`. The column may also be called `Obat` or `Prescription`. A blank cell, or a file without the column, records no medicines for that visit.
+
+**Built in, not uploaded:** 12 months of drug stock for the six demo PHCs (2025-11 to 2026-10, plus 2026-11), and call results for 2026-05 to 2026-10. `./scripts/demo_up.sh` loads them from `test_data/demo/seeds/`. In a real install, drug stock comes from the Enter stock form and call results from the Overdue list.
+
+**The demo file** is `test_data/demo/demo_generated.xlsx`: 7,200 made-up patients and about 30,000 visits from 2025-01 to 2026-10-13, so reports open on Oct-2026. `./scripts/demo_up.sh` loads it into a new database. To rebuild it (the same rows every time):
+
+```bash
+python3 test_data/demo/build_demo_data.py
+```
+
+More detail, including what each demo PHC shows, is in [test_data/demo/README.md](test_data/demo/README.md).
+
 In order to launch this h360tk_grafana_core:
 
 ```

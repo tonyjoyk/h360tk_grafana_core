@@ -37,6 +37,7 @@ CHECKS=(
   "build_reports_dashboard|python3 scripts/build_reports_dashboard.py --check"
   "check_htn_dm_untouched|python3 scripts/check_htn_dm_untouched.py"
   "verify_seeds_insert_only|bash scripts/verify_seeds_insert_only.sh"
+  "test_ingest_medicines|python3 scripts/test_ingest_medicines.py"
   "verify_banned_words_self_test|python3 scripts/verify_banned_words.py --self-test"
   "h360_api_tests|run_h360_api_tests"
   # Per-rule fixtures (AD-35). Drug stock (Epic 3).
@@ -117,7 +118,12 @@ while (($#)); do
     --file=*) if [[ -f "${1#--file=}" ]]; then infile="${1#--file=}"; shift; continue; fi ;;
     -c|--command|--command=*|-c?*) has_c=1 ;;
   esac
-  args+=("$1"); shift
+  arg="$1"
+  # A DSN for this checkout's host port (DATABASE_URL from h360_env.sh) means the container's 5432 here.
+  if [[ -n "${POSTGRES_PORT:-}" && "$arg" =~ ^postgres(ql)?://.*@(localhost|127\.0\.0\.1):${POSTGRES_PORT}/ ]]; then
+    arg="${arg/:${POSTGRES_PORT}\//:5432/}"
+  fi
+  args+=("$arg"); shift
 done
 envs=(-e "PGUSER=${PGUSER:-${H360_PG_USER:-h360tk_root}}")
 for v in PGCONNECT_TIMEOUT PGOPTIONS PGPASSWORD; do [[ -n "${!v:-}" ]] && envs+=(-e "$v"); done

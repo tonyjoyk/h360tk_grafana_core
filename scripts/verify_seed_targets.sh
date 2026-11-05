@@ -4,7 +4,7 @@
 #
 #   ./scripts/verify_seed_targets.sh
 #
-# For month 2026-10-01 it prints each PHC's control, bunching score, titration,
+# For month 2026-10-01 it prints each PHC's control, BP readings ratio, titration,
 # new-patient loss, usable phone, called, early, on-statin and CCB Patient-Days,
 # and fails when a value is outside the section 7 range. A report whose function
 # returns no rows (a cut report, PD decision 2) is shown as "cut" and not checked.
@@ -16,6 +16,16 @@
 # 140-149, over all visits of the PHC's patients (SHCs included). PHC-E must be
 # at 2.0 or more in the last two quarters and rising; every other PHC must be at
 # or below 1.8 in all 4. Worked out here with its own SQL, not report_fudging_*.
+# Since 0.6.16_to_0.6.17, report_fudging's score is this PRD ratio for the newest
+# completed quarter (2026-Q3 for October), so the "Readings" column must equal the
+# last quarter worked out here, and its targets are the quarterly ones: PHC-E 2.0
+# to 2.6 (flagged), the others 0.9 to 1.79 (not flagged, under the 1.8 warning
+# line). The CR-4 3-month 135-139 / 140-144 score (PHC-E 5.2-5.6, others 0.9-1.5,
+# CLINICAL-RULES section 7) is no longer shown by any report and is not checked.
+#
+# The demo data comes from one upload file (test_data/demo/demo_generated.xlsx,
+# medicines included) plus the call and drug stock seeds. The section 7 targets
+# are unchanged; build_demo_data.py prints the numbers it planted.
 #
 #   PSQL   command that reads SQL on stdin
 #          (default: docker exec -i postgres psql -U h360tk_root -d heart360tk_database)
@@ -111,6 +121,7 @@ fi
 MONTH="$MONTH" python3 - "$out" "$qout" <<'PY'
 import os
 import sys
+from decimal import ROUND_HALF_UP, Decimal
 
 rows = [line.split("\t") for line in sys.argv[1].splitlines() if line.strip()]
 qrows = [line.split("\t") for line in sys.argv[2].splitlines() if line.strip()]
@@ -119,7 +130,7 @@ month = os.environ["MONTH"]
 # CLINICAL-RULES section 7, targets for October 2026. (lo, hi) inclusive;
 # None means no bound. "lt" means strictly below.
 DEFAULT = {
-    "fudging": (0.9, 1.5), "titration": (42, 50), "loss": (24, 30), "phone": (95, None),
+    "fudging": (0.9, 1.79), "titration": (42, 50), "loss": (24, 30), "phone": (95, None),
     "called": None, "early": (30, 45), "statin": (28, 35), "ccb": (60, 120),
 }
 TARGETS = {
@@ -127,11 +138,11 @@ TARGETS = {
     "PHC-B": {"called": (6, 9), "ccb": ("lt", 30)},
     "PHC-C": {"called": (4, 8), "phone": (40, 48)},
     "PHC-D": {"called": (4, 8), "loss": (36, 40)},
-    "PHC-E": {"called": (3, 5), "control": (72, 78), "fudging": (5.2, 5.6), "titration": (26, 30)},
+    "PHC-E": {"called": (3, 5), "control": (72, 78), "fudging": (2.0, 2.6), "titration": (26, 30)},
     "PHC-F": {"called": (8, 10), "early": (40, 50), "statin": (20, 23)},
 }
 COLS = [
-    ("control", "Control"), ("fudging", "Bunching"), ("titration", "Titration"),
+    ("control", "Control"), ("fudging", "Readings"), ("titration", "Titration"),
     ("loss", "NP loss"), ("phone", "Phone"), ("called", "Called"), ("early", "Early"),
     ("statin", "Statin"), ("ccb", "CCB PD"),
 ]
@@ -219,7 +230,8 @@ quarters = sorted({q for _, q, _, _ in qrows})
 ratios = {}
 for name, q, a, b in qrows:
     a, b = int(a), int(b)
-    ratios[(name, q)] = (a, b, round(a / b, 2) if b else None)
+    # numeric round() in SQL rounds half away from zero
+    ratios[(name, q)] = (a, b, float((Decimal(a) / Decimal(b)).quantize(Decimal('0.01'), ROUND_HALF_UP)) if b else None)
 print("")
 print("BP Fudging PRD ratio, 130-139 / 140-149, all visits (flag >= 2.0, warn >= 1.8, others must be <= 1.8)")
 print(f"{'Facility':<8}" + "".join(f"{q:>20}" for q in quarters))
@@ -237,6 +249,15 @@ for name in sorted({n for n, _, _, _ in qrows}):
             mark = " !"
         cells.append(f"{a}/{b}=" + ("-" if r is None else f"{r:.2f}") + mark)
     print(f"{name:<8}" + "".join(f"{c:>20}" for c in cells))
+# report_fudging (flags, Start here, chat) reads the same rule: newest completed quarter.
+for row in rows:
+    name, fud = row[0], row[3]
+    if fud == "CUT" or not quarters:
+        continue
+    own = ratios.get((name, quarters[-1]), (0, 0, None))[2]
+    got = None if fud == "" else round(float(fud), 2)
+    if got != own:
+        failures.append(f"{name} report_fudging score {fud or 'null'} != PRD ratio {own} for {quarters[-1]}")
 if len(quarters) == 4:
     e_last = [ratios[("PHC-E", q)][2] for q in quarters[-2:]]
     if None not in e_last and not e_last[1] > e_last[0]:

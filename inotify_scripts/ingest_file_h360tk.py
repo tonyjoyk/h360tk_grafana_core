@@ -40,6 +40,13 @@ COL_BS_VALUE = 'Blood Sugar Value'
 COL_DIAGNOSIS_1 = 'Diagnosis 1'
 COL_DIAGNOSIS_2 = 'Diagnosis 2'
 
+# Optional medicines column: the visit's prescription text, e.g.
+#   'Amlodipine 5 mg - 1 x 1 Tablet Sehari; Atorvastatin 20 mg - 1 x 1 Tablet Sehari'
+# The first of these headers found in the file is used (case and spaces ignored). The text is
+# stored as prescriptions.obat_raw for the visit; the database trigger parses it (parse_obat).
+COL_MEDICINES_CANDIDATES = ['Medicines', 'Obat', 'Prescription']
+PRESCRIPTION_SOURCE = 'upload'
+
 
 CSV_DATE_FORMATS = ["%Y-%m-%d", "%d-%m-%Y", "%d/%m/%y", "%d-%m-%Y %H:%M:%S", "%Y-%m-%d %H:%M:%S", "%d/%m/%y %H:%M:%S"]
 DATE_FORMAT_OUT = "%Y-%m-%d"
@@ -303,6 +310,47 @@ def execute_insert_diagnosis(cur, patient_id_sql, diagnosis_code):
 
     cur.execute(sql)
 
+def find_medicines_column(columns):
+    """Return the file's medicines column name, or None when the file has none."""
+    wanted = {name.strip().lower(): name for name in COL_MEDICINES_CANDIDATES}
+    by_key = {}
+    for col in columns:
+        key = str(col).strip().lower()
+        if key in wanted and key not in by_key:
+            by_key[key] = col
+    for name in COL_MEDICINES_CANDIDATES:
+        key = name.strip().lower()
+        if key in by_key:
+            return by_key[key]
+    return None
+
+def clean_medicines(value):
+    """The cell's text with surrounding spaces removed, or None for a blank cell."""
+    text = safe_str(value)
+    if text is None:
+        return None
+    text = text.strip()
+    if text == '' or text.lower() == 'nan':
+        return None
+    return text
+
+def execute_upsert_prescription(cur, encounter_id, obat_raw):
+    """Store the visit's medicines text, one row per encounter.
+
+    A re-import of the same text changes nothing: the WHERE clause skips the update, so the
+    parse trigger has no rows to re-parse. New text for the same visit replaces the old text.
+    """
+    if obat_raw is None:
+        return
+    sql = f"""
+INSERT INTO prescriptions (encounter_id, obat_raw, source)
+VALUES ({encounter_id}, {to_sql_literal(obat_raw)}, {to_sql_literal(PRESCRIPTION_SOURCE)})
+ON CONFLICT (encounter_id) DO UPDATE SET
+    obat_raw = EXCLUDED.obat_raw, source = EXCLUDED.source
+WHERE prescriptions.obat_raw IS DISTINCT FROM EXCLUDED.obat_raw;
+"""
+    cur.execute(sql)
+
 # --- MAIN INGESTION AND EXECUTION FUNCTION ---
 
 def ingest_and_execute(file_path: str) -> None:
@@ -315,6 +363,10 @@ def ingest_and_execute(file_path: str) -> None:
     Diagnosis tags are read from 'Diagnosis 1' and 'Diagnosis 2' columns.
     No fallback logic is applied — if diagnosis columns are empty, no
     diagnosis tag is created for that patient.
+
+    Medicines are read from an optional 'Medicines' (or 'Obat' / 'Prescription') column and
+    stored as the visit's prescriptions.obat_raw (source 'upload'). A missing column or a
+    blank cell writes nothing.
     """
 
     DTYPE_MAPPING = {COL_INDIVIDUAL_ID: str, COL_MOBILE: str}
@@ -347,6 +399,11 @@ def ingest_and_execute(file_path: str) -> None:
 
     print(f"Columns found: {list(df_data.columns)}", file=sys.stderr)
     print(f"Total rows: {len(df_data)}", file=sys.stderr)
+
+    col_medicines = find_medicines_column(df_data.columns)
+    stats['prescriptions'] = 0
+    if col_medicines is not None:
+        print(f"Medicines column: {col_medicines}", file=sys.stderr)
 
     if df_data.empty:
         print("Error: No data rows found in Excel", file=sys.stderr)
@@ -498,6 +555,13 @@ def ingest_and_execute(file_path: str) -> None:
                 if has_bs:
                     execute_insert_bs(cur, enc_id, sugar_type, sugar_value)
 
+                # 4. Medicines text for this visit (optional column; a blank cell writes nothing)
+                if col_medicines is not None:
+                    obat_raw = clean_medicines(row.get(col_medicines))
+                    if obat_raw is not None:
+                        execute_upsert_prescription(cur, enc_id, obat_raw)
+                        stats['prescriptions'] += 1
+
                 stats['processed_records'] += 1
 
             except psycopg2.Error as e:
@@ -509,6 +573,7 @@ def ingest_and_execute(file_path: str) -> None:
         print(f"Invalid last visit date excluded: {stats['invalid_visit_date']}", file=sys.stderr)
         print(f"Invalid registration date excluded: {stats['invalid_registration_date']}", file=sys.stderr)
         print(f"Successfully processed records: {stats['processed_records']}", file=sys.stderr)
+        print(f"Visits with medicines: {stats['prescriptions']}", file=sys.stderr)
 
     except psycopg2.Error as e:
         print(f"\n--- CONNECTION ERROR ---", file=sys.stderr)

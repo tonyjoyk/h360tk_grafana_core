@@ -4,7 +4,7 @@
 #   ./scripts/verify_chat.sh                 needs the stack (Grafana :3000, h360-api :8090, postgres)
 #   MONTH=2026-10-01 ./scripts/verify_chat.sh
 #
-# As district.d / demo (POST /login), asks every chip offered at PHC-E (11) and District-D (10)
+# As district.d / demo (POST /login), asks every chip offered at PHC-E and District-D (ids by name)
 # for MONTH, plus any nudge chip an answer offers (call_plan), and checks each answer:
 #   - HTTP 200 in under 3 s, mode `offline` when no key is set (`claude`/`offline_fallback` allowed
 #     when one is), and the honesty line exactly as h360_api/wording.py HONESTY;
@@ -96,6 +96,13 @@ def psql_json(sql):
         raise SystemExit("psql failed: " + (proc.stderr or proc.stdout).strip())
     out = proc.stdout.strip()  # -q: no command tags; json_agg of rows spans several lines
     return json.loads(out) if out else None
+
+
+# Org unit ids depend on the order the upload file creates them, so look them up by name.
+ORG = {r["name"]: r["id"] for r in psql_json(
+    "SELECT json_agg(json_build_object('name', name, 'id', id)) FROM (SELECT DISTINCT ON (name) name, id "
+    "FROM heart360tk_schema.org_units WHERE name IN ('PHC-A', 'PHC-E', 'District-D') ORDER BY name, id) o") or []}
+PLACES = [(ORG.get("PHC-E", 11), "PHC-E"), (ORG.get("District-D", 10), "District-D")]
 
 
 class Session:
@@ -375,13 +382,13 @@ for place_id, name in PLACES:
             check("PHC-E no met target listed as a reason (UX-07)", not on_target, "; ".join(on_target))
 
 nurse = Session("nurse.phc-a", "demo")
-status, body, _ = nurse.call("GET", f"/chat/chips?org_unit_id=11&reporting_month={MONTH}")
+status, body, _ = nurse.call("GET", f"/chat/chips?org_unit_id={ORG.get('PHC-E', 11)}&reporting_month={MONTH}")
 check("nurse.phc-a chips at PHC-E is 403", status == 403, f"http {status}")
-status, body, _ = nurse.call("POST", "/chat", {"chip_id": "why_control_low", "org_unit_id": 11,
+status, body, _ = nurse.call("POST", "/chat", {"chip_id": "why_control_low", "org_unit_id": ORG.get("PHC-E", 11),
                                                "reporting_month": MONTH})
 check("nurse.phc-a answer at PHC-E is 403", status == 403 and isinstance(body, dict)
       and body.get("message") == "You do not have access to this place.", f"http {status} {body}")
-status, body, _ = nurse.call("POST", "/chat", {"chip_id": "why_control_low", "org_unit_id": 3,
+status, body, _ = nurse.call("POST", "/chat", {"chip_id": "why_control_low", "org_unit_id": ORG.get("PHC-A", 3),
                                                "reporting_month": MONTH})
 check("nurse.phc-a answer at PHC-A is 200 (control)", status == 200, f"http {status}")
 

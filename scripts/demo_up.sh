@@ -142,7 +142,9 @@ run_sql() {
   echo "[$(elapsed)]   ${label} done in $((SECONDS - t0))s"
 }
 
-say "Loading demo seeds (20_prescriptions takes about 5 minutes on a new database)..."
+# The demo file carries patients, visits and medicines; the seeds add call results and drug stock.
+# Retired seeds in test_data/demo/seeds/retired/ are not run.
+say "Loading demo seeds (call results and drug stock)..."
 run_sql test_data/demo/seed_screening_cascade.sql "seed_screening_cascade.sql"
 for seed in test_data/demo/seeds/*.sql; do
   [[ -e "$seed" ]] || continue

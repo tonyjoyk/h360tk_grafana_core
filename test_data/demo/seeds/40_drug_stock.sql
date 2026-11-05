@@ -1,9 +1,16 @@
 -- Seed 40: drug stock for the six PHCs (story 4.7, AD-19, AD-22, AD-34).
--- Months 2026-09, 2026-10 and 2026-11 go through drug_stock_pull_apply.
--- PHC-B in 2026-11 is submitted twice, newer row first in the array; the
--- newer submission is the one that stays. PHC-B in 2026-10 has low CCB stock.
--- PHC-F leaves Chlorthalidone 25 blank in 2026-10 so the thiazide category
--- is unknown that month. The cohort is the six PHCs and no descendant of them.
+-- Twelve months of history, 2025-11 to 2026-10, plus 2026-11 ("now"), all through
+-- drug_stock_pull_apply, so anyone running the demo sees a realistic stock history.
+-- Drug stock is the one thing the demo upload file does not carry; it is entered on the
+-- Enter stock form in a real install.
+-- Stock is sized from each PHC's registered hypertension patients that month, so Patient-Days
+-- sit between about 72 and 108 (md5 of facility and month), except:
+--   * PHC-B runs low on CCB: about 63 Patient-Days in 2026-08, 45 in 2026-09 and 18 in 2026-10;
+--   * PHC-F leaves Chlorthalidone 25 blank in 2026-10 so the thiazide category is unknown that month;
+--   * PHC-B in 2026-11 is submitted twice, newer row first in the array; the newer one stays.
+-- Every submitted_at is in the past on 2026-11-05: each month is submitted on day 6 to 10 of
+-- that month at 09:00 UTC; 2026-11 on 2026-11-04 11:30 (PHC-B's earlier copy 2026-11-03 08:00).
+-- The cohort is the six PHCs and no descendant of them.
 SET ROLE heart360tk;
 SET search_path TO heart360tk_schema, public;
 
@@ -12,6 +19,19 @@ CREATE TABLE IF NOT EXISTS demo_seed_marker (
     anchor     date NOT NULL,
     applied_at timestamptz NOT NULL DEFAULT now()
 );
+
+CREATE OR REPLACE FUNCTION demo_seed_hash(p_key text)
+RETURNS bigint
+LANGUAGE sql
+IMMUTABLE
+AS $fn$
+    SELECT (
+        (get_byte(decode(md5(p_key), 'hex'), 0)::bigint << 24)
+      + (get_byte(decode(md5(p_key), 'hex'), 1)::bigint << 16)
+      + (get_byte(decode(md5(p_key), 'hex'), 2)::bigint << 8)
+      +  get_byte(decode(md5(p_key), 'hex'), 3)::bigint
+    );
+$fn$;
 
 DO $do$
 DECLARE
@@ -30,10 +50,8 @@ BEGIN
         RETURN;
     END IF;
 
-    SELECT COALESCE(
-        (SELECT anchor FROM demo_seed_marker WHERE seed = '10_visits'),
-        DATE '2026-10-13'
-    ) INTO v_anchor;
+    -- The demo data ends on 2026-10-13 (the newest visit in the demo file).
+    v_anchor := DATE '2026-10-13';
 
     FOR v_region, v_district, v_phc, v_shc IN
         SELECT *
@@ -104,17 +122,17 @@ BEGIN
         ) AS d(code, category, dose_slot)
     ),
     months AS (
-        SELECT *
-        FROM (VALUES
-            -- submitted_at is an offset from the anchor (2026-10-13), never later
-            -- than the demo "now" (anchor + 23 days = 2026-11-05), so a form
-            -- save for November wins under Latest Wins. With anchor 2026-10-13:
-            -- 2026-09-12 09:00, 2026-10-08 09:00, 2026-11-04 11:30, 2026-11-03 08:00.
-            (DATE '2026-09-01', (v_anchor - 31 + TIME '09:00') AT TIME ZONE 'UTC', FALSE),
-            (DATE '2026-10-01', (v_anchor -  5 + TIME '09:00') AT TIME ZONE 'UTC', FALSE),
-            (DATE '2026-11-01', (v_anchor + 22 + TIME '11:30') AT TIME ZONE 'UTC', FALSE),
-            (DATE '2026-11-01', (v_anchor + 21 + TIME '08:00') AT TIME ZONE 'UTC', TRUE)
-        ) AS m(month_start, submitted_at, earlier_november)
+        -- 2025-11 to 2026-10, submitted on day 6 to 10 of the month, then November 2026 twice
+        -- (anchor + 22 days = 2026-11-04 11:30 and anchor + 21 days = 2026-11-03 08:00).
+        SELECT gs::date AS month_start,
+               (gs::date + 5 + (demo_seed_hash(to_char(gs, 'YYYY-MM') || ':stock-day') % 5)::integer
+                + TIME '09:00') AT TIME ZONE 'UTC' AS submitted_at,
+               FALSE AS earlier_november
+        FROM generate_series(DATE '2025-11-01', DATE '2026-10-01', INTERVAL '1 month') AS gs
+        UNION ALL
+        SELECT DATE '2026-11-01', (v_anchor + 22 + TIME '11:30') AT TIME ZONE 'UTC', FALSE
+        UNION ALL
+        SELECT DATE '2026-11-01', (v_anchor + 21 + TIME '08:00') AT TIME ZONE 'UTC', TRUE
     ),
     fac AS (
         SELECT DISTINCT ON (ou.name) ou.id, ou.name
@@ -129,6 +147,10 @@ BEGIN
                m.month_start,
                m.submitted_at,
                m.earlier_november,
+               -- 0.80 to 1.20, fixed per facility and month; 1.0 for the current month.
+               CASE WHEN m.month_start = DATE '2026-11-01' THEN 1.0
+                    ELSE 0.80 + (demo_seed_hash(f.name || ':' || to_char(m.month_start, 'YYYY-MM') || ':stock') % 41) / 100.0
+               END AS wobble,
                (
                    SELECT count(*)
                    FROM patients p
@@ -156,18 +178,20 @@ BEGIN
                    WHEN s.name = 'PHC-F'
                         AND s.month_start = DATE '2026-10-01'
                         AND d.code = '197499' THEN NULL
-                   WHEN d.category = 'CCB' AND d.dose_slot = 2 THEN 0
+                   WHEN d.dose_slot = 2 THEN 0
                    WHEN d.category = 'CCB'
                         AND s.name = 'PHC-B'
-                        AND s.month_start = DATE '2026-10-01'
-                       THEN round(18 * GREATEST(s.patients_n, 1) * 1.4)
+                        AND s.month_start BETWEEN DATE '2026-08-01' AND DATE '2026-10-01'
+                       THEN round(CASE s.month_start
+                                      WHEN DATE '2026-08-01' THEN 63
+                                      WHEN DATE '2026-09-01' THEN 45
+                                      ELSE 18
+                                  END * GREATEST(s.patients_n, 1) * 1.4)
                    WHEN d.category = 'CCB'
-                       THEN round(90 * GREATEST(s.patients_n, 1) * 1.4)
-                   WHEN d.category = 'ARB' AND d.dose_slot = 2 THEN 0
+                       THEN round(90 * s.wobble * GREATEST(s.patients_n, 1) * 1.4)
                    WHEN d.category = 'ARB'
-                       THEN round(90 * GREATEST(s.patients_n, 1) * 0.37)
-                   WHEN d.category = 'Diuretic' AND d.dose_slot = 2 THEN 0
-                   ELSE round(90 * GREATEST(s.patients_n, 1) * 0.06)
+                       THEN round(90 * s.wobble * GREATEST(s.patients_n, 1) * 0.37)
+                   ELSE round(90 * s.wobble * GREATEST(s.patients_n, 1) * 0.06)
                END AS in_stock,
                'stock.' || lower(s.name) || '@hearts360.demo' AS submitter_email
         FROM sized s
