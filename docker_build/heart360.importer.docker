@@ -5,15 +5,15 @@ WORKDIR /importer
 RUN pip install --no-cache-dir \
         psycopg2-binary==2.9.9 \
         APScheduler==3.10.4 \
-        paramiko==3.5.1
+        paramiko==3.5.1 \
+        PyYAML==6.0.2
 
 RUN useradd -m importeruser && \
     chown -R importeruser /importer
 
 USER importeruser
 
-COPY ./importer_scripts/importer.py ./importer.py
-COPY ./importer_scripts/import_versions/ ./import_versions/
+COPY ./importer_scripts/ ./
 
 ENV IMPORT_AGGREGATE_DATA=false
 ENV IMPORT_FOLDER_PATH=/export

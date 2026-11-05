@@ -1,0 +1,127 @@
+# ============================================================================
+# Org Unit Mapping File
+# ----------------------------------------------------------------------------
+# ABOUT THE NAMES USED HERE
+# In this example file the org units are named "Level 1", "Level 2", "Level 3",
+# and so on. These are only EXAMPLE names, used to show the shape of the
+# hierarchy: "Level 1" is the top, "Level 2" sits under it, and so on down to
+# "Level N" (the deepest unit). An org unit's real name is simply whatever text
+# is in the "name" column of orgunit.csv - here that text just happens to be
+# "Level 1", "Level 2", etc. In a real deployment these would be the actual
+# names each country uses. 
+# ----------------------------------------------------------------------------
+# This file tells the central node where each leaf node's org units should sit.
+# Below we map three leaf nodes into one shared central hierarchy. Read the
+# comment written under each rule to see exactly what that rule does.
+# A simple how-to guide is at the very bottom of this file.
+#
+# What we are building in the central node:
+#
+#   Level 1
+#   |__ Level 2
+#       |__ Level 3
+#       |   |__ Level 4
+#       |__ Level 3'
+#           |__ Level 4'
+#               |__ Level 5'
+#
+#   Level 1''
+#   |__ Level 2''
+#       |__ Level 3''
+#           |__ Level 4''
+#               |__ Level 5''
+# ============================================================================
+
+
+# --- Leaf node: leaf_node_1 -------------------------------------------------
+# This leaf sends the full backbone: Level 1 > Level 2 > Level 3 > Level 4.
+# Its units are already named and placed exactly how we want them in the
+# central node, so leaf_node_1 needs NO rules. A leaf node with no block here
+# is imported exactly as it was sent. It also creates "Level 1" and "Level 2",
+# which leaf_node_2 below reuses as parents.
+
+
+# --- Leaf node: leaf_node_2 -------------------------------------------------
+# This leaf sends: Level 3' > Level 4' > Level 5'.
+# We attach it as a second branch under the SAME Level 1 > Level 2 above.
+leaf_node_2:
+  mappings:
+    - sourceOrgUnitId: "1"
+      targetOrgUnitName: "Level 3'"
+      targetOrgUnitHierarchy:
+        - "Level 1"
+        - "Level 2"
+    # Org unit 1 (" Level 3' ") is placed under Level 1 > Level 2, so it becomes
+    # a sibling of " Level 3 ". Because " Level 1 " and " Level 2 " already exist
+    # (created by leaf_node_1), the importer reuses them instead of making new
+    # ones. Level 4' and Level 5' sit under Level 3' in this leaf, so they
+    # follow it automatically into Level 1 > Level 2 > Level 3'.
+
+
+# --- Leaf node: leaf_node_3 -------------------------------------------------
+# This leaf sends: Level 3'' > Level 4'' > Level 5''.
+# We give it its own separate tree and add two new parents above it.
+leaf_node_3:
+  mappings:
+    - sourceOrgUnitId: "1"
+      targetOrgUnitName: "Level 3''"
+      targetOrgUnitHierarchy:
+        - "Level 1''"
+        - "Level 2''"
+    # Org unit 1 (" Level 3'' ") is placed under Level 1'' > Level 2''. Neither
+    # of those exists yet, so the importer creates them automatically. This is
+    # how you add missing parent levels that a leaf node did not send.
+    # Level 4'' and Level 5'' sit under Level 3'' in this leaf, so they follow
+    # it automatically into Level 1'' > Level 2'' > Level 3''.
+
+
+# ============================================================================
+# HOW TO DO A MAPPING  (simple step-by-step guide)
+# ----------------------------------------------------------------------------
+# WHAT IS THIS FILE FOR?
+#   Each leaf node sends its own org units. This file lets the central node
+#   decide where those units should sit, create them, or join them together.
+#   If a leaf node has no rules here, its units are imported exactly as sent.
+#
+# WHAT YOU NEED BEFORE YOU START:
+#   1. The leaf node's zip file (found in the SFTP or AWS upload folder).
+#   2. Two files from inside that zip:
+#        - metadata.json  -> gives the "source_key" (the leaf node's name).
+#        - orgunit.csv    -> lists the leaf's units (id, name, level, parent_id).
+#   3. A clear idea of where each unit should sit in the central node.
+#
+# STEPS:
+#   1. Open metadata.json and copy the "source_key" value exactly. Use it as
+#      the top block name (for example:  leaf_node_2: ).
+#   2. Open orgunit.csv to see each unit's id and name.
+#   3. Under the block write "mappings:" and then one rule per unit you want to
+#      move. You only need to map the top unit of a branch - its children
+#      follow it automatically.
+#   4. Save the file. The importer reads it again on every run, so no restart
+#      is needed. Then check the central node to confirm units landed right.
+#
+# THE FIELDS IN ONE RULE:
+#   Pick the unit (use ONE of these):
+#     sourceOrgUnitId    -> the id from orgunit.csv (numbers only, most exact).
+#     sourceOrgUnitName  -> the exact name from orgunit.csv (case-sensitive).
+#   Say where it goes (use at least ONE of these):
+#     targetOrgUnitName  -> the name to find or create in the central node.
+#     targetOrgUnitId    -> join to an existing central unit by its id.
+#   Set the parents (optional):
+#     targetOrgUnitHierarchy -> the list of parents, top one first, NOT
+#       including the unit itself. Write one parent per line with a "- ".
+#       Use [] for a top-level unit (a unit with no parents).
+#
+# SIMPLE RULES TO REMEMBER:
+#   - Copy the source_key exactly. A wrong key means the rules never run.
+#   - Prefer the id over the name when a name could repeat.
+#   - Spell names the same everywhere. "Level 1" and "level 1" are different.
+#   - A unit's level = number of parents in its hierarchy + 1.
+#   - Children always follow their parent, so map only the unit that moves.
+#   - To add a parent level a leaf did not send, just list it in the hierarchy
+#     and the importer will create it (see leaf_node_3 above).
+#   - To join the same unit from two leaves into one central unit, give it the
+#     same name and the same hierarchy in both blocks (their numbers are then
+#     added together).
+#   - Indent with spaces, never tabs. Put names in "double quotes".
+# ============================================================================

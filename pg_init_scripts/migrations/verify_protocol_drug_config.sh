@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
+MIGRATION="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
 DB_NAME="${PROTOCOL_DRUG_VERIFY_DB:-protocol_drug_config_verify}"
 
 if [[ ! -f "$MIGRATION" ]]; then
@@ -305,7 +305,7 @@ echo "apply via \\ir"
 sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$INCLUDE_DIR/01_include.sql" >/dev/null
 rm -rf "$INCLUDE_DIR"
 
-if ! grep -q '\\ir migrations/0.5.1_to_0.5.2.sql' "$ROOT/pg_init_scripts/01_heart360_tables.sql"; then
+if ! grep -q '\\ir migrations/0.6.0_to_0.6.1.sql' "$ROOT/pg_init_scripts/01_heart360_tables.sql"; then
     echo "01_heart360_tables.sql does not include the migration" >&2
     exit 1
 fi

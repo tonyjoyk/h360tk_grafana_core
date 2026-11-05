@@ -1,0 +1,531 @@
+{
+  "title": "Overdue calls",
+  "elements": {
+    "panel-calling-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · {Mon-YYYY} · overdue as on the overdue list\".\nconst root = rpt.mount('.rpt-cal-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nroot.innerHTML = '<h2 class=\"rpt-title\">Are we calling overdue patients early, and do they come back?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(rpt.month(rpt.reportingMonth())) + ' · overdue as on the overdue list</div>';\n",
+              "content": "<div class=\"rpt rpt-cal-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-cal-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-calling-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT c.*, cr.called_month_n, cr.returned_month_n, cr.returned_month_pct, cr.return_open_n,\n  np.too_few AS np_too_few, np.new_patients_n, np.new_returned_n, np.new_loss_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'new_patients' AND key = 'min_patients') AS np_min, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'called_below_pct') AS called_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'early_below_pct') AS early_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'early_days') AS early_days, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'return_days') AS return_days, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'min_overdue_phone') AS min_overdue_phone\nFROM report_calling('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) c\nLEFT JOIN report_calling_return('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) cr ON cr.org_unit_id = c.org_unit_id\nLEFT JOIN report_new_patients('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) np ON np.org_unit_id = c.org_unit_id\nWHERE c.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst col = (big, color, label, lines, title, few) => '<div' + (title ? ' title=\"' + rpt.esc(title) + '\"' : '') + '>'\n  + '<div class=\"rpt-big' + (few ? ' rpt-few' : '') + '\"' + (color ? ' style=\"color:' + color + '\"' : '') + '>' + rpt.esc(big) + '</div>'\n  + '<div class=\"rpt-label\">' + rpt.esc(label) + '</div>' + [].concat(lines).filter(Boolean).map((l) => '<div class=\"rpt-line\">' + rpt.esc(l) + '</div>').join('') + '</div>';\n// Headline strip (UX-11, UX-27): Called, Calls made early, Came back within 30 days (one rule:\n// report_calling_return), and New patients not back.\nconst root = rpt.mount('.rpt-cal-head');\nif (!root) { return; }\nconst { fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst back = r ? fmt(r.return_days) : '30';\nconst L = ['Called', 'Calls made early', 'Came back within ' + back + ' days', 'New patients not back'];\nconst strip = (cols) => '<div class=\"rpt-strip4\">' + cols.join('') + '</div>';\nif (!r) { root.innerHTML = strip(L.map((l) => col('—', '', l, rpt.NO_DATA))); return; }\nconst mon = rpt.month(rpt.reportingMonth());\nconst N = num(r.overdue_with_phone_n) || 0, n = num(r.called_n) || 0;\nconst low = (v, at) => num(v) !== null && num(at) !== null && num(v) < num(at);\nconst few = yes(r.too_few);\nconst tooFew = (label) => col('Too few patients', '', label, rpt.needAtLeast(r.min_overdue_phone, N), '', true);\nconst c1 = few ? tooFew(L[0]) : num(r.called_pct) === null ? col('—', '', L[0], rpt.NO_DATA)\n  : col(pct(r.called_pct), low(r.called_pct, r.called_below_pct) ? 'var(--flag-bar)' : 'var(--text-primary)', L[0],\n    [fmt(n) + ' of ' + fmt(N) + ' overdue patients with a phone', 'First call in ' + mon]);\nconst c2 = few ? tooFew(L[1]) : !n ? col('—', '', L[1], 'No calls this month.')\n  : col(pct(r.early_pct), low(r.early_pct, r.early_below_pct) ? 'var(--flag-bar)' : 'var(--text-primary)', L[1],\n    [fmt(r.early_n) + ' of ' + fmt(n) + ' calls', 'Within ' + fmt(r.early_days) + ' days of becoming overdue']);\nconst K = num(r.called_month_n) || 0, open = num(r.return_open_n) || 0;\nconst c3 = !K ? col('—', '', L[2], 'No calls this month.')\n  : col(pct(r.returned_month_pct), 'var(--controlled)', L[2],\n    [fmt(r.returned_month_n) + ' of ' + fmt(K) + ' patients called in ' + mon, open ? fmt(open) + ' may still come back.' : '']);\nconst NP = num(r.new_patients_n) || 0, gone = NP - (num(r.new_returned_n) || 0);\nconst c4 = !NP ? col('—', '', L[3], rpt.NO_DATA)\n  : yes(r.np_too_few) ? col('Too few patients', '', L[3], rpt.needAtLeast(r.np_min, NP), '', true)\n  : col(pct(r.new_loss_pct), 'var(--no-visit)', L[3], [fmt(gone) + ' of ' + fmt(NP) + ' new patients', 'No visit within 90 days of the first']);\nroot.innerHTML = strip([c1, c2, c3, c4]);\n",
+              "content": "<div class=\"rpt rpt-cal-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-cal-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-calling-chart": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT cr.called_month_n, cr.returned_month_n, cr.returned_early_pct, cr.returned_later_pct, cr.return_open_n, c.early_n,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'early_days') AS early_days\nFROM report_calling_return('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) cr\nJOIN report_calling('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) c ON c.org_unit_id = cr.org_unit_id\nWHERE cr.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Patients first called in the month who visited within 30 days of that call. Early calls are within 14 days of becoming overdue.",
+        "id": 0,
+        "links": [],
+        "title": "Came back within 30 days, by when we called",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// Two bars: share of patients called in the month who came back within 30 days, by when the call was made.\nconst frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];\nfunction col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }\nconst one = (n) => { const v = col(n)[0]; return v === null || v === undefined || v === '' ? null : Number(v); };\nconst C = chartColors;\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nconst centre = (text) => ({ graphic: allowed ? [{ type: 'text', left: 'center', top: 'middle', style: { text: text, fontSize: 14, fill: C.muted } }] : [] });\nif (!col('called_month_n').length) { return centre('No data for this place.'); }\nconst K = one('called_month_n') || 0, R = one('returned_month_n') || 0, pe = one('returned_early_pct'), pl = one('returned_later_pct');\nconst E = one('early_n') || 0, open = one('return_open_n') || 0, days = one('early_days');\nif (!K) { return centre('No calls this month.'); }\n// Counts behind the two shares: early calls are early_n of called_n; the rest are later.\nconst re = pe === null ? 0 : Math.round(pe * E / 100);\nconst nOf = [[re, E], [R - re, K - E]];\nconst share = [pe, pl];\nconst pctTxt = (v) => (v === null ? '—' : (Math.abs(v) < 10 ? v.toFixed(1) : String(Math.round(v))) + '%');\nconst names = ['Called within ' + fmt(days) + ' days', 'Called later'];\nconst label = (k) => (share[k] === null ? 'No calls' : pctTxt(share[k]) + ' · ' + fmt(nOf[k][0]) + ' of ' + fmt(nOf[k][1]));\nreturn {\n  animation: false,\n  grid: { left: 8, right: 120, top: 8, bottom: open ? 40 : 16, containLabel: true },\n  tooltip: tip((k) => [share[k] === null ? 'No calls in this group' : fmt(nOf[k][0]) + ' of ' + fmt(nOf[k][1]) + ' came back (' + pctTxt(share[k]) + ')'],\n    (k) => names[k], { axisPointer: { type: 'shadow', shadowStyle: { color: 'rgba(110,127,141,0.12)' } } }),\n  yAxis: { type: 'category', inverse: true, data: names, axisTick: { show: false },\n    axisLabel: { color: C.text, fontSize: 13 }, axisLine: { lineStyle: { color: C.axisLine } } },\n  xAxis: { type: 'value', min: 0, max: 100, interval: 25, axisLabel: { color: C.axis, fontSize: 11, formatter: (v) => v + '%' },\n    splitLine: { lineStyle: { color: C.grid } } },\n  series: [{\n    type: 'bar', name: 'Came back', barWidth: '46%',\n    data: share.map((v, k) => ({ value: v === null ? 0 : v, itemStyle: { color: k ? C.step[1] : C.step[4], borderRadius: [0, 2, 2, 0] } })),\n    label: { show: true, position: 'right', color: C.text, fontSize: 12, formatter: (p) => label(p.dataIndex) }\n  }],\n  graphic: open ? [{ type: 'text', left: 8, bottom: 8, style: { text: fmt(open) + ' called patients have not come back yet. They may still come back.', fontSize: 12, fill: C.muted } }] : []\n};\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-calling-calls": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT c.*,\n  (SELECT count(*) FROM report_calling('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) f WHERE NOT f.is_selected AND f.level >= (SELECT level FROM hierarchy_config WHERE var_name = 'facility')) AS facilities_n\nFROM report_calling('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) c\nWHERE c.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst overdueHref = (id) => '/d/heart360_showcase?var-org_unit=' + encodeURIComponent(id) + '&-dtab=Overdue-list';\n// Side card (UX-08): what happened on the calls, then a plan one nurse can do. The total is context, not\n// the target. Same plan as the chat (h360_api ranker CONSTANTS: calls_per_nurse_week 25, plan_weeks 4).\nconst root = rpt.mount('.rpt-cal-calls');\nif (!root) { return; }\nrpt.wireScroll(root);\nconst { esc, fmt, num } = rpt;\nconst r = rpt.rows('A')[0];\nconst PER_NURSE = 25, WEEKS = 4;\nconst here = rpt.atFacility();\nconst open = here ? '<a class=\"rpt-link\" href=\"' + esc(overdueHref(rpt.orgUnit())) + '\">Open the overdue list →</a>'\n  : '<a class=\"rpt-link\" href=\"#rpt-cal-table\">Pick a facility to open its list →</a>';\nconst head = '<h3 class=\"rpt-card-title\">What happened on the calls</h3>';\nif (!r) { root.innerHTML = head + rpt.noData() + open; return; }\nconst li = (label, n) => '<li><span>' + esc(label) + '</span><span>' + fmt(n) + '</span></li>';\nconst N = num(r.called_n) || 0, overdue = num(r.overdue_with_phone_n) || 0;\nconst facilities = here ? 1 : Math.max(1, num(r.facilities_n) || 0);\nconst plan = Math.min(PER_NURSE * WEEKS * facilities, overdue);\nconst planLine = facilities > 1\n  ? 'One nurse per facility can call about ' + PER_NURSE + ' a week, so ' + fmt(plan) + ' in ' + WEEKS + ' weeks across ' + fmt(facilities) + ' facilities.'\n  : 'One nurse can call about ' + PER_NURSE + ' a week, so ' + fmt(plan) + ' in ' + WEEKS + ' weeks.';\nroot.innerHTML = head\n  + '<ul class=\"rpt-kv\">' + li('Agreed to visit', r.agreed_n) + li('Call again later', r.call_again_n) + li('Removed from list', r.removed_n) + '</ul>'\n  + '<div class=\"rpt-kv-total\">' + fmt(N) + (N === 1 ? ' patient' : ' patients') + ' called in ' + esc(rpt.month(rpt.reportingMonth())) + '</div>'\n  + '<h3 class=\"rpt-card-title rpt-plan\">A plan you can do</h3>'\n  + '<div class=\"rpt-line rpt-plan-do\">' + esc(planLine) + ' Start at the top of the list, with patients not called yet.</div>'\n  + '<div class=\"rpt-line\">' + fmt(overdue) + ' overdue patients have a phone.</div>'\n  + open;\n",
+              "content": "<div class=\"rpt rpt-cal-calls\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-cal-calls\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}\n.rpt-kv { list-style: none; margin: 0 0 6px; padding: 0; }\n.rpt-kv li { display: flex; justify-content: space-between; gap: 12px; padding: 4px 0; border-bottom: 1px solid rgba(128,128,128,0.2); font-size: 13px; }\n.rpt-kv li span:last-child { font-variant-numeric: tabular-nums; font-weight: 600; }\n.rpt-kv-total { font-size: 13px; font-weight: 600; margin-bottom: 8px; }\n.rpt-plan { font-size: 14px; margin: 0 0 4px; }\n.rpt-cal-calls .rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-bottom: 6px; }\n.rpt-cal-calls .rpt-plan-do { color: var(--text-primary); font-size: 13px; }\n.rpt-cal-calls a.rpt-link { font-size: 14px; font-weight: 500; }",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-calling-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT c.*, cr.called_month_n, cr.returned_month_n, cr.returned_month_pct,\n  np.flag AS phone_flag, np.new_patients_n, np.new_usable_phone_n, np.new_usable_phone_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'called_below_pct') AS called_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'early_below_pct') AS early_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'early_days') AS early_days, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'return_days') AS return_days, (SELECT value FROM report_flag_thresholds WHERE report = 'calling' AND key = 'min_overdue_phone') AS min_overdue_phone,\n  fl.flags_json\nFROM report_calling('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) c\nLEFT JOIN report_calling_return('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) cr ON cr.org_unit_id = c.org_unit_id\nLEFT JOIN report_new_patients('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) np ON np.org_unit_id = c.org_unit_id\nLEFT JOIN fl ON fl.org_unit_id = c.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\nconst overdueHref = (id) => '/d/heart360_showcase?var-org_unit=' + encodeURIComponent(id) + '&-dtab=Overdue-list';\n// Facility table: Facility, Overdue with a phone, Called, Calls made early, Came back, Overdue list, Why look here.\nconst root = rpt.mount('.rpt-cal-table');\nif (!root) { return; }\nconst { esc, fmt, num, yes, pct } = rpt;\nconst low = (v, at) => num(v) !== null && num(at) !== null && num(v) < num(at);\n// Flags: two from report_calling, one from the new-patient phone flag (EP-12). At most two pills.\nconst hits = (r) => [\n  low(r.called_pct, r.called_below_pct) && !yes(r.too_few) ? ['Few called', 'Only ' + pct(r.called_pct) + ' of ' + fmt(r.overdue_with_phone_n) + ' overdue patients with a phone were called.'] : null,\n  low(r.early_pct, r.early_below_pct) && !yes(r.too_few) ? ['Mostly late calls', 'Only ' + pct(r.early_pct) + ' of ' + fmt(r.called_n) + ' calls were within ' + fmt(r.early_days) + ' days.'] : null,\n  yes(r.phone_flag) ? ['Few phone numbers', 'Only ' + pct(r.new_usable_phone_pct) + ' of ' + fmt(r.new_patients_n) + ' new patients have a usable phone number.'] : null\n].filter(Boolean).slice(0, 2);\nconst rows = rpt.rows('A').map((r) => Object.assign({}, r, { flag: yes(r.flag) || yes(r.phone_flag) }));\nconst share = (p, n, d) => (num(p) === null ? '—' : pct(p) + '<div class=\"rpt-cnt\">' + fmt(n) + ' of ' + fmt(d) + '</div>');\nconst isFacility = (r) => (num(r.level) || 0) >= 3;\nrptTable(root, {\n  report: 'calling',\n  rows: rows,\n  caption: 'Overdue patients with a phone, calls and returns, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Overdue with a phone', num: true, value: (r) => num(r.overdue_with_phone_n), cell: (r) => fmt(r.overdue_with_phone_n) },\n    { label: 'Called', num: true, guard: true, value: (r) => num(r.called_pct), cell: (r) => share(r.called_pct, r.called_n, r.overdue_with_phone_n) },\n    { label: 'Calls made early', num: true, guard: true, value: (r) => num(r.early_pct), cell: (r) => share(r.early_pct, r.early_n, r.called_n) },\n    { label: 'Came back', num: true, value: (r) => num(r.returned_month_pct), cell: (r) => share(r.returned_month_pct, r.returned_month_n, r.called_month_n),\n      title: (r) => 'Visited within ' + fmt(r.return_days) + ' days of the first call this month' },\n    { label: 'Overdue list', value: (r) => (isFacility(r) ? 1 : 0),\n      cell: (r) => (isFacility(r) ? '<a class=\"rpt-link\" href=\"' + esc(overdueHref(r.org_unit_id)) + '\">Open list</a>' : '<span class=\"rpt-cnt\">Pick a facility</span>') }\n  ],\n  flagNames: (r) => hits(r).map((h) => h[0]),\n  reason: (r) => hits(r).map((h) => h[1]).join(' '),\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_overdue_phone, r.overdue_with_phone_n),\n  size: (r) => num(r.overdue_with_phone_n)\n});\n",
+              "content": "<div class=\"rpt rpt-cal-table\" id=\"rpt-cal-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-cal-table\" id=\"rpt-cal-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}\n.rpt-cnt { font-size: 12px; color: var(--text-muted); font-weight: 400; }",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-calling-note": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst overdueHref = (id) => '/d/heart360_showcase?var-org_unit=' + encodeURIComponent(id) + '&-dtab=Overdue-list';\n// How this is worked out (one return rule, UX-11), then the Next step (UX-12: facility list, or pick a facility).\nconst root = rpt.mount('.rpt-cal-note');\nif (!root) { return; }\nrpt.wireScroll(root);\nroot.innerHTML = '<div class=\"rpt-note\"><strong>How this is worked out.</strong> Overdue patients are those on the overdue list with a phone number. '\n  + 'Called counts the first call to each of them in the month. A call is early if made within 14 days of becoming overdue. '\n  + 'Came back means a visit within 30 days of that first call. Patients called late in the month may still come back. '\n  + 'New patients not back had no visit within 90 days of their first visit.</div>'\n  + (rpt.atFacility() ? rpt.nextStep('Open the overdue list', overdueHref(rpt.orgUnit()))\n    : rpt.nextStep('Pick a facility to open its overdue list', '#rpt-cal-table'));\n",
+              "content": "<div class=\"rpt rpt-cal-note\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-cal-note\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "RowsLayout",
+    "spec": {
+      "rows": [
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-chart"
+                      },
+                      "height": 9,
+                      "width": 14,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-calls"
+                      },
+                      "height": 9,
+                      "width": 10,
+                      "x": 14,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-table"
+                      },
+                      "height": 19,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-calling-note"
+                      },
+                      "height": 3,
+                      "width": 24,
+                      "x": 0,
+                      "y": 19
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

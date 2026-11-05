@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
-MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.5.2_to_0.5.3.sql"
+MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
+MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
 SPEC="$ROOT/drug_stock/form/form_field_spec.json"
 SHEET_MAP="$ROOT/drug_stock/form/wide_to_long.json"
 TABLES="$ROOT/pg_init_scripts/01_heart360_tables.sql"
@@ -56,8 +56,12 @@ drop_db() {
 
 drop_db
 "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 <<SQL
-DROP ROLE IF EXISTS heart360tk;
-CREATE ROLE heart360tk LOGIN;
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'heart360tk') THEN
+        CREATE ROLE heart360tk LOGIN;
+    END IF;
+END \$\$;
 CREATE DATABASE ${DB_NAME} OWNER heart360tk;
 SQL
 
@@ -499,14 +503,13 @@ SQL
 python3 - "$TABLES" <<'PY'
 import sys
 lines = open(sys.argv[1]).read().splitlines()
-first = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.1_to_0.5.2.sql")
-second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.2_to_0.5.3.sql")
+first = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.0_to_0.6.1.sql")
+second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.1_to_0.6.2.sql")
 if second != first + 1:
     raise SystemExit(f"include order is line {first + 1} then line {second + 1}")
-print("include line follows 0.5.1_to_0.5.2.sql")
+print("include line follows 0.6.0_to_0.6.1.sql")
 PY
 
 drop_db
-"${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS heart360tk;" >/dev/null
 
 echo "drug stock form cohort verified"

@@ -23,6 +23,14 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# export_run_log.log_type values (enforced by a CHECK constraint).
+LOG_TYPE_LEAF_NODE = 'leaf_node'
+LOG_TYPE_INFRASTRUCTURE = 'infrastructure'
+
+# export_run_log.source_key for exporter configuration failures, which are not
+# an export attempt by this leaf node.
+SOURCE_EXPORTER = 'Exporter'
+
 VERSION_DATA_FORMAT_MAP: dict[str, int] = {
     '0.5.0': 1,
 }
@@ -119,8 +127,9 @@ def validate_config():
 
     missing = [k for k, v in required.items() if not v]
     if missing:
-        log.error("Missing required environment variables: %s", ', '.join(missing))
-        sys.exit(1)
+        exit_with_exporter_error(
+            f"Missing required environment variables: {', '.join(missing)}"
+        )
 
     log.info("Config validated OK.")
     log.info("  SOURCE_KEY          : %s", SOURCE_KEY)
@@ -392,7 +401,17 @@ def upload(zip_path):
 
 
 def log_export_run(started_at, status, duration_seconds=None,
-                   destination=None, error_message=None):
+                   destination=None, error_message=None, infrastructure_layer=None):
+    """Write one export_run_log row.
+
+    Rows describe this leaf node's own export (source_key = SOURCE_KEY) unless
+    infrastructure_layer is given, e.g. 'Exporter' for a configuration failure.
+    """
+    if infrastructure_layer:
+        source_key, log_type = infrastructure_layer, LOG_TYPE_INFRASTRUCTURE
+    else:
+        source_key, log_type = SOURCE_KEY, LOG_TYPE_LEAF_NODE
+
     try:
         with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
             conn.autocommit = True
@@ -401,21 +420,35 @@ def log_export_run(started_at, status, duration_seconds=None,
                     '''
                     INSERT INTO heart360tk_reporting.export_run_log
                         (source_key, started_at, finished_at, status,
-                         duration_seconds, destination, error_message)
-                    VALUES (%s, %s, NOW(), %s, %s, %s, %s)
+                         duration_seconds, destination, error_message, log_type)
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s, %s)
                     ''',
                     (
-                        SOURCE_KEY,
+                        source_key,
                         datetime.fromtimestamp(started_at, tz=timezone.utc),
                         status,
                         duration_seconds,
                         destination,
                         error_message,
+                        log_type,
                     )
                 )
-        log.info("  Export run logged to DB — status=%s, duration=%.2fs", status, duration_seconds or 0)
+        log.info("  Export run logged to DB — source_key=%s, log_type=%s, status=%s, duration=%.2fs",
+                 source_key, log_type, status, duration_seconds or 0)
     except Exception as e:
         log.warning("Could not write export run log to DB (non-fatal): %s", e)
+
+
+def exit_with_exporter_error(error):
+    """Log a startup configuration failure and stop the container."""
+    log.error("Exporter configuration error: %s", error)
+    log_export_run(
+        started_at           = time.time(),
+        status               = 'failed',
+        error_message        = str(error),
+        infrastructure_layer = SOURCE_EXPORTER,
+    )
+    sys.exit(1)
 
 
 def run_export():
@@ -464,8 +497,7 @@ def start_scheduler():
     try:
         trigger = CronTrigger.from_crontab(EXPORT_CRON)
     except Exception as e:
-        log.error("Invalid EXPORT_CRON expression '%s': %s", EXPORT_CRON, e)
-        sys.exit(1)
+        exit_with_exporter_error(f"Invalid EXPORT_CRON expression '{EXPORT_CRON}': {e}")
 
     scheduler = BlockingScheduler()
     scheduler.add_job(run_export, trigger, id='export_job', name='h360tk export')

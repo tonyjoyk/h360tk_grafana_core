@@ -6,11 +6,12 @@ datasources:
     uid: postgres-grafana
     type: postgres
     url: postgres:5432
-    user: grafana
+    # Column-level read-only role (AD-14); the Grafana server role `grafana` only owns grafana_schema.
+    user: grafana_reader
     access: proxy
     isDefault: false 
     version: 4
-    editable: true
+    editable: false
     jsonData:
       # Host is the Docker service name, port is the default 5432
       host: 
@@ -18,7 +19,7 @@ datasources:
       database: heart360tk_database
       # Use a secure connection if needed, but 'disable' is common for Docker environments
       sslmode: disable
-      searchPath: public
+      searchPath: grafana_schema,public
       # Postgres plugin requires this for time series
       timescaledb: false
       maxOpenConns: 100
@@ -31,4 +32,4 @@ datasources:
       intVal: true
     secureJsonData:
       # Password must be stored securely
-      password: ZDI5MGE3YmYyMTRlNGNmYThkMTYyZjk3
+      password: grafana_reader_mvp
