@@ -59,6 +59,11 @@ postgres container's volume. If the volume is not carried over to the renamed co
 
 ## Current use
 
-On 2026-11-05 the `h360tk_grafana_core-demo` worktree (branch `cursor/hearts360-mvp-7579`) was moved
-to the values above, so the owner could run another leaf node on the stock ports. The demo is at
-http://localhost:3100.
+Since 2026-11-05, the experimental branch `cursor/hearts360-mvp-7579` runs on the values above. That
+leaves the stock ports free for the **0.7.0 release** under review. The release stack runs from its
+own checkout with no overrides, at http://localhost:3000. The experiment is at http://localhost:3100.
+
+Keep the two checkouts separate. Run each stack's `docker compose` and scripts from its own folder.
+Don't remove the `.env` block in the experiment folder while the release stack is running: both
+stacks would then claim the containers named `grafana` and `postgres`, and the experiment's scripts
+would send SQL to the release database.

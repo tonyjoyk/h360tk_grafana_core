@@ -1,3 +1,31 @@
+> [!IMPORTANT]
+> **This is an experimental branch, not a release.**
+> `cursor/hearts360-mvp-7579` explores what HEARTS360 could become: report tabs, the Ask HEARTS360 chat, a drug stock entry form and demo data. The release under review is **0.7.0**, on its own branch. Nothing here is meant to merge into 0.7.0 as is.
+>
+> **It runs beside the release stack.** The release stack keeps the stock ports and container names. This branch moves to other ports through its own `.env`, so both stacks run on one machine at the same time.
+>
+> | | Release stack (0.7.0, stock) | This experiment |
+> | --- | --- | --- |
+> | Grafana | http://localhost:3000 | http://localhost:3100 |
+> | Postgres | 5432 | 5532 |
+> | h360-api | 8090 | 8190 |
+> | pgAdmin | 5050 | 5150 |
+> | filebrowser (upload) | 8080 | 8180 |
+> | Containers | `grafana`, `postgres`, … | `demo-grafana`, `demo-postgres`, … |
+>
+> **Set up the experiment in its own folder:**
+>
+> 1. Clone or add a worktree for this branch in a separate folder from the release checkout.
+> 2. Copy `.env.example` to `.env` and uncomment the "Host ports and container names" block. It holds the values in the table above.
+> 3. Run `./scripts/demo_up.sh`. It starts the stack, loads the demo data (about 10 to 15 minutes the first time), creates demo users and prints the links.
+> 4. Open http://localhost:3100 and sign in as `admin` / `admin`. The demo Viewers are `district.d` and `nurse.phc-a`, password `demo`.
+>
+> **Revert to the stock ports:** delete that block from `.env`, stop the release stack, then run `docker compose up -d`. The full steps are in [Running two stacks](docs/running-two-stacks.md).
+>
+> **Do not:**
+> - run `docker compose` for this branch from the release folder, or the other way round;
+> - remove the `.env` block while the release stack is running. Both stacks would then claim the same container names, and the scripts would talk to the wrong database.
+
 In order to launch this h360tk_grafana_core:
 
 ```
