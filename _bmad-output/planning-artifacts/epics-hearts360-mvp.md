@@ -525,6 +525,20 @@ As Vikram, I want to see drug stock only for my district, so that I do not see o
 - **Given** a district view, **Then** the All row and a coverage line (`reporting_n` of `cohort_n` facilities) come from the SQL of 3.2.
 - **Given** the board, **Then** it contains a link to Reports and passes `verify_dashboard_queries.py` as `heart360tk_reader`.
 
+### Story 3.5: Drug stock entry form (owner request 2026-11-05)
+
+As Meera, I want to type this month's stock of each protocol medicine into a short form on the Drug Stock board, so that stock is recorded without a Google Form.
+
+**Unit** U19 · **Model** parent · **Cut** keep · **Deps** 2.9, 2.10, 3.1, 3.4 · **Status** backlog
+**Owns** `pg_init_scripts/migrations/0.6.14_to_0.6.15.sql` (`save_drug_stock_entry`), `pg_init_scripts/migrations/verify_drug_stock_entry.sh`, `h360_api/routes/stock.py`, `h360_api/tests/test_stock.py`, the entry panel and link in `heart360.drug.stock.json`, the `\ir` line for `0.6.14_to_0.6.15` in `01_heart360_tables.sql` (coordinator)
+**Refs** FR-19, FR-21, FR-25, AD-16, AD-19, AD-21, Grant matrix, owner request 2026-11-05
+
+**Acceptance Criteria:**
+- **Given** the Drug Stock board with one facility selected, **Then** a panel `Enter stock` shows one number field per protocol medicine and strength from `protocol_drugs` (blank means not counted, `0` means none in stock), the month (default the current month), and a `Save stock` button; above facility level it reads `Pick one facility to enter stock.`
+- **Given** `Save stock`, **Then** the browser posts to `h360-api` `POST /write/drug-stock` with `credentials:'include'` and `X-H360-Request: 1`; the API takes identity only from the Grafana session, checks `h360_access_allows` for the facility, validates whole numbers 0 to 1,000,000, and calls one `SECURITY DEFINER` function `save_drug_stock_entry` that writes through `drug_stock_pull_apply` with `submitted_by` = the Grafana login's email and `submitted_at` = now, so Latest Wins (AD-19) and history apply.
+- **Given** a Viewer without access to the facility, **Then** the API returns `403` and nothing is written; a direct `/api/ds/query` write still fails (G1a unchanged).
+- **Given** a save, **Then** the panel shows `Saving…` then `Saved ✓`, and the board's stock tables show the new values after refresh; the grant matrix gains `h360_api` EXECUTE on `save_drug_stock_entry` only, and `verify_security.sh` stays green.
+
 ## Epic 4: Medicine data and fake data
 
 ### Story 4.1: `medicines` catalogue and protocol drug link
@@ -877,6 +891,19 @@ As Vikram, I want a tab that shows the share of eligible patients on a statin, s
 - **Given** a selection above facility level, **Then** the banner `The patient list is available only at the facility level.` shows.
 - **Given** cut 2, **Then** the row is removed; **Given** cut 3, **Then** the file leaves `TABS`.
 
+### Story 5.18: Overdue section on the Hypertension tab (owner request 2026-11-05)
+
+As Vikram, I want overdue patients, overdue patients called and overdue patients who returned to care on the Hypertension tab, so that the follow-up story sits next to control.
+
+**Unit** U20 · **Model** parent · **Cut** keep · **Deps** 1.1 · **Status** backlog
+**Owns** the Hypertension tab of `heart360.hypertension-diabetes.program.json` (this section only), the baseline in `scripts/check_htn_dm_untouched.py`
+**Refs** owner request 2026-11-05 (supersedes NFR-1 for this section only), hearts360 overdue charts on `origin/0.3.9` (`heart360.facility.dashboard.json` panels 13 to 16), DESIGN tokens, shared `tip()`
+
+**Acceptance Criteria:**
+- **Given** the Hypertension tab, **Then** a section `Overdue patients` sits directly above the facility comparison chart at the bottom, built as one continuous card in the same style as the redesigned key indicators section (not three loose panels).
+- **Given** the section, **Then** it shows the three measures from the 0.3.9 charts (Overdue patients, Overdue patients called, Overdue patients that returned to care) with their monthly trend, the headline number for the reporting month, and `n of N` lines, using the same queries and definitions as 0.3.9 adapted to the current schema and the `isAllowed` gate.
+- **Given** the change, **Then** no other Hypertension or Diabetes panel changes, `check_htn_dm_untouched.py` compares against the new reviewed baseline and exits 0, and `verify_dashboard_queries.py` passes with every new query under 2 s.
+
 ## Epic 6: Chat
 
 ### Story 6.1: Chat SQL: control summary, stock gate and call plan
@@ -1112,3 +1139,16 @@ As Tony, I want one rehearsal by someone who did not build it and a backup video
 - **Given** `docker compose down -v` then `./scripts/demo_up.sh`, **Then** the stack is ready in 15 minutes or less and a second run changes no row counts.
 - **Given** a person who did not build the product, **Then** they name the facility to visit first, and why, in two minutes.
 - **Given** the run order, **Then** one screen video of it is recorded and stored outside the repository.
+
+### Story 7.9: UX audit of all dashboards (owner request 2026-11-05)
+
+As Tony, I want one usability pass over every dashboard after the build, so that the whole product is easy to navigate.
+
+**Unit** U21 · **Model** parent · **Cut** floor · **Deps** 5.11 to 5.18, 3.5, 6.9 · **Status** backlog
+**Owns** `_bmad-output/implementation-artifacts/ux-audit-2026-11.md`; fixes land in the owning files with the owner's stories
+**Refs** EXPERIENCE.md, DESIGN.md, review-2026-11 copy findings
+
+**Acceptance Criteria:**
+- **Given** the Reports tabs, the Hypertension and Diabetes tabs, the Overdue list and the Drug Stock board, **Then** each is walked in the browser at 1366x768 and findings are listed with a screenshot reference, severity and the fix.
+- **Given** the Reports navigation, **Then** the audit names what makes it confusing and the fix (tab order, strip, links back and forth) is applied.
+- **Given** every finding rated must-fix, **Then** it is fixed and re-checked, and the Overdue list keeps its current behaviour.

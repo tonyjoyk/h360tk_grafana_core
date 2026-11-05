@@ -60,6 +60,7 @@ development_status:
   3-2-patient-days-with-blank-strength-a-correct-all-row-and-subtr: done
   3-3-wide-form-sheet-puller: done
   3-4-drug-stock-board-access-gate-coverage-line-and-reports-link: done
+  3-5-drug-stock-entry-form: backlog
   epic-3-retrospective: optional
 
   epic-4: in-progress
@@ -91,6 +92,7 @@ development_status:
   5-15-tab-overdue-calls: backlog
   5-16-tab-right-medicines: backlog
   5-17-tab-statins: backlog
+  5-18-overdue-section-on-hypertension-tab: backlog
   epic-5-retrospective: optional
 
   epic-6: backlog
@@ -114,4 +116,5 @@ development_status:
   7-6-slow-laptop-browser-pass: backlog
   7-7-report-docs-demo-runbook-and-image-freeze: backlog
   7-8-rehearsal-and-backup-recording: backlog
+  7-9-ux-audit-of-all-dashboards: backlog
   epic-7-retrospective: optional
