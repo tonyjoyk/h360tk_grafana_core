@@ -84,7 +84,16 @@ ON CONFLICT (country_code, programme_code, drug_category) DO UPDATE
     SET category_coeff = EXCLUDED.category_coeff,
         load_factor    = EXCLUDED.load_factor;
 
-CREATE OR REPLACE VIEW heart360tk_reporting.drug_stock_patient_days AS
+-- Re-run safety (story 7.4): 0.6.6_to_0.6.7 replaces this view with more columns
+-- (category_known ...). CREATE OR REPLACE cannot drop columns, so only create this
+-- older shape when the newer view is not there yet.
+DO $guard$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM information_schema.columns
+                   WHERE table_schema = 'heart360tk_reporting'
+                     AND table_name = 'drug_stock_patient_days'
+                     AND column_name = 'category_known') THEN
+        EXECUTE $view$CREATE OR REPLACE VIEW heart360tk_reporting.drug_stock_patient_days AS
 WITH active AS (
     SELECT
         s.country_code,
@@ -202,10 +211,12 @@ FROM (
             PARTITION BY org_unit_id, reporting_month, drug_category
         ) AS category_normalized_stock
     FROM base
-) scored;
+) scored$view$;
+        EXECUTE $cmt$COMMENT ON VIEW heart360tk_reporting.drug_stock_patient_days IS
+    'Patient-Days = sum(in_stock * dose_factor) / (registered cumulative_number_of_patients * load_factor * category_coeff). Null in_stock stays null. patients_n null or 0 yields null.'$cmt$;
+    END IF;
+END $guard$;
 
-COMMENT ON VIEW heart360tk_reporting.drug_stock_patient_days IS
-    'Patient-Days = sum(in_stock * dose_factor) / (registered cumulative_number_of_patients * load_factor * category_coeff). Null in_stock stays null. patients_n null or 0 yields null.';
 
 REVOKE ALL ON TABLE coeff_config FROM PUBLIC;
 
