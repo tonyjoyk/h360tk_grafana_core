@@ -30,7 +30,7 @@ REVIEWED_ADDITIONS = {
             "title": "Overdue patients",
             "before": "Sub Levels",
             "elements": ["panel-overdue"],
-            "sha256": "0f50732b0f95813fdf48bc72e2f9518a0080b9e6e69d2dcafc8c84103f3243e1",
+            "sha256": "9c685d29c3e21726e296e9c7667dc3e9d8cc6efc05b5713f82bd890075e0e375",
         },
     ],
 }

@@ -26,10 +26,10 @@
       "keepTime": false,
       "tags": [],
       "targetBlank": false,
-      "title": "Reports",
-      "tooltip": "HEARTS360 Reports",
+      "title": "Find the cause",
+      "tooltip": "Reports for your place, from Stepping up",
       "type": "link",
-      "url": "/d/heart360_reports"
+      "url": "/d/heart360_reports?var-org_unit=${UserOrgUnitId}&var-reporting_month=${reporting_month}&-dtab=Stepping-up"
     }
   ],
   "panels": [
@@ -51,7 +51,7 @@
           "showLineNumbers": false,
           "showMiniMap": false
         },
-        "content": "<div id=\"h360-router\" style=\"padding:24px;text-align:center;color:#9ca3af;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px\">Loading…</div>\n<script>\n(function(){\n  try {\n    // Grafana may be served under a sub path (e.g. /indonesia-central); keep it on every redirect.\n    var base = '';\n    try { base = (window.top.grafanaBootData && window.top.grafanaBootData.settings && window.top.grafanaBootData.settings.appSubUrl) || ''; } catch (baseEx) {}\n    if (!base) {\n      var path = window.top.location.pathname, cut = path.indexOf('/d/');\n      if (cut > 0) { base = path.slice(0, cut); }\n    }\n    base = base.replace(/\\/+$/, '');\n    var go = function(url) {\n      if (url.charAt(0) === '/' && url.indexOf(base + '/') !== 0) { url = base + url; }\n      window.top.location.replace(url);\n    };\n    var checkInterval = setInterval(function() {\n      try {\n        var urlParams = new URLSearchParams(window.top.location.search);\n        var isGlobal = urlParams.get('var-UserIsGlobal');\n        if (isGlobal === null || isGlobal === '') {\n          return;\n        }\n        if (isGlobal === '1') {\n          clearInterval(checkInterval);\n          go('/d/heart360_showcase/hypertension-and-diabetes-program?from=now-2y&to=now&timezone=browser&-dtab=Hypertension&var-org_unit=');\n        } else if (isGlobal === '0') {\n          var drillUrl = urlParams.get('var-UserDrillUrl');\n          if (drillUrl && drillUrl !== 'null' && drillUrl !== '') {\n            clearInterval(checkInterval);\n            go(drillUrl + '&orgId=1');\n          }\n        }\n      } catch(innerEx) {\n        console.error('HEARTS360 router polling error:', innerEx);\n      }\n    }, 100);\n    setTimeout(function() {\n      clearInterval(checkInterval);\n      if (window.top.location.pathname.indexOf('/d/heart360-home') !== -1) {\n        go('/d/heart360_showcase/hypertension-and-diabetes-program?from=now-2y&to=now&timezone=browser&-dtab=Hypertension&var-org_unit=');\n      }\n    }, 3000);\n  } catch(e) { console.error('HEARTS360 home redirect failed:', e); }\n})();\n</script>",
+        "content": "<div id=\"h360-router\" style=\"padding:24px;text-align:center;color:#9ca3af;font-family:-apple-system,Segoe UI,Roboto,sans-serif;font-size:13px\">Loading…</div>\n<script>\n(function(){\n  try {\n    // Grafana may be served under a sub path (e.g. /indonesia-central); keep it on every redirect.\n    var base = '';\n    try { base = (window.top.grafanaBootData && window.top.grafanaBootData.settings && window.top.grafanaBootData.settings.appSubUrl) || ''; } catch (baseEx) {}\n    if (!base) {\n      var path = window.top.location.pathname, cut = path.indexOf('/d/');\n      if (cut > 0) { base = path.slice(0, cut); }\n    }\n    base = base.replace(/\\/+$/, '');\n    // Left menu collapsed by default (UX-35); only set when the user has not chosen.\n    try {\n      var ls = window.top.localStorage;\n      if (ls.getItem('grafana.navigation.docked') === null) { ls.setItem('grafana.navigation.docked', 'false'); }\n    } catch (navEx) {}\n    var go = function(url) {\n      if (url.charAt(0) === '/' && url.indexOf(base + '/') !== 0) { url = base + url; }\n      window.top.location.replace(url);\n    };\n    var checkInterval = setInterval(function() {\n      try {\n        var urlParams = new URLSearchParams(window.top.location.search);\n        var isGlobal = urlParams.get('var-UserIsGlobal');\n        if (isGlobal === null || isGlobal === '') {\n          return;\n        }\n        if (isGlobal === '1') {\n          clearInterval(checkInterval);\n          go('/d/heart360_showcase/hypertension-and-diabetes-program?from=now-2y&to=now&timezone=browser&-dtab=Hypertension&var-org_unit=');\n        } else if (isGlobal === '0') {\n          var drillUrl = urlParams.get('var-UserDrillUrl');\n          if (drillUrl && drillUrl !== 'null' && drillUrl !== '') {\n            clearInterval(checkInterval);\n            go(drillUrl + '&orgId=1');\n          }\n        }\n      } catch(innerEx) {\n        console.error('HEARTS360 router polling error:', innerEx);\n      }\n    }, 100);\n    setTimeout(function() {\n      clearInterval(checkInterval);\n      if (window.top.location.pathname.indexOf('/d/heart360-home') !== -1) {\n        go('/d/heart360_showcase/hypertension-and-diabetes-program?from=now-2y&to=now&timezone=browser&-dtab=Hypertension&var-org_unit=');\n      }\n    }, 3000);\n  } catch(e) { console.error('HEARTS360 home redirect failed:', e); }\n})();\n</script>",
         "mode": "html"
       },
       "pluginVersion": "12.4.1",
@@ -110,6 +110,23 @@
         "name": "UserDrillUrl",
         "options": [],
         "query": "SELECT COALESCE(\n  (SELECT '/d/heart360_showcase/hypertension-and-diabetes-program?var-org_unit=' || NULLIF('${UserOrgUnitId}', '')),\n  ''\n)",
+        "refresh": 1,
+        "regex": "",
+        "regexApplyTo": "value",
+        "sort": 0,
+        "type": "query"
+      },
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT to_char(date_trunc('month', CURRENT_DATE)::date - interval '1 month', 'YYYY-MM-DD') AS __value",
+        "hide": 2,
+        "name": "reporting_month",
+        "options": [],
+        "query": "SELECT to_char(date_trunc('month', CURRENT_DATE)::date - interval '1 month', 'YYYY-MM-DD') AS __value",
         "refresh": 1,
         "regex": "",
         "regexApplyTo": "value",
