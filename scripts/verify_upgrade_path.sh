@@ -50,6 +50,9 @@ UPGRADE_DB="${UPGRADE_DB:-h360_upgrade_from060}"
 if [[ -z "${PSQL:-}" ]]; then
     if command -v psql >/dev/null 2>&1; then PSQL="psql"; else PSQL="docker exec -i ${H360_PG_CONTAINER:-postgres} psql -U h360tk_root"; fi
 fi
+if [[ -z "${PG_DUMP:-}" && "$PSQL" == *h360_psql* ]]; then
+    PG_DUMP="docker exec -i ${H360_PG_CONTAINER:?source scripts/h360_env.sh first} pg_dump -U h360tk_root"
+fi
 PG_DUMP="${PG_DUMP:-${PSQL/psql/pg_dump}}"
 read -r -a PSQL_CMD <<< "$PSQL"
 read -r -a PG_DUMP_CMD <<< "$PG_DUMP"
