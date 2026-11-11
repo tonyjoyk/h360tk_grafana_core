@@ -393,7 +393,7 @@ def ingest_and_execute(file_path: str) -> None:
             )
     except Exception as e:
         print(f"Error loading file: {e}", file=sys.stderr)
-        return
+        sys.exit(1)
 
     stats['total_rows'] = len(df_data)
 
@@ -578,6 +578,7 @@ def ingest_and_execute(file_path: str) -> None:
     except psycopg2.Error as e:
         print(f"\n--- CONNECTION ERROR ---", file=sys.stderr)
         print(f"PostgreSQL Connection Error: {e}", file=sys.stderr)
+        sys.exit(1)  # non-zero so fileproc.sh writes no done marker
 
     finally:
         if cur:

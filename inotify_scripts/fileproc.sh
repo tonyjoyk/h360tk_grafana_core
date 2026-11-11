@@ -18,6 +18,10 @@ fi
 # already ingested at the same size and time is skipped, so the start-up sweep
 # and repeated modify events do not ingest the same bytes twice.
 STATE_DIR="${H360TK_INGEST_STATE:-/grafana_target/.h360_ingested}"
+# One load per file at a time: the sweep and an inotify event can fire together.
+mkdir -p "$STATE_DIR"
+exec 9>"$STATE_DIR/$(basename "$FULL_PATH").lock"
+flock 9
 SIG="$(stat -c '%s %Y' "$FULL_PATH" 2>/dev/null)"
 MARKER="$STATE_DIR/$(basename "$FULL_PATH").done"
 if [ -n "$SIG" ] && [ -f "$MARKER" ] && [ "$(cat "$MARKER")" = "$SIG" ]; then
@@ -32,6 +36,6 @@ status=$?
 
 # Record the file only if it did not change while it was being read.
 if [ "$status" -eq 0 ] && [ -n "$SIG" ] && [ "$(stat -c '%s %Y' "$FULL_PATH" 2>/dev/null)" = "$SIG" ]; then
-    mkdir -p "$STATE_DIR" 2>/dev/null && echo "$SIG" > "$MARKER"
+    echo "$SIG" > "$MARKER"
 fi
 exit "$status"

@@ -12,11 +12,9 @@ Output (generated, committed):
   grafana_provisioning/dashboards/HEARTS360 Dashboards/heart360.reports.json
 
 The TABS list below is the tab order. Removing a line drops the tab (stub rule).
-A TABS entry whose source file does not exist yet is skipped with a printed
-note, so the dashboard builds while tabs are still being written; --check
-applies the same rule and still compares the full output.
 
-The build fails on: a duplicate JSON key in any source file, an element key
+The build fails (exit 2) on: a missing source file, a duplicate JSON key in any
+source file, a shell without spec, an element key
 used twice, a tab element key without its panel-<slug>- prefix, a tab title
 that differs from TABS, a layout reference to an undefined element, or a shell
 without exactly one empty TabsLayout. Panel ids are renumbered 1..N in output
@@ -109,6 +107,8 @@ def load_strict(path: Path):
             seen[key] = value
         return seen
 
+    if not path.is_file():
+        raise BuildError(f"{rel(path)}: not found")
     try:
         return json.loads(path.read_text(encoding="utf-8"), object_pairs_hook=no_duplicates)
     except json.JSONDecodeError as exc:
@@ -177,12 +177,14 @@ def find_tabs_layouts(node, out: list[dict]) -> list[dict]:
     return out
 
 
-def build(src: Path = SRC, log=print) -> str:
+def build(src: Path = SRC) -> str:
     cache: dict[str, str] = {}
     shell = load_strict(src / "_shell.json")
     shell = {k: v for k, v in shell.items() if not k.startswith("_")}
     shell = expand_shared(shell, src, "_shell.json", cache)
-    spec = shell["spec"]
+    spec = shell.get("spec")
+    if not isinstance(spec, dict) or not isinstance(spec.get("layout"), dict):
+        raise BuildError("_shell.json: needs a spec with a layout")
     if shell.get("uid") != UID:
         raise BuildError(f"_shell.json: uid must be {UID!r}")
 
@@ -204,11 +206,7 @@ def build(src: Path = SRC, log=print) -> str:
             raise BuildError(f"TABS: title {title!r} listed twice")
         seen_titles.add(title)
         prefix = f"panel-{internal_slug(source)}-"
-        path = src / source
-        if not path.exists():
-            log(f"note: {source} not found; tab {title!r} skipped")
-            continue
-        tab = expand_shared(load_strict(path), src, source, cache)
+        tab = expand_shared(load_strict(src / source), src, source, cache)
         if set(tab) != {"title", "elements", "layout"}:
             raise BuildError(f"{source}: top-level keys must be exactly title, elements, layout (found {sorted(tab)})")
         if tab["title"] != title:
@@ -237,9 +235,7 @@ def main(argv: list[str] | None = None) -> int:
         epilog=(
             "Tabs (title / URL slug / source): "
             + "; ".join(f"{t} / {s} / {f}" for t, s, f in TABS)
-            + ". A missing tab source file is skipped with a printed note (the tab is left out), "
-            "in both build and --check mode; --check still compares the full output. "
-            "Shared snippets: a JSON string may contain {{shared:<file>}}, replaced by "
+            + ". Shared snippets: a JSON string may contain {{shared:<file>}}, replaced by "
             "dashboard_src/reports/_shared/<file> (one level, no nesting), and {{tabs}}, replaced by "
             "the TABS list as JSON [{report, title, slug}]. See dashboard_src/reports/_shared/README.md."
         ),

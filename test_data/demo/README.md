@@ -54,12 +54,7 @@ python3 test_data/demo/build_demo_data.py
 
 The same as-of date gives the same rows (fixed seeds and md5 picks). The as-of date is 2026-10-13
 unless you run it in October 2026 or pass `--as-of YYYY-MM-DD`. The script prints the numbers it
-planted. It also writes:
-
-- `out/shifted_*.xlsx`: the source PHC files in `source_phc/`, shifted so the latest visit falls in
-  the as-of month (not loaded by `demo_up.sh`);
-- `verify_demo.sql`: checks for the cascade and cohort reporting tables, run after a refresh with
-  `psql "$DATABASE_URL" -f test_data/demo/verify_demo.sql`.
+planted.
 
 After regenerating, load it into a new database with `./scripts/demo_up.sh --fresh` (this wipes the
 local demo database).

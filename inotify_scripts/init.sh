@@ -23,10 +23,19 @@ while [ "$i" -lt 30 ] && ! pgrep -x inotifywait >/dev/null 2>&1; do
 done
 sleep 1
 
+# Sweep only once the database answers; a load before that fails.
+i=0
+until python3 -c 'import sys, psycopg2; sys.path.insert(0, "/scripts"); import ingest_file_h360tk as m; psycopg2.connect(**m.DB_CONNECTION_PARAMS).close()' >/dev/null 2>&1; do
+    i=$((i + 1))
+    if [ "$i" -ge 60 ]; then echo "[$(date -Iseconds)] sweep: database still down after 120s, sweeping anyway"; break; fi
+    sleep 2
+done
+[ "$i" -lt 60 ] && echo "[$(date -Iseconds)] sweep: database answered after about $((i * 2))s"
+
 swept=0
 for f in "${INOTIFY_TARGET:-/data}"/*; do
     [ -f "$f" ] || continue
-    case "$(basename "$f")" in .*) continue ;; esac
+    case "$(basename "$f")" in .*|'~$'*) continue ;; esac  # hidden and Excel lock files
     echo "[$(date -Iseconds)] sweep: $f was here before the watcher"
     bash "${INOTIFY_SCRIPT:-/scripts/fileproc.sh}" "$(date +%H:%M:%S)" "$(dirname "$f")/" SWEEP "$(basename "$f")"
     swept=$((swept + 1))

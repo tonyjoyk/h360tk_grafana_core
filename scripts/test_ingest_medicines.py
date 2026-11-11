@@ -7,7 +7,10 @@ connection that records every SQL statement. It checks that:
   - each visit row with text writes one prescriptions upsert for that visit's encounter, with
     source 'upload', keyed on encounter_id;
   - a blank cell, or a file with no medicines column, writes no prescriptions row;
-  - the upsert only rewrites a row whose text differs, so re-importing a file changes nothing.
+  - the upsert only rewrites a row whose text differs, so re-importing a file changes nothing;
+  - a file that cannot be read, or a database that cannot be reached, exits 1, and fileproc.sh then
+    writes no done marker (run in this checkout's file-upload-trigger container after
+    `source scripts/h360_env.sh`, skipped otherwise).
 
     python3 scripts/test_ingest_medicines.py
 """
@@ -18,6 +21,7 @@ import importlib.util
 import io
 import os
 import re
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -168,6 +172,50 @@ class MedicinesColumnTest(unittest.TestCase):
         first = self.run_file(rows, "a.xlsx")
         second = self.run_file(rows, "b.xlsx")
         self.assertEqual(first, second)
+
+
+
+FILEPROC_NO_MARKER = r"""
+d=$(mktemp -d)
+python3 -c "import pandas as pd, sys; pd.DataFrame([{'Patient ID': 'T1', 'Visit Time': '01-02-2026 10:00:00'}]).to_excel(sys.argv[1], index=False)" "$d/up.xlsx"
+POSTGRES_HOST=unreachable.invalid H360TK_INGEST_STATE="$d/state" bash /scripts/fileproc.sh t "$d/" TEST up.xlsx >/dev/null 2>&1
+echo "status=$? markers=$(ls "$d/state" | grep -c '[.]done$')"
+rm -rf "$d"
+"""
+
+
+class FailedLoadTest(unittest.TestCase):
+    """A failed load must exit non-zero, or fileproc.sh marks the file done and never retries it."""
+
+    def ingest_exit_code(self, path):
+        with self.assertRaises(SystemExit) as ctx, contextlib.redirect_stdout(io.StringIO()), \
+                contextlib.redirect_stderr(io.StringIO()):
+            self.ingest.ingest_and_execute(path)
+        return ctx.exception.code
+
+    def setUp(self):
+        self.ingest = load_ingest()
+
+    def test_unreadable_file_exits_1(self):
+        self.assertEqual(self.ingest_exit_code("/nonexistent/upload.xlsx"), 1)
+
+    def test_unreachable_database_exits_1(self):
+        def refuse(**kw):
+            raise self.ingest.psycopg2.OperationalError("connection refused")
+        self.ingest.psycopg2.connect = refuse
+        with tempfile.TemporaryDirectory() as tmp:
+            path = os.path.join(tmp, "upload.xlsx")
+            pd.DataFrame([dict(BASE, **{"Visit Time": "01-02-2026 10:00:00"})]).to_excel(path, index=False)
+            self.assertEqual(self.ingest_exit_code(path), 1)
+
+    @unittest.skipUnless(os.environ.get("H360_PG_CONTAINER"), "source scripts/h360_env.sh to run in the container")
+    def test_fileproc_writes_no_marker_when_database_is_down(self):
+        container = os.environ.get("H360_CONTAINER_PREFIX", "") + "file-upload-trigger"
+        proc = subprocess.run(["docker", "exec", "-i", container, "bash", "-s"], input=FILEPROC_NO_MARKER,
+                              capture_output=True, text=True, timeout=120)
+        if proc.returncode != 0:
+            self.skipTest(f"{container} not running: {proc.stderr.strip()}")
+        self.assertEqual(proc.stdout.strip(), "status=1 markers=0")
 
 
 if __name__ == "__main__":

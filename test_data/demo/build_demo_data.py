@@ -1,6 +1,5 @@
 #!/usr/bin/env python3
-"""Deterministic demo upload data for HEARTS360: one patient-visit file with medicines, plus
-date-shifted copies of the source PHC files."""
+"""Deterministic demo upload data for HEARTS360: one patient-visit file with medicines."""
 
 from __future__ import annotations
 
@@ -97,55 +96,6 @@ def add_months(dt: datetime, months: int) -> datetime:
     month = month_index % 12 + 1
     day = min(dt.day, calendar.monthrange(year, month)[1])
     return dt.replace(year=year, month=month, day=day)
-
-
-def month_shift_to_as_of(max_dt: datetime, as_of: datetime) -> int:
-    return (as_of.year - max_dt.year) * 12 + (as_of.month - max_dt.month)
-
-
-def cap_at_as_of(dt: datetime, as_of: datetime) -> datetime:
-    cap = as_of.replace(hour=23, minute=59, second=59)
-    return min(dt, cap)
-
-
-def shift_column(series: pd.Series, months: int, as_of: datetime) -> pd.Series:
-    def _shift(value):
-        parsed = parse_upload_datetime(value)
-        if parsed is None:
-            return value
-        shifted = cap_at_as_of(add_months(parsed, months), as_of)
-        return format_upload_datetime(shifted)
-
-    return series.map(_shift)
-
-
-def max_datetime_in_frame(df: pd.DataFrame) -> datetime | None:
-    candidates: list[datetime] = []
-    for col in ("Visit Time", "Registration Date"):
-        if col not in df.columns:
-            continue
-        for value in df[col]:
-            parsed = parse_upload_datetime(value)
-            if parsed is not None:
-                candidates.append(parsed)
-    return max(candidates) if candidates else None
-
-
-def shift_phc_workbook(src: Path, dst: Path, as_of: datetime) -> datetime | None:
-    df = pd.read_excel(src, header=0, dtype={"Patient ID": str, "Phone Number": str})
-    anchor = max_datetime_in_frame(df)
-    if anchor is None:
-        df.to_excel(dst, index=False)
-        return None
-
-    months = month_shift_to_as_of(anchor, as_of)
-    for col in ("Registration Date", "Visit Time", "Date of Birth"):
-        if col in df.columns:
-            df[col] = shift_column(df[col], months, as_of)
-
-    dst.parent.mkdir(parents=True, exist_ok=True)
-    df.to_excel(dst, index=False)
-    return max_datetime_in_frame(df)
 
 
 # ---------------------------------------------------------------------------
@@ -786,119 +736,34 @@ def default_as_of() -> datetime:
     return DEFAULT_AS_OF
 
 
-def write_verify_sql(path: Path) -> None:
-    path.write_text(
-        """-- Run after demo ingest and reporting refresh (psql -f test_data/demo/verify_demo.sql).
-
-DO $$
-DECLARE
-  v_ref_month date;
-  v_estimated_pct numeric;
-  v_registered_pct numeric;
-  v_under_care_pct numeric;
-  v_controlled_pct numeric;
-  v_quarter_count integer;
-  est_pop numeric := 14500;
-BEGIN
-  SELECT MAX(ref_month) INTO v_ref_month
-  FROM heart360tk_reporting.heart360_patients_category;
-
-  IF v_ref_month IS NULL THEN
-    RAISE EXCEPTION 'verify_demo: no rows in heart360_patients_category';
-  END IF;
-
-  SELECT
-    100.0,
-    100.0 * SUM(reg.cumulative_number_of_patients) / est_pop,
-    100.0 * SUM(cat.nb_patients_under_care_registered_before_the_past_3_months) / est_pop,
-    100.0 * SUM(cat.nb_patients_controlled) / est_pop
-  INTO v_estimated_pct, v_registered_pct, v_under_care_pct, v_controlled_pct
-  FROM heart360tk_reporting.heart360_patients_category cat
-  JOIN heart360tk_reporting.heart360_patients_registered reg
-    ON reg.ref_month = cat.ref_month AND reg.org_unit_id = cat.org_unit_id
-  WHERE cat.ref_month = v_ref_month;
-
-  IF COALESCE(v_registered_pct, 0) <= 0
-     OR COALESCE(v_under_care_pct, 0) <= 0
-     OR COALESCE(v_controlled_pct, 0) <= 0 THEN
-    RAISE EXCEPTION
-      'verify_demo cascade failed at %: estimated=%, registered_pct=%, under_care_pct=%, controlled_pct=%',
-      v_ref_month, v_estimated_pct, v_registered_pct, v_under_care_pct, v_controlled_pct;
-  END IF;
-
-  SELECT COUNT(*) INTO v_quarter_count
-  FROM (
-    SELECT registration_quarter
-    FROM heart360tk_reporting.heart360_cohort_patient_details
-    GROUP BY registration_quarter
-    HAVING COUNT(*) > 0
-  ) q;
-
-  IF v_quarter_count < 6 THEN
-    RAISE EXCEPTION 'verify_demo cohort failed: only % quarters with patients', v_quarter_count;
-  END IF;
-
-  RAISE NOTICE 'verify_demo OK: ref_month=%, estimated=%, registered_pct=%, under_care_pct=%, controlled_pct=%, cohort_quarters=%',
-    v_ref_month, v_estimated_pct, v_registered_pct, v_under_care_pct, v_controlled_pct, v_quarter_count;
-END $$;
-""",
-        encoding="utf-8",
-    )
-
-
 def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--as-of",
         type=lambda s: datetime.strptime(s, "%Y-%m-%d").replace(hour=23, minute=59, second=59),
         default=None,
-        help="Anchor month for date shifting (YYYY-MM-DD)",
+        help="As-of date for the cohort (YYYY-MM-DD)",
     )
     args = parser.parse_args()
     as_of = args.as_of or default_as_of()
 
     root = Path(__file__).resolve().parent
-    source_dir = root / "source_phc"
-    out_dir = root / "out"
-    out_dir.mkdir(parents=True, exist_ok=True)
-
-    shifted_paths: list[Path] = []
-    shifted_max: list[datetime] = []
-    for src in sorted(source_dir.glob("PHC-*.xlsx")):
-        dst = out_dir / f"shifted_{src.name}"
-        max_dt = shift_phc_workbook(src, dst, as_of)
-        shifted_paths.append(dst)
-        if max_dt is not None:
-            shifted_max.append(max_dt)
-
     demo_path = root / "demo_generated.xlsx"
     cal = Calendar(as_of.replace(hour=0, minute=0, second=0))
     patients = generate_cohort(cal)
     demo_df = cohort_frame(patients)
     demo_df.to_excel(demo_path, index=False)
 
-    write_verify_sql(root / "verify_demo.sql")
-
     gen_min, gen_max = summarize_dates([demo_df])
-    shift_min, shift_max = summarize_dates(
-        [pd.read_excel(p, header=0) for p in shifted_paths]
-    )
-
     unique_patients = demo_df["Patient ID"].nunique()
     visit_rows = len(demo_df)
 
     print(f"as_of={as_of.date().isoformat()}")
-    print(f"shifted_files={len(shifted_paths)}")
-    print(f"shifted_date_range={shift_min} .. {shift_max}")
     print(f"generated_patients={unique_patients}")
     print(f"generated_visit_rows={visit_rows}")
     print(f"generated_rows_with_medicines={int(demo_df['Medicines'].fillna('').ne('').sum())}")
     print(f"generated_date_range={gen_min} .. {gen_max}")
-    print("outputs:")
-    for p in shifted_paths:
-        print(f"  {p}")
-    print(f"  {demo_path}")
-    print(f"  {root / 'verify_demo.sql'}")
+    print(f"output: {demo_path}")
     print("")
     print("\n".join(planted_numbers(patients, cal)))
 

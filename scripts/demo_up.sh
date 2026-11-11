@@ -46,6 +46,7 @@ fail() {
 
 if [[ "${1:-}" == "--fresh" ]]; then
   docker compose down -v
+  rm -rf data/.h360_ingested  # done markers would skip the reload into the new empty database
 elif [[ -n "${1:-}" ]]; then
   echo "usage: $0 [--fresh]" >&2
   exit 2
@@ -99,7 +100,12 @@ if [[ "$patients" == "0" ]]; then
     if [[ "$now" == "$last" ]]; then stable=$((stable + 1)); else stable=0; fi
     last="$now"
     summary=0
-    if docker logs --since "$since" ${P}file-upload-trigger 2>&1 | grep -q -- "--- EXECUTION SUMMARY ---"; then
+    log="$(docker logs --since "$since" ${P}file-upload-trigger 2>&1)"
+    if grep -qE "Error loading file|CONNECTION ERROR" <<<"$log"; then
+      fail "The demo cohort failed to load." \
+        "Run 'docker logs --since $since ${P}file-upload-trigger', fix the error, then 'docker compose restart file-processor' and re-run this script."
+    fi
+    if grep -q -- "--- EXECUTION SUMMARY ---" <<<"$log"; then
       summary=1
     fi
     if (( summary == 1 && stable >= 2 && now > 0 )); then

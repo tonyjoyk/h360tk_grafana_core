@@ -14,7 +14,6 @@ cd "$(dirname "$0")/.."
 exec python3 - "$@" <<'PY'
 import json
 import os
-import shutil
 import subprocess
 import sys
 import urllib.parse
@@ -22,10 +21,6 @@ import urllib.parse
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000").rstrip("/")
 ADMIN_USER = os.environ.get("GRAFANA_ADMIN_USER") or os.environ.get("GRAFANA_USER") or "admin"
 ADMIN_PASSWORD = os.environ.get("GRAFANA_ADMIN_PASSWORD") or os.environ.get("GRAFANA_PASSWORD") or "admin"
-DEFAULT_DSN = (
-    "postgres://h360tk_root:NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0"
-    "@localhost:5432/heart360tk_database"
-)
 PASSWORD = "demo"
 
 PEOPLE = (
@@ -76,17 +71,9 @@ teams. Safe to run again: existing users, teams and memberships are kept.
 
   GRAFANA_URL                  default http://localhost:3000
   GRAFANA_ADMIN_USER/PASSWORD  default admin/admin
-  DATABASE_URL or PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT
+  H360_PG_CONTAINER            from scripts/h360_env.sh (lookup runs through scripts/h360_psql)
 """)
     return 0
-
-
-def resolve_dsn():
-    if os.environ.get("DATABASE_URL"):
-        return os.environ["DATABASE_URL"]
-    if any(os.environ.get(key) for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")):
-        return None
-    return DEFAULT_DSN
 
 
 def grafana(method, path, payload=None):
@@ -130,26 +117,10 @@ def require(http, parsed, body, what):
     return parsed
 
 
-def psql_command():
-    # No host psql (a stock Mac): run psql inside the postgres container instead.
-    base = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t"]
-    if shutil.which("psql"):
-        return base
-    passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
-                   if os.environ.get(key) for arg in ("-e", key)]
-    return ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, os.environ.get("H360_PG_CONTAINER", "postgres"), *base]
-
-
 def org_rows():
-    command = psql_command()
-    dsn = resolve_dsn()
-    if dsn:
-        command.append(dsn)
-    command.extend(["-c", LOOKUP_SQL])
-    env = os.environ.copy()
-    env["PGCONNECT_TIMEOUT"] = "3"
+    command = ["scripts/h360_psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t", "-c", LOOKUP_SQL]
     try:
-        proc = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
+        proc = subprocess.run(command, capture_output=True, text=True, timeout=20)
     except subprocess.TimeoutExpired:
         return None, "database lookup timed out"
     except FileNotFoundError as exc:

@@ -19,7 +19,7 @@ What is scanned
   2. The chat widget, docker_build/grafana_public/h360/chat-widget.js (JS rules below).
   3. Report function outputs, via PSQL: `flag_reason` of every report_* function for each org unit
      at levels 0 to 3 (0 = national) and the last --months completed months up to --month; the
-     report_adherence_buckets labels and report_statins_patients reason_eligible values (banned
+     report_adherence_steps labels and report_statins_patients reason_eligible values (banned
      words only).
   4. h360-api answers: POST /chat for every chip that GET /chat/chips offers, at every district
      and facility, for --month, signed in to Grafana as the admin. Chip labels and every visible
@@ -47,8 +47,8 @@ Usage
   python3 scripts/verify_banned_words.py --no-db --no-api   files only
   python3 scripts/verify_banned_words.py --self-test  plants violations; exits 0 only if caught
 
-PSQL follows AD-35: PSQL="docker exec -i postgres psql -U h360tk_root". Without PSQL it uses `psql`
-when on PATH, else that docker command.
+The stack checks need scripts/h360_env.sh: bash -c 'source scripts/h360_env.sh; python3 scripts/verify_banned_words.py'
+PSQL follows AD-35; without it, scripts/h360_psql.
 """
 from __future__ import annotations
 
@@ -59,7 +59,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import tempfile
@@ -75,9 +74,9 @@ REPORTS = DASH_DIR / "HEARTS360 Dashboards" / "heart360.reports.json"
 WIDGET = ROOT / "docker_build" / "grafana_public" / "h360" / "chat-widget.js"
 BASELINE_REF = "08a2894"
 DB_NAME = os.environ.get("H360_DB", "heart360tk_database")
-GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000").rstrip("/")
-API_URL = os.environ.get("H360_API_URL", "http://localhost:8090").rstrip("/")
-ORIGIN = os.environ.get("H360_ORIGIN", "http://localhost:3000")
+GRAFANA_URL = os.environ.get("GRAFANA_URL", "").rstrip("/")
+API_URL = os.environ.get("H360_API_URL", "").rstrip("/")
+ORIGIN = os.environ.get("H360_ORIGIN") or GRAFANA_URL
 MAX_WORDS = 20
 
 BANNED_RE = re.compile(r"\bfudg\w*|\b(?:will|guarantee|guarantees|guaranteed)\b", re.IGNORECASE)
@@ -105,7 +104,7 @@ REPORT_TEXT = [
     ("report_calling", "", "flag_reason", True),
     ("report_new_patients", "", "flag_reason", True),
     ("report_flags", "", "flag_reason", True),
-    ("report_adherence_buckets", ", true", "label", False),
+    ("report_adherence_steps", ", true", "label", False),
     ("report_statins_patients", "", "reason_eligible", False),
 ]
 
@@ -306,10 +305,7 @@ def scan_dashboards(f: Findings, ref: str, extra: list[Path], only_extra: bool) 
 
 
 def psql_cmd() -> list[str]:
-    raw = os.environ.get("PSQL")
-    if not raw:
-        raw = "psql" if shutil.which("psql") else "docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root"
-    return shlex.split(raw)
+    return shlex.split(os.environ.get("PSQL") or str(ROOT / "scripts" / "h360_psql"))
 
 
 def psql_json(sql: str):
@@ -523,6 +519,10 @@ def main(argv) -> int:
     args = parse(argv)
     if args.self_test:
         return self_test()
+    need = ([] if args.no_db else ["H360_PG_CONTAINER"]) + ([] if args.no_api else ["GRAFANA_URL", "H360_API_URL"])
+    missing = [name for name in need if not os.environ.get(name)]
+    if missing:
+        raise SystemExit(f"{', '.join(missing)} not set: source scripts/h360_env.sh first")
     return run(args)
 
 

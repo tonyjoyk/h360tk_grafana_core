@@ -44,6 +44,9 @@ How the pieces read these values:
 - The scripts read them through `scripts/h360_env.sh`. That covers `demo_up.sh`, `demo_users.sh`
   and the `verify_*` scripts. It exports `GRAFANA_URL`, `H360_API_URL`, `H360_ORIGIN` and
   `H360_PG_CONTAINER`.
+- The Python checks do not source it themselves and refuse to run without it:
+  `bash -c 'source scripts/h360_env.sh; python3 scripts/verify_dashboard_queries.py'` (same for
+  `verify_banned_words.py`).
 - Compose services still reach each other by service name (`postgres`, `grafana`), so nothing inside
   the stack changes.
 

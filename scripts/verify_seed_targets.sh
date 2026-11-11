@@ -28,7 +28,7 @@
 # are unchanged; build_demo_data.py prints the numbers it planted.
 #
 #   PSQL   command that reads SQL on stdin
-#          (default: docker exec -i postgres psql -U h360tk_root -d heart360tk_database)
+#          (default: docker exec -i "$H360_PG_CONTAINER" psql -U h360tk_root -d heart360tk_database)
 #   MONTH  reporting month (default 2026-10-01)
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"

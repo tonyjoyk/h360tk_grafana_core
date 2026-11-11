@@ -27,8 +27,7 @@
 # excluded). With no key set, no `ANTHROPIC_API_KEY=<value>` assignment may appear in those places,
 # and no `sk-ant-` token in the browser files or logs.
 #
-# PSQL follows AD-35 (PSQL="docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root"); without it, `psql` when
-# on PATH, else that docker command.
+# PSQL follows AD-35; without it, scripts/h360_psql.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
 cd "$(dirname "$0")/.."
@@ -38,7 +37,6 @@ import json
 import os
 import re
 import shlex
-import shutil
 import subprocess
 import sys
 import time
@@ -85,8 +83,7 @@ SENTENCE_CONSTANTS = {str(v) for v in module_constant("ranker.py", "CONSTANTS").
 
 
 def psql_cmd():
-    raw = os.environ.get("PSQL") or ("psql" if shutil.which("psql") else "docker exec -i " + os.environ.get("H360_PG_CONTAINER", "postgres") + " psql -U h360tk_root")
-    return shlex.split(raw)
+    return shlex.split(os.environ.get("PSQL") or "scripts/h360_psql")
 
 
 def psql_json(sql):
@@ -202,9 +199,9 @@ def allowed_numbers_for(place_id, month):
     m = f"DATE '{month}'"
     calls = [
         f"report_adherence({m}, {place_id}, true)", f"report_adherence({m}, {place_id}, false)",
-        f"report_adherence_buckets({m}, {place_id}, true)", f"report_adherence_buckets({m}, {place_id}, false)",
+        f"report_adherence_steps({m}, {place_id}, true)", f"report_adherence_steps({m}, {place_id}, false)",
         f"report_titration({m}, {place_id})", f"report_fudging({m}, {place_id})",
-        f"report_fudging_histogram({m}, {place_id})", f"report_statins({m}, {place_id})",
+        f"report_fudging_quarterly({m}, {place_id})", f"report_statins({m}, {place_id})",
         f"report_calling({m}, {place_id})", f"report_new_patients({m}, {place_id})",
         f"report_flags({m}, {place_id})", f"report_window({m})",
         f"chat_control_summary({m}, {place_id})", f"chat_drug_stock_gate({m}, {place_id})",

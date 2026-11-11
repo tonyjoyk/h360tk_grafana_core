@@ -11,9 +11,9 @@ load queries, so they are listed and skipped; verify_security.sh covers writes.
   python3 scripts/verify_dashboard_queries.py --max-ms 2000
   python3 scripts/test_verify_dashboard_queries.py
 
-Connection: DATABASE_URL, otherwise PGHOST/PGUSER/PGPASSWORD/PGDATABASE/PGPORT
-when any of those is set, otherwise
-postgres://h360tk_root:NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0@localhost:5432/heart360tk_database
+Connection: DATABASE_URL from scripts/h360_env.sh, e.g.
+  bash -c 'source scripts/h360_env.sh; python3 scripts/verify_dashboard_queries.py'
+Without psycopg2 each query runs through scripts/h360_psql instead.
 The session then SET ROLE to the datasource user from grafana_provisioning/datasources
 (h360tk_root is superuser and can SET ROLE). search_path is the datasource
 jsonData.searchPath, because SET ROLE does not apply ALTER ROLE ... SET.
@@ -91,11 +91,6 @@ SAMPLE_VARS = {
     "payload.removed_reason": "Pending to call",
 }
 UNKNOWN_DEFAULT = "0"
-
-DEFAULT_DSN = (
-    "postgres://h360tk_root:NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0"
-    "@localhost:5432/heart360tk_database"
-)
 
 TAB_AREA = {
     "hypertension": "htn",
@@ -489,31 +484,14 @@ def quote_search_path(search_path: str) -> str:
     return ", ".join(parts)
 
 
-def resolve_dsn() -> str | None:
-    """None means libpq should use PGHOST and the other PG* variables."""
-    if os.environ.get("DATABASE_URL"):
-        return os.environ["DATABASE_URL"]
-    if any(os.environ.get(key) for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")):
-        return None
-    return DEFAULT_DSN
-
-
 def connect():
     import psycopg2
 
-    dsn = resolve_dsn()
-    if dsn is None:
-        return psycopg2.connect(connect_timeout=5)
-    return psycopg2.connect(dsn, connect_timeout=5)
+    return psycopg2.connect(os.environ["DATABASE_URL"], connect_timeout=5)
 
 
 def psql_command(script: str) -> list[str]:
-    command = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-q"]
-    dsn = resolve_dsn()
-    if dsn:
-        command.append(dsn)
-    command.extend(["-c", script])
-    return command
+    return [str(ROOT / "scripts" / "h360_psql"), "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-q", "-c", script]
 
 
 def execute_psql(query: Query, max_ms: int) -> tuple[float, str | None]:
@@ -528,15 +506,12 @@ def execute_psql(query: Query, max_ms: int) -> tuple[float, str | None]:
         f"{sql};\n"
         "ROLLBACK;\n"
     )
-    env = os.environ.copy()
-    env["PGCONNECT_TIMEOUT"] = "5"
     started = time.perf_counter()
     try:
         proc = subprocess.run(
             psql_command(script),
             capture_output=True,
             text=True,
-            env=env,
             timeout=max(max_ms / 1000 + 10, 15),
         )
     except subprocess.TimeoutExpired:
@@ -611,8 +586,7 @@ def run(queries: list[Query], max_ms: int) -> int:
         print("psycopg2 is not installed; running each query with psql", file=sys.stderr)
         return run_psql(queries, max_ms)
     except Exception as exc:
-        where = os.environ.get("DATABASE_URL") or os.environ.get("PGHOST") or "localhost:5432"
-        print(f"FAIL postgres is not reachable ({where}): {exc}", file=sys.stderr)
+        print(f"FAIL postgres is not reachable ({os.environ['DATABASE_URL']}): {exc}", file=sys.stderr)
         print("Start the stack with ./scripts/demo_up.sh --fresh and re-run. Not hanging.", file=sys.stderr)
         return 1
     failures = 0
@@ -660,6 +634,9 @@ def main(argv: list[str] | None = None) -> int:
         return 0
     if not queries:
         print(f"FAIL no queries under {args.dashboards}", file=sys.stderr)
+        return 1
+    if not os.environ.get("DATABASE_URL"):
+        print("DATABASE_URL not set: source scripts/h360_env.sh first", file=sys.stderr)
         return 1
     return run(queries, args.max_ms)
 

@@ -12,11 +12,10 @@
 #   ./scripts/verify_all.sh --keep-going    run every check and list all failures at the end
 #
 # PSQL (AD-35). Per-rule scripts read PSQL. When PSQL is unset and there is no psql on PATH (this
-# Mac), PSQL="docker exec -i <prefix>postgres psql -U h360tk_root" (see scripts/h360_env.sh). Scripts that call plain `psql` with a
-# DSN (verify_security.sh, verify_dashboard_queries.py fallback, demo_users.sh, the drug stock
-# scripts' local mode) get a temporary `psql` shim on PATH that runs psql in the postgres
-# container: a host file given with -f is sent on stdin and \i / \ir lines naming host files are
-# inlined, so host paths work there too.
+# Mac), PSQL=scripts/h360_psql (psql in this checkout's postgres container). Scripts that call plain
+# `psql` (the drug stock scripts' local mode) get a temporary `psql` shim on PATH that runs
+# scripts/h360_psql: a host file given with -f is sent on stdin and \i / \ir lines naming host
+# files are inlined, so host paths work there too.
 #
 # The shipped list is explicit. When a report is cut (stub rule PD-2, PD-22), delete its
 # verify_<topic>.sh line below in the same change that stubs it.
@@ -26,6 +25,11 @@
 # exercised by the verify_drug_stock_* scripts.
 set -euo pipefail
 source "$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)/h360_env.sh"
+# Never check the stock stack's database from a prefixed checkout.
+if [[ "$H360_PG_CONTAINER" == "postgres" ]] && grep -qE '^H360_CONTAINER_PREFIX=.+' "$(dirname "$0")/../.env" 2>/dev/null; then
+  echo "FAIL verify_all: H360_PG_CONTAINER is 'postgres' but .env sets H360_CONTAINER_PREFIX. Unset H360_CONTAINER_PREFIX and H360_PG_CONTAINER, then re-run." >&2
+  exit 2
+fi
 
 ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 cd "$ROOT"
@@ -35,9 +39,11 @@ MIG="pg_init_scripts/migrations"
 # fixtures in scratch databases, the migration chain, then checks against the live stack.
 CHECKS=(
   "build_reports_dashboard|python3 scripts/build_reports_dashboard.py --check"
+  "test_build_reports_dashboard|python3 scripts/test_build_reports_dashboard.py"
   "check_htn_dm_untouched|python3 scripts/check_htn_dm_untouched.py"
   "verify_seeds_insert_only|bash scripts/verify_seeds_insert_only.sh"
   "test_ingest_medicines|python3 scripts/test_ingest_medicines.py"
+  "test_verify_dashboard_queries|python3 scripts/test_verify_dashboard_queries.py"
   "verify_banned_words_self_test|python3 scripts/verify_banned_words.py --self-test"
   "h360_api_tests|run_h360_api_tests"
   # Per-rule fixtures (AD-35). Drug stock (Epic 3).
@@ -67,7 +73,7 @@ CHECKS=(
   "verify_dashboard_queries|python3 scripts/verify_dashboard_queries.py"
   "verify_security_g1a|bash scripts/verify_security.sh --g1a"
   "verify_security_g1b|bash scripts/verify_security.sh"
-  "verify_seed_targets|run_if_present scripts/verify_seed_targets.sh"
+  "verify_seed_targets|bash scripts/verify_seed_targets.sh"
   "verify_banned_words|python3 scripts/verify_banned_words.py"
   "verify_chat|bash scripts/verify_chat.sh"
 )
@@ -104,13 +110,11 @@ trap cleanup EXIT
 
 # ------------------------------------------------------------------------------ psql setup
 if ! command -v psql >/dev/null 2>&1; then
-  : "${PSQL:=docker exec -i "$H360_PG_CONTAINER" psql -U h360tk_root}"
-  PG_USER="$(docker exec "$H360_PG_CONTAINER" printenv POSTGRES_USER 2>/dev/null || true)"
+  : "${PSQL:=$ROOT/scripts/h360_psql}"
   SHIM="$(mktemp -d "${TMPDIR:-/tmp}/verify_all_bin.XXXXXX")"
   cat > "$SHIM/psql" <<'SH'
 #!/usr/bin/env bash
 # Temporary psql shim from verify_all.sh: psql inside the postgres container.
-container="${H360_PG_CONTAINER:-postgres}"
 args=(); infile=""; has_c=0
 while (($#)); do
   case "$1" in
@@ -118,17 +122,10 @@ while (($#)); do
     --file=*) if [[ -f "${1#--file=}" ]]; then infile="${1#--file=}"; shift; continue; fi ;;
     -c|--command|--command=*|-c?*) has_c=1 ;;
   esac
-  arg="$1"
-  # A DSN for this checkout's host port (DATABASE_URL from h360_env.sh) means the container's 5432 here.
-  if [[ -n "${POSTGRES_PORT:-}" && "$arg" =~ ^postgres(ql)?://.*@(localhost|127\.0\.0\.1):${POSTGRES_PORT}/ ]]; then
-    arg="${arg/:${POSTGRES_PORT}\//:5432/}"
-  fi
-  args+=("$arg"); shift
+  args+=("$1"); shift
 done
-envs=(-e "PGUSER=${PGUSER:-${H360_PG_USER:-h360tk_root}}")
-for v in PGCONNECT_TIMEOUT PGOPTIONS PGPASSWORD; do [[ -n "${!v:-}" ]] && envs+=(-e "$v"); done
 if (( has_c )) && [[ -z "$infile" ]]; then
-  exec docker exec -i "${envs[@]}" "$container" psql "${args[@]}"
+  exec "$ROOT/scripts/h360_psql" "${args[@]}"
 fi
 [[ -n "$infile" ]] && exec < "$infile"
 set -o pipefail
@@ -150,11 +147,10 @@ def emit(lines, base):
         sys.stdout.write(line)
 base = os.path.dirname(os.path.abspath(sys.argv[1])) if sys.argv[1] else os.getcwd()
 emit(sys.stdin, base)
-' "$infile" | docker exec -i "${envs[@]}" "$container" psql "${args[@]}"
+' "$infile" | "$ROOT/scripts/h360_psql" "${args[@]}"
 SH
   chmod +x "$SHIM/psql"
   export PATH="$SHIM:$PATH"
-  export H360_PG_USER="${PG_USER:-h360tk_root}"
 fi
 export PSQL="${PSQL:-}"
 [[ -n "$PSQL" ]] || unset PSQL
@@ -165,10 +161,7 @@ run_h360_api_tests() {
   docker run --rm -u 0 -v "$ROOT/h360_api:/src/h360_api:ro" -w /src -e PYTHONPATH=/src "$image" \
     python -m unittest discover -s h360_api/tests -t /src
 }
-run_if_present() {
-  if [[ -f "$1" ]]; then bash "$1"; else echo "not present: $1 (skipped)"; fi
-}
-export -f run_h360_api_tests run_if_present
+export -f run_h360_api_tests
 export ROOT
 
 # ------------------------------------------------------------------------------ runner
