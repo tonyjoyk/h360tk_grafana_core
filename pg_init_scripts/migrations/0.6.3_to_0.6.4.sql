@@ -14,12 +14,22 @@ SET search_path TO heart360tk_schema;
 -- coeff_config. category_patient_days = sum(in_stock * dose_factor)
 -- / (patients_n * load_factor * category_coeff).
 
-ALTER TABLE protocol_drugs
-    ADD COLUMN IF NOT EXISTS dose_factor NUMERIC;
-
-UPDATE protocol_drugs
-SET dose_factor = 1
-WHERE dose_factor IS NULL;
+-- Re-run safety: seed dose_factor only when the column is first added, so tuned values stay.
+DO $$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_attribute
+                   WHERE attrelid = 'heart360tk_schema.protocol_drugs'::regclass
+                     AND attname = 'dose_factor' AND NOT attisdropped) THEN
+        ALTER TABLE protocol_drugs ADD COLUMN dose_factor NUMERIC;
+        UPDATE protocol_drugs
+        SET dose_factor = CASE rxnorm_code
+            WHEN '329526' THEN 2
+            WHEN '316765' THEN 2
+            WHEN '197499' THEN 2
+            ELSE 1
+        END;
+    END IF;
+END $$;
 
 ALTER TABLE protocol_drugs
     ALTER COLUMN dose_factor SET DEFAULT 1;
@@ -40,18 +50,6 @@ BEGIN
             CHECK (dose_factor > 0);
     END IF;
 END $$;
-
-UPDATE protocol_drugs
-SET dose_factor = CASE rxnorm_code
-    WHEN '329528' THEN 1
-    WHEN '329526' THEN 2
-    WHEN '316764' THEN 1
-    WHEN '316765' THEN 2
-    WHEN '331132' THEN 1
-    WHEN '197499' THEN 2
-    ELSE dose_factor
-END
-WHERE rxnorm_code IN ('329528', '329526', '316764', '316765', '331132', '197499');
 
 CREATE TABLE IF NOT EXISTS coeff_config (
     country_code   VARCHAR(64) NOT NULL,
@@ -80,9 +78,7 @@ INSERT INTO coeff_config (
     ('India', 'IHCI', 'CCB',      1.4,  1.0),
     ('India', 'IHCI', 'ARB',      0.37, 1.0),
     ('India', 'IHCI', 'Diuretic', 0.06, 1.0)
-ON CONFLICT (country_code, programme_code, drug_category) DO UPDATE
-    SET category_coeff = EXCLUDED.category_coeff,
-        load_factor    = EXCLUDED.load_factor;
+ON CONFLICT (country_code, programme_code, drug_category) DO NOTHING;
 
 -- Re-run safety (story 7.4): 0.6.6_to_0.6.7 replaces this view with more columns
 -- (category_known ...). CREATE OR REPLACE cannot drop columns, so only create this

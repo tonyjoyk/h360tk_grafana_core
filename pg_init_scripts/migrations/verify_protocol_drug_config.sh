@@ -275,15 +275,16 @@ BEGIN
     WHERE country_code IS DISTINCT FROM 'India'
        OR programme_code IS DISTINCT FROM 'IHCI';
 
-    IF v_protocol IS DISTINCT FROM 'AATTCC'
-       OR v_tracked IS DISTINCT FROM TRUE
-       OR v_category IS DISTINCT FROM 'CCB'
-       OR v_active_country IS DISTINCT FROM 'India'
-       OR v_active_programme IS DISTINCT FROM 'IHCI'
-       OR v_view <> 6
-       OR v_other <> 0 THEN
+    -- Re-run safety: a third apply keeps the tuned rows (seeds are ON CONFLICT DO NOTHING).
+    IF v_protocol IS DISTINCT FROM 'ATTACC'
+       OR v_tracked IS DISTINCT FROM FALSE
+       OR v_category IS DISTINCT FROM 'Other'
+       OR v_active_country IS DISTINCT FROM 'Bangladesh'
+       OR v_active_programme IS DISTINCT FROM 'NCDC'
+       OR v_view <> 1
+       OR v_other <> 1 THEN
         RAISE EXCEPTION
-            're-seed did not converge: protocol % tracked % category % active %/% view % other %',
+            're-run reset tuned rows: protocol % tracked % category % active %/% view % other %',
             v_protocol, v_tracked, v_category, v_active_country, v_active_programme, v_view, v_other;
     END IF;
 END $$;

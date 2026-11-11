@@ -109,7 +109,6 @@ DO $$
 DECLARE
     v_columns text;
     v_pk text;
-    v_long int;
 BEGIN
     SELECT string_agg(column_name, ',' ORDER BY ordinal_position)
     INTO v_columns
@@ -191,12 +190,6 @@ BEGIN
           AND contype = 'f'
     ) THEN
         RAISE EXCEPTION 'reject table has a foreign key';
-    END IF;
-
-    SELECT COUNT(*) INTO v_long
-    FROM drug_stock_form_long_rows('{"facility":11,"reporting_month":"2026-09"}'::jsonb);
-    IF v_long <> 6 THEN
-        RAISE EXCEPTION 'form long rows returned %', v_long;
     END IF;
 END $$;
 SQL

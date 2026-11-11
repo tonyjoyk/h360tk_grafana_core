@@ -10,10 +10,13 @@
 #   report_fudging_share      % of facilities at the flag ratio per quarter, n of N
 #   report_calling(_return)   one return rule: patients called in the month, back within return_days (UX-11)
 #   refresh_all_reporting_tables  DELETE, never TRUNCATE (UX-04)
-# plus thresholds from report_flag_thresholds, grants and idempotence.
+# plus thresholds from report_flag_thresholds, grants and idempotence. The chain runs on to
+# 0.6.17_to_0.6.18, so report_adherence (a wrapper of report_adherence_summary) and
+# report_statins_monthly (h360_statin_patients per month) are checked as that file leaves them,
+# with its search_path and TEMP fixes.
 #
 # PSQL defaults to `sudo -u postgres psql`. The demo stack uses:
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_audit_reports.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_audit_reports.sh'
 # SQL is sent on stdin, so the files need not exist inside a container.
 set -euo pipefail
 
@@ -24,8 +27,9 @@ MIGRATIONS="$ROOT/pg_init_scripts/migrations"
 # and 0.6.14_to_0.6.15 (drug stock entry form, not used here).
 CHAIN=(0.6.0_to_0.6.1 0.6.1_to_0.6.2 0.6.2_to_0.6.3 0.6.3_to_0.6.4 0.6.4_to_0.6.5 0.6.6_to_0.6.7
        0.6.7_to_0.6.8 0.6.8_to_0.6.9 0.6.9_to_0.6.10 0.6.10_to_0.6.11 0.6.11_to_0.6.12
-       0.6.12_to_0.6.13 0.6.13_to_0.6.14 0.6.15_to_0.6.16)
-MIGRATION="$MIGRATIONS/0.6.15_to_0.6.16.sql"
+       0.6.12_to_0.6.13 0.6.13_to_0.6.14 0.6.15_to_0.6.16 0.6.16_to_0.6.17 0.6.17_to_0.6.18)
+# Re-applied for idempotence, in order, so 0.6.17_to_0.6.18 still has the last word.
+RERUN=(0.6.15_to_0.6.16 0.6.16_to_0.6.17 0.6.17_to_0.6.18)
 DB_NAME="${AUDIT_REPORTS_VERIFY_DB:-audit_reports_verify}"
 PSQL="${PSQL:-sudo -u postgres psql}"
 read -r -a PSQL_CMD <<< "$PSQL"
@@ -42,10 +46,12 @@ for m in "${CHAIN[@]}"; do
     fi
 done
 
-if ! grep -q '\\ir migrations/0.6.15_to_0.6.16.sql' "$TABLES"; then
-    echo "01_heart360_tables.sql does not include migrations/0.6.15_to_0.6.16.sql" >&2
-    exit 1
-fi
+for m in "${RERUN[@]}"; do
+    if ! grep -q "\\\\ir migrations/$m.sql" "$TABLES"; then
+        echo "01_heart360_tables.sql does not include migrations/$m.sql" >&2
+        exit 1
+    fi
+done
 
 if ! "${PSQL_CMD[@]}" -d postgres -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
     echo "verifier-blocked: '$PSQL' cannot connect" >&2
@@ -300,27 +306,15 @@ BEGIN
         RAISE EXCEPTION 'report_adherence_steps(301, true) = %', v;
     END IF;
 
-    -- cohort columns equal report_adherence_buckets and report_adherence for every selection and mode
+    -- cohort columns equal report_adherence for every selection and mode
     IF EXISTS (
         SELECT 1
         FROM (VALUES (0, false), (0, true), (200, false), (200, true), (301, false), (301, true), (302, false)) s(org, inc)
-        WHERE (SELECT string_agg(b.patients_n || '/' || b.controlled_n, ' ' ORDER BY b.bucket_order)
-               FROM report_adherence_buckets('2026-09-01', s.org, s.inc) b)
-              IS DISTINCT FROM
-              (SELECT string_agg(x.c || '/' || x.t, ' ' ORDER BY x.o)
-               FROM (SELECT CASE WHEN st.step_no IS NOT NULL THEN st.step_no
-                                 WHEN st.row_key = 'other_protocol' THEN 7 WHEN st.row_key = 'non_protocol' THEN 8
-                                 ELSE 9 END AS o,
-                            sum(st.cohort_n) AS c, sum(st.cohort_controlled_n) AS t
-                     FROM report_adherence_steps('2026-09-01', s.org, s.inc) st
-                     WHERE st.step_no IS NOT NULL
-                        OR st.row_key IN ('other_protocol', 'non_protocol', 'no_htn_medicine', 'unreadable')
-                     GROUP BY 1) x)
-           OR (SELECT cohort_n FROM report_adherence_steps('2026-09-01', s.org, s.inc) WHERE row_key = 'grand_total')
+        WHERE (SELECT cohort_n FROM report_adherence_steps('2026-09-01', s.org, s.inc) WHERE row_key = 'grand_total')
               IS DISTINCT FROM (SELECT cohort_n FROM report_adherence('2026-09-01', s.org, s.inc) WHERE is_selected)
            OR (SELECT count(*) FROM report_adherence_steps('2026-09-01', s.org, s.inc)) <> 13
     ) THEN
-        RAISE EXCEPTION 'report_adherence_steps cohort columns differ from report_adherence_buckets / report_adherence';
+        RAISE EXCEPTION 'report_adherence_steps cohort columns differ from report_adherence';
     END IF;
     IF EXISTS (SELECT 1 FROM report_adherence_steps('2026-09-01', 999)) THEN
         RAISE EXCEPTION 'unknown org unit gave step rows';
@@ -356,7 +350,7 @@ END $$;
 SQL
 }
 check_steps
-echo "PASS report_adherence_steps: 13 rows, ladder labels, tool columns; cohort equals buckets; report_adherence_summary control = HTN tab"
+echo "PASS report_adherence_steps: 13 rows, ladder labels, tool columns; cohort equals report_adherence; report_adherence_summary control = HTN tab"
 
 # ---------------------------------------------------------------------------
 # UX-25 report_fudging_quarterly and report_fudging_share
@@ -578,6 +572,28 @@ BEGIN
             'report_calling', 'report_calling_return')) <> 8 THEN
         RAISE EXCEPTION 'report function contract broken for: %', v_bad;
     END IF;
+    -- 0.6.17_to_0.6.18: a search_path without pg_temp searches pg_temp first, so a caller's temp
+    -- table could shadow a table inside a definer call. No TEMP for PUBLIC or h360_api.
+    SELECT string_agg(p.oid::regprocedure::text, ', ') INTO v_bad
+    FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
+    WHERE n.nspname IN ('heart360tk_schema', 'heart360tk_reporting')
+      AND EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%' AND c NOT LIKE '%pg_temp');
+    IF v_bad IS NOT NULL THEN
+        RAISE EXCEPTION 'search_path without pg_temp last: %', v_bad;
+    END IF;
+    IF has_database_privilege('public', current_database(), 'TEMP')
+       OR has_database_privilege('h360_api', current_database(), 'TEMP')
+       OR NOT has_database_privilege('heart360tk', current_database(), 'TEMP') THEN
+        RAISE EXCEPTION 'TEMP on the database is not heart360tk (and grafana) only';
+    END IF;
+    IF to_regprocedure('heart360tk_schema.report_adherence_buckets(date, integer, boolean)') IS NOT NULL
+       OR to_regprocedure('heart360tk_schema.report_fudging_histogram(date, integer)') IS NOT NULL
+       OR to_regprocedure('heart360tk_schema.chat_home_unit(boolean, text[])') IS NOT NULL
+       OR to_regprocedure('heart360tk_schema.classify_visit_step(bigint)') IS NOT NULL
+       OR to_regprocedure('heart360tk_schema.drug_stock_form_long_rows(jsonb)') IS NOT NULL THEN
+        RAISE EXCEPTION 'a dropped function is back';
+    END IF;
+
     IF has_function_privilege('heart360tk_reader', 'heart360tk_schema.h360_ladder_step_labels()', 'EXECUTE')
        OR has_function_privilege('h360_api', 'heart360tk_schema.h360_ladder_step_labels()', 'EXECUTE')
        OR (SELECT prosecdef FROM pg_proc WHERE oid = 'heart360tk_schema.h360_ladder_step_labels()'::regprocedure) THEN
@@ -629,8 +645,10 @@ SELECT md5(string_agg(x, E'\n' ORDER BY x)) FROM (
 SQL
 }
 before="$(snapshot)"
-echo "apply 0.6.15_to_0.6.16 again"
-psql_db < "$MIGRATION" >/dev/null
+for m in "${RERUN[@]}"; do
+    echo "apply $m again"
+    psql_db < "$MIGRATIONS/$m.sql" >/dev/null
+done
 after="$(snapshot)"
 if [[ "$before" != "$after" ]]; then
     echo "FAIL second apply changed functions, grants, thresholds or results" >&2

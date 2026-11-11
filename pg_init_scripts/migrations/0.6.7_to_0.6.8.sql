@@ -135,15 +135,7 @@ INSERT INTO medicines (
     ('Vitamin B complex',  ARRAY['vitamin b complex', 'vitamin b kompleks'],            'Vitamin', NULL, 'not_htn', FALSE, NULL, NULL, NULL),
     ('Asam folat',         ARRAY['asam folat', 'folic acid'],                           'Vitamin', NULL, 'not_htn', FALSE, NULL, NULL, NULL),
     ('Kalsium laktat',     ARRAY['kalsium laktat', 'calcium lactate'],                  'Mineral', NULL, 'not_htn', FALSE, NULL, NULL, NULL)
-ON CONFLICT (drug_name) DO UPDATE
-    SET aliases        = EXCLUDED.aliases,
-        drug_class     = EXCLUDED.drug_class,
-        ladder_class   = EXCLUDED.ladder_class,
-        htn_role       = EXCLUDED.htn_role,
-        is_statin      = EXCLUDED.is_statin,
-        start_mg_day   = EXCLUDED.start_mg_day,
-        full_mg_day    = EXCLUDED.full_mg_day,
-        stock_category = EXCLUDED.stock_category;
+ON CONFLICT (drug_name) DO NOTHING;
 
 -- An alias must name exactly one medicine, or parse_obat would pick one arbitrarily.
 DO $$
@@ -219,9 +211,7 @@ INSERT INTO htn_ladder_steps (step_no, ccb_level, raas_level, thz_level, label) 
     (4, 2, 2, 0, '2 medicines, both at full dose'),
     (5, 2, 2, 1, '3 medicines, third at starting dose'),
     (6, 2, 2, 2, '3 medicines, all at full dose')
-ON CONFLICT (ccb_level, raas_level, thz_level) DO UPDATE
-    SET step_no = EXCLUDED.step_no,
-        label   = EXCLUDED.label;
+ON CONFLICT (ccb_level, raas_level, thz_level) DO NOTHING;
 
 -- ----------------------------------------------------------------------------
 -- prescriptions and prescription_lines (AD-24)

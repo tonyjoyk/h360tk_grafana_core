@@ -83,13 +83,13 @@ choose_psql() {
         fi
     fi
     if [[ "$mode" == "docker" || "$mode" == "auto" ]]; then
-        if docker exec postgres psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}" -d postgres -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
-            PSQL=(docker exec -i postgres psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}")
-            echo "psql mode: docker exec postgres"
+        if docker exec "${H360_PG_CONTAINER:?source scripts/h360_env.sh}" psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}" -d postgres -v ON_ERROR_STOP=1 -c 'SELECT 1' >/dev/null 2>&1; then
+            PSQL=(docker exec -i "${H360_PG_CONTAINER:?source scripts/h360_env.sh}" psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}")
+            echo "psql mode: docker exec $H360_PG_CONTAINER"
             return
         fi
     fi
-    echo "verifier-blocked: neither sudo -u postgres, local psql, nor docker exec postgres can connect" >&2
+    echo "verifier-blocked: neither sudo -u postgres, local psql, nor docker exec $H360_PG_CONTAINER can connect" >&2
     exit 1
 }
 
@@ -99,7 +99,7 @@ apply_file() {
     local db="$1"
     local file="$2"
     if [[ "${PSQL[0]}" == "docker" ]]; then
-        docker exec -i postgres psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}" -d "$db" -v ON_ERROR_STOP=1 < "$file"
+        docker exec -i "${H360_PG_CONTAINER:?source scripts/h360_env.sh}" psql -U "${DRUG_STOCK_PSQL_USER:-h360tk_root}" -d "$db" -v ON_ERROR_STOP=1 < "$file"
     else
         "${PSQL[@]}" -d "$db" -v ON_ERROR_STOP=1 -f "$file"
     fi

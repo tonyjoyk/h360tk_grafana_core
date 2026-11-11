@@ -1,6 +1,6 @@
 #!/bin/bash
-# Verifies report_fudging and report_fudging_histogram as 0.6.16_to_0.6.17 leaves them
-# (stories 5.2 and 5.3, UX-25 follow-up), plus chat_home_unit (UX-29), against hand-checked
+# Verifies report_fudging as 0.6.16_to_0.6.17 leaves it
+# (stories 5.2 and 5.3, UX-25 follow-up), against hand-checked
 # fixtures: the CLINICAL-RULES section 6 BP readings cases on the BP Fudging PRD rule (newest
 # completed quarter, 130-139 / 140-149, flag at fudging.flag_ratio), band edges, quarter edges,
 # attribution and roll-up, the PD-5 wording, thresholds read from report_flag_thresholds,
@@ -15,14 +15,11 @@
 #     quarter (07-01 00:00 counts, 06-30 23:59:59 does not).
 #   - Reasons name the quarter: `x.xx readings at 130-139 for every 1 at 140-149 in Q3 2026.`
 #   - The threshold probe moves from flag_score to flag_ratio; flag_score is no longer read.
-#   - Histogram: same seven bands over the 3-month window; the highlight is now 130-149. Its
-#     highlighted counts equal the report's band counts only where every reading sits in both
-#     the window and the quarter (Fac A to F here).
 #   Kept as they were: 5.42 flagged, 2.00 flagged, 1.99 not, (12, 5) too few, (25, 0) NULL
 #   flagged, attribution by patient, roll-up, control_pct and looks_fine_check.
 #
 # PSQL defaults to `sudo -u postgres psql`. The demo stack uses:
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_fudging.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_fudging.sh'
 # SQL is sent on stdin, so the files need not exist inside a container.
 set -euo pipefail
 
@@ -324,67 +321,6 @@ echo "PASS report_fudging rows on the PRD rule: 5.23 flagged, 5.42 flagged, 2.00
 echo "PASS band and quarter edges, newest completed quarter, same as report_fudging_quarterly, attribution, roll-up, control_pct, looks_fine_check, PD-5 wording"
 
 # ---------------------------------------------------------------------------
-# report_fudging_histogram
-# ---------------------------------------------------------------------------
-check_histogram() {
-    psql_db <<'SQL'
-SET search_path TO heart360tk_schema;
-DO $$
-DECLARE
-    v TEXT;
-BEGIN
-    SELECT string_agg(band_low || '-' || band_high || ':' || readings_n || CASE WHEN highlight THEN '*' ELSE '' END,
-                      ' ' ORDER BY band_low) INTO v
-    FROM report_fudging_histogram('2026-09-01', 301);
-    IF v IS DISTINCT FROM '120-124:10 125-129:7 130-134:3* 135-139:541* 140-144:100* 145-149:4* 150-154:10' THEN
-        RAISE EXCEPTION 'histogram(301) = %', v;
-    END IF;
-
-    SELECT string_agg(band_low || '-' || band_high || ':' || readings_n || CASE WHEN highlight THEN '*' ELSE '' END,
-                      ' ' ORDER BY band_low) INTO v
-    FROM report_fudging_histogram('2026-09-01', 0);
-    -- Fac G in the window (07-03 to 09-30): 129.9, 130, 139.9, 140, 149.9, 150 and 137 at 09-30.
-    IF v IS DISTINCT FROM '120-124:10 125-129:8 130-134:4* 135-139:1521* 140-144:406* 145-149:5* 150-154:11' THEN
-        RAISE EXCEPTION 'histogram(0) = %', v;
-    END IF;
-
-    -- seven bands 120-124 ... 150-154 with 130-149 highlighted, for every selection
-    IF EXISTS (
-        SELECT 1
-        FROM unnest(ARRAY[0, 200, 301, 302, 303, 304, 305, 306, 307, 308, 401]) s(org)
-        WHERE (SELECT string_agg(band_low || '-' || band_high || CASE WHEN highlight THEN '*' ELSE '' END, ' ' ORDER BY band_low)
-               FROM report_fudging_histogram('2026-09-01', s.org))
-              IS DISTINCT FROM '120-124 125-129 130-134* 135-139* 140-144* 145-149* 150-154'
-    ) THEN
-        RAISE EXCEPTION 'histogram bands or highlight differ';
-    END IF;
-    -- where every reading is in both the window and the quarter, the highlighted pairs add up to the report's bands
-    IF EXISTS (
-        SELECT 1
-        FROM unnest(ARRAY[301, 302, 303, 304, 305, 306, 308, 401]) s(org)
-        WHERE (SELECT sum(readings_n) FROM report_fudging_histogram('2026-09-01', s.org) WHERE band_low IN (130, 135))
-              IS DISTINCT FROM (SELECT band_135_139_n FROM report_fudging('2026-09-01', s.org) WHERE is_selected)::numeric
-           OR (SELECT sum(readings_n) FROM report_fudging_histogram('2026-09-01', s.org) WHERE band_low IN (140, 145))
-              IS DISTINCT FROM (SELECT band_140_144_n FROM report_fudging('2026-09-01', s.org) WHERE is_selected)::numeric
-    ) THEN
-        RAISE EXCEPTION 'histogram bands or highlighted counts differ from report_fudging';
-    END IF;
-
-    -- empty facility: seven zero rows; unknown org unit: no rows
-    IF (SELECT string_agg(readings_n::text, ' ' ORDER BY band_low) FROM report_fudging_histogram('2026-09-01', 308))
-       IS DISTINCT FROM '0 0 0 0 0 0 0' THEN
-        RAISE EXCEPTION 'histogram for an empty facility is wrong';
-    END IF;
-    IF EXISTS (SELECT 1 FROM report_fudging_histogram('2026-09-01', 999)) THEN
-        RAISE EXCEPTION 'histogram for an unknown org unit gave rows';
-    END IF;
-END $$;
-SQL
-}
-check_histogram
-echo "PASS report_fudging_histogram (seven bands 120-124 to 150-154 over 3 months; 130-149 highlighted; adds up to the report's bands)"
-
-# ---------------------------------------------------------------------------
 # Thresholds come from report_flag_thresholds, not literals
 # ---------------------------------------------------------------------------
 psql_db <<'SQL'
@@ -396,7 +332,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'heart360tk_schema'
-          AND p.proname IN ('report_fudging', 'report_fudging_histogram', 'h360_bp_readings')
+          AND p.proname IN ('report_fudging', 'h360_bp_readings')
           AND p.prosrc ~ '(\m(20|60)(\.0+)?\M|\m2\.0)'
     ) THEN
         RAISE EXCEPTION 'a BP readings function holds a threshold literal (20, 60 or 2.0)';
@@ -440,7 +376,7 @@ BEGIN
     SELECT string_agg(p.oid::regprocedure::text, ', ') INTO v_bad
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'heart360tk_schema'
-      AND p.proname IN ('report_fudging', 'report_fudging_histogram')
+      AND p.proname = 'report_fudging'
       AND (NOT p.prosecdef
            OR p.provolatile <> 's'
            OR pg_get_userbyid(p.proowner) <> 'heart360tk'
@@ -451,7 +387,7 @@ BEGIN
            OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c = 'search_path=heart360tk_schema, pg_temp')
            OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c = 'jit=off'));
     IF v_bad IS NOT NULL
-       OR (SELECT count(*) FROM pg_proc WHERE proname IN ('report_fudging', 'report_fudging_histogram')) <> 2 THEN
+       OR (SELECT count(*) FROM pg_proc WHERE proname = 'report_fudging') <> 1 THEN
         RAISE EXCEPTION 'report function contract broken for: %', v_bad;
     END IF;
 
@@ -475,9 +411,6 @@ BEGIN
     IF (SELECT score FROM heart360tk_schema.report_fudging('2026-09-01', 0) WHERE is_selected) <> 3.71 THEN
         RAISE EXCEPTION 'h360_api got a different score';
     END IF;
-    IF (SELECT count(*) FROM heart360tk_schema.report_fudging_histogram('2026-09-01', 0)) <> 7 THEN
-        RAISE EXCEPTION 'h360_api got a different band count';
-    END IF;
     BEGIN
         PERFORM * FROM heart360tk_schema.h360_bp_readings('2026-09-01', 0);
         RAISE EXCEPTION 'h360_api executed h360_bp_readings';
@@ -487,70 +420,9 @@ END $$;
 RESET ROLE;
 SET ROLE heart360tk_reader;
 SELECT 1 FROM heart360tk_schema.report_fudging('2026-09-01', 301);
-SELECT 1 FROM heart360tk_schema.report_fudging_histogram('2026-09-01', 301);
 RESET ROLE;
 SQL
-echo "PASS grants: report_fudging* definer, executable by heart360tk_reader and h360_api, not PUBLIC; helper not granted"
-
-# ---------------------------------------------------------------------------
-# chat_home_unit (UX-29): the home dashboard's UserOrgUnitId for h360-api
-# Teams name units by lower-cased, underscored names: 'Fixture District' -> fixture_district.
-# ---------------------------------------------------------------------------
-check_home_unit() {
-    psql_db <<'SQL'
-SET search_path TO heart360tk_schema;
-DO $$
-DECLARE
-    v TEXT;
-BEGIN
-    SELECT string_agg(c.k || '=' || COALESCE(chat_home_unit(c.adm, c.teams)::text, '-'), ' ' ORDER BY c.k) INTO v
-    FROM (VALUES
-        ('a', FALSE, ARRAY['heart360tk_facility_view_patients_fac_a']),
-        ('b', FALSE, ARRAY['heart360tk_facility_view_patients_fac_b',
-                           'heart360tk_district_view_aggregated_fixture_district']),   -- lowest level number wins
-        ('c', TRUE,  ARRAY['heart360tk_facility_view_patients_fac_a']),                -- admin: NULL
-        ('d', FALSE, ARRAY['heart360tk_facility_view_patients_ALL']),                  -- every facility, first by name
-        ('e', FALSE, ARRAY['heart360tk_region_view_aggregated_ALL']),                  -- root level: NULL
-        ('f', FALSE, NULL::text[]),
-        ('g', FALSE, ARRAY['heart360tk_facility_view_patients_nowhere', 'Some other team']),
-        ('h', FALSE, ARRAY['heart360tk_sub_facility_view_aggregated_sub_a1',
-                           'heart360tk_facility_view_aggregated_fac_h']),             -- level 3 before 4
-        ('i', NULL,  ARRAY['heart360tk_district_view_patients_fixture_district'])
-    ) c(k, adm, teams);
-    IF v IS DISTINCT FROM 'a=301 b=200 c=- d=301 e=- f=- g=- h=308 i=200' THEN
-        RAISE EXCEPTION 'chat_home_unit = %', v;
-    END IF;
-END $$;
-SQL
-}
-check_home_unit
-psql_db <<'SQL' >/dev/null
-DO $$
-DECLARE
-    v_oid oid := 'heart360tk_schema.chat_home_unit(boolean, text[])'::regprocedure;
-BEGIN
-    IF NOT (SELECT prosecdef FROM pg_proc WHERE oid = v_oid)
-       OR (SELECT provolatile FROM pg_proc WHERE oid = v_oid) <> 's'
-       OR pg_get_userbyid((SELECT proowner FROM pg_proc WHERE oid = v_oid)) <> 'heart360tk'
-       OR NOT EXISTS (SELECT 1 FROM pg_proc p, unnest(p.proconfig) c
-                      WHERE p.oid = v_oid AND c = 'search_path=heart360tk_schema, pg_temp')
-       OR has_function_privilege('public', v_oid, 'EXECUTE')
-       OR has_function_privilege('heart360tk_reader', v_oid, 'EXECUTE')
-       OR has_function_privilege('heart360tk_cached', v_oid, 'EXECUTE')
-       OR NOT has_function_privilege('h360_api', v_oid, 'EXECUTE') THEN
-        RAISE EXCEPTION 'chat_home_unit contract broken';
-    END IF;
-END $$;
-SET ROLE h360_api;
-DO $$
-BEGIN
-    IF heart360tk_schema.chat_home_unit(FALSE, ARRAY['heart360tk_facility_view_patients_fac_b']) IS DISTINCT FROM 302 THEN
-        RAISE EXCEPTION 'h360_api got a different home unit';
-    END IF;
-END $$;
-RESET ROLE;
-SQL
-echo "PASS chat_home_unit: team units, lowest level then name, _ALL levels below the root, NULL for admins and no match; definer, h360_api only"
+echo "PASS grants: report_fudging definer, executable by heart360tk_reader and h360_api, not PUBLIC; helper not granted"
 
 # ---------------------------------------------------------------------------
 # Idempotence: a second apply changes nothing
@@ -563,8 +435,6 @@ SELECT md5(string_agg(x, E'\n' ORDER BY x)) FROM (
     WHERE n.nspname = 'heart360tk_schema' AND (p.proname LIKE 'report_%' OR p.proname LIKE 'h360_%')
     UNION ALL
     SELECT row(r.*)::text FROM heart360tk_schema.report_fudging('2026-09-01', 0) r
-    UNION ALL
-    SELECT row(h.*)::text FROM heart360tk_schema.report_fudging_histogram('2026-09-01', 0) h
     UNION ALL
     SELECT report || '/' || key || '=' || value FROM heart360tk_schema.report_flag_thresholds
 ) s;
@@ -579,8 +449,6 @@ if [[ "$before" != "$after" ]]; then
     exit 1
 fi
 check_report
-check_histogram
-check_home_unit
 echo "PASS second apply is idempotent; fixtures still pass"
 
 echo "BP readings check verified"

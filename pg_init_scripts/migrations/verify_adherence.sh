@@ -1,11 +1,11 @@
 #!/bin/bash
 # Verifies the protocol adherence part of 0.6.8_to_0.6.9 (story 5.7, CR-2):
-# report_adherence and report_adherence_buckets against hand-checked fixtures
+# report_adherence against hand-checked fixtures
 # (CLINICAL-RULES section 6 Adherence, plus flag, rounding, too-few and boundary
 # cases), thresholds read from report_flag_thresholds, grants and idempotence.
 #
 # PSQL defaults to `sudo -u postgres psql`. The demo stack uses:
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_adherence.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_adherence.sh'
 # SQL is sent on stdin, so the files need not exist inside a container.
 set -euo pipefail
 
@@ -316,85 +316,6 @@ check_report
 echo "PASS report_adherence rows (district, All places in view, facility, sub-facility, include_new)"
 
 # ---------------------------------------------------------------------------
-# report_adherence_buckets
-# ---------------------------------------------------------------------------
-check_buckets() {
-    psql_db <<'SQL'
-SET search_path TO heart360tk_schema;
-DO $$
-DECLARE
-    v TEXT;
-BEGIN
-    -- CLINICAL-RULES section 6: nine rows, one patient each, Steps 1-3 controlled
-    SELECT string_agg(bucket_order || '|' || bucket || '|' || label || '|' || patients_n || '|' || controlled_n || '|'
-                      || COALESCE(controlled_pct::text, '-'), E'\n' ORDER BY bucket_order) INTO v
-    FROM report_adherence_buckets('2026-09-01', 301);
-    IF v IS DISTINCT FROM concat_ws(E'\n',
-        '1|Step 1|1 medicine, starting dose|1|1|100.0',
-        '2|Step 2|1 medicine, full dose|1|1|100.0',
-        '3|Step 3|2 medicines, one at full dose|1|1|100.0',
-        '4|Step 4|2 medicines, both at full dose|1|0|0.0',
-        '5|Step 5|3 medicines, third at starting dose|1|0|0.0',
-        '6|Step 6|3 medicines, all at full dose|1|0|0.0',
-        '7|Other Protocol|Other protocol combination|1|0|0.0',
-        '8|Non-Protocol|Medicine outside the protocol|1|0|0.0',
-        '9|Unrecognized|Could not read the entry|1|0|0.0') THEN
-        RAISE EXCEPTION E'buckets(301) =\n%', v;
-    END IF;
-
-    -- step labels are htn_ladder_steps.label (C16)
-    IF EXISTS (
-        SELECT 1 FROM report_adherence_buckets('2026-09-01', 301) b
-        JOIN htn_ladder_steps s ON s.step_no = b.bucket_order
-        WHERE b.label <> s.label
-    ) THEN
-        RAISE EXCEPTION 'step labels differ from htn_ladder_steps.label';
-    END IF;
-
-    -- include_new: the 10th patient (Step 2, controlled) appears; counts sum to cohort_n
-    SELECT string_agg(bucket_order || ':' || patients_n || '/' || controlled_n, ' ' ORDER BY bucket_order) INTO v
-    FROM report_adherence_buckets('2026-09-01', 301, true);
-    IF v IS DISTINCT FROM '1:1/1 2:2/2 3:1/1 4:1/0 5:1/0 6:1/0 7:1/0 8:1/0 9:1/0' THEN
-        RAISE EXCEPTION 'buckets(301, true) = %', v;
-    END IF;
-
-    -- All places: counts and controlled per bucket, summing to the cohort
-    SELECT string_agg(bucket_order || ':' || patients_n || '/' || controlled_n || '/' || COALESCE(controlled_pct::text, '-'),
-                      ' ' ORDER BY bucket_order) INTO v
-    FROM report_adherence_buckets('2026-09-01', 0);
-    IF v IS DISTINCT FROM '1:312/304/97.4 2:14/6/42.9 3:109/104/95.4 4:5/4/80.0 5:5/4/80.0 6:5/4/80.0 7:7/0/0.0 8:125/99/79.2 9:1/0/0.0' THEN
-        RAISE EXCEPTION 'buckets(0) = %', v;
-    END IF;
-
-    -- bucket counts sum to cohort_n of the selection row, for every selection and mode
-    IF EXISTS (
-        SELECT 1
-        FROM (VALUES (0, false), (0, true), (200, false), (200, true), (301, false), (301, true),
-                     (302, false), (303, false), (304, false), (305, false), (306, false), (401, false)) s(org, inc)
-        WHERE (SELECT sum(patients_n) FROM report_adherence_buckets('2026-09-01', s.org, s.inc))
-              IS DISTINCT FROM (SELECT cohort_n FROM report_adherence('2026-09-01', s.org, s.inc) WHERE is_selected)
-           OR (SELECT sum(controlled_n) FROM report_adherence_buckets('2026-09-01', s.org, s.inc))
-              IS DISTINCT FROM (SELECT controlled_n FROM report_adherence('2026-09-01', s.org, s.inc) WHERE is_selected)
-           OR (SELECT count(*) FROM report_adherence_buckets('2026-09-01', s.org, s.inc)) <> 9
-    ) THEN
-        RAISE EXCEPTION 'bucket counts do not sum to the cohort';
-    END IF;
-
-    -- empty facility: nine zero rows, percent NULL; unknown org: no rows
-    IF (SELECT string_agg(patients_n || '/' || COALESCE(controlled_pct::text, '-'), ' ' ORDER BY bucket_order)
-        FROM report_adherence_buckets('2026-09-01', 306)) IS DISTINCT FROM '0/- 0/- 0/- 0/- 0/- 0/- 0/- 0/- 0/-' THEN
-        RAISE EXCEPTION 'buckets for an empty facility are wrong';
-    END IF;
-    IF EXISTS (SELECT 1 FROM report_adherence_buckets('2026-09-01', 999)) THEN
-        RAISE EXCEPTION 'buckets for an unknown org unit gave rows';
-    END IF;
-END $$;
-SQL
-}
-check_buckets
-echo "PASS report_adherence_buckets (nine rows, ladder labels, include_new, sums equal cohort_n)"
-
-# ---------------------------------------------------------------------------
 # Thresholds come from report_flag_thresholds, not literals
 # ---------------------------------------------------------------------------
 psql_db <<'SQL'
@@ -406,7 +327,7 @@ BEGIN
     IF EXISTS (
         SELECT 1 FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'heart360tk_schema'
-          AND p.proname IN ('report_adherence', 'report_adherence_buckets', 'h360_adherence_patients')
+          AND p.proname IN ('report_adherence', 'h360_adherence_patients')
           AND p.prosrc ~ '\m(20|60)(\.0+)?\M'
     ) THEN
         RAISE EXCEPTION 'an adherence function holds a threshold literal (20 or 60)';
@@ -442,7 +363,7 @@ BEGIN
     SELECT string_agg(p.oid::regprocedure::text, ', ') INTO v_bad
     FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace
     WHERE n.nspname = 'heart360tk_schema'
-      AND p.proname IN ('report_adherence', 'report_adherence_buckets')
+      AND p.proname = 'report_adherence'
       AND (NOT p.prosecdef
            OR p.provolatile <> 's'
            OR pg_get_userbyid(p.proowner) <> 'heart360tk'
@@ -451,7 +372,7 @@ BEGIN
            OR NOT has_function_privilege('h360_api', p.oid, 'EXECUTE')
            OR has_function_privilege('heart360tk_cached', p.oid, 'EXECUTE')
            OR NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c = 'search_path=heart360tk_schema, pg_temp'));
-    IF v_bad IS NOT NULL OR (SELECT count(*) FROM pg_proc WHERE proname IN ('report_adherence', 'report_adherence_buckets')) <> 2 THEN
+    IF v_bad IS NOT NULL OR (SELECT count(*) FROM pg_proc WHERE proname = 'report_adherence') <> 1 THEN
         RAISE EXCEPTION 'report function contract broken for: %', v_bad;
     END IF;
 
@@ -475,9 +396,6 @@ BEGIN
     IF (SELECT cohort_n FROM heart360tk_schema.report_adherence('2026-09-01', 0) WHERE is_selected) <> 583 THEN
         RAISE EXCEPTION 'h360_api got a different cohort';
     END IF;
-    IF (SELECT count(*) FROM heart360tk_schema.report_adherence_buckets('2026-09-01', 0)) <> 9 THEN
-        RAISE EXCEPTION 'h360_api got a different bucket count';
-    END IF;
     BEGIN
         PERFORM * FROM heart360tk_schema.h360_adherence_patients('2026-09-01', 0, false);
         RAISE EXCEPTION 'h360_api executed h360_adherence_patients';
@@ -487,7 +405,6 @@ END $$;
 RESET ROLE;
 SET ROLE heart360tk_reader;
 SELECT 1 FROM heart360tk_schema.report_adherence('2026-09-01', 301);
-SELECT 1 FROM heart360tk_schema.report_adherence_buckets('2026-09-01', 301, true);
 RESET ROLE;
 SQL
 echo "PASS grants: report_adherence* definer, executable by heart360tk_reader and h360_api, not PUBLIC"
@@ -504,8 +421,6 @@ SELECT md5(string_agg(x, E'\n' ORDER BY x)) FROM (
     UNION ALL
     SELECT row(r.*)::text FROM heart360tk_schema.report_adherence('2026-09-01', 0) r
     UNION ALL
-    SELECT row(b.*)::text FROM heart360tk_schema.report_adherence_buckets('2026-09-01', 0, true) b
-    UNION ALL
     SELECT report || '/' || key || '=' || value FROM heart360tk_schema.report_flag_thresholds
 ) s;
 SQL
@@ -519,7 +434,6 @@ if [[ "$before" != "$after" ]]; then
     exit 1
 fi
 check_report
-check_buckets
 echo "PASS second apply is idempotent; fixtures still pass"
 
 echo "adherence verified"

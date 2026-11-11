@@ -22,10 +22,6 @@ from pathlib import Path
 
 GRAFANA_URL = os.environ.get("GRAFANA_URL", "http://localhost:3000").rstrip("/")
 API_URL = os.environ.get("H360_API_URL", "http://localhost:8090").rstrip("/")
-DEFAULT_DSN = (
-    "postgres://h360tk_root:NGE5ZjljYjM1ZWEyNDI5N2I0YmZiZGM0"
-    "@localhost:5432/heart360tk_database"
-)
 APP_SCHEMAS = ("heart360tk_schema", "heart360tk_reporting")
 ROLES = ("heart360tk_reader", "heart360tk_cached", "grafana_reader", "h360_api")
 DATASOURCES = (
@@ -48,7 +44,6 @@ MATRIX = {
         "heart360tk_reporting.drug_stock_on_hand_matrix(date, integer)",
         "heart360tk_reporting.drug_stock_patient_days_all(date, integer)",
         "heart360tk_schema.parse_obat(text)",
-        "heart360tk_schema.classify_visit_step(bigint)",
     ],
     "heart360tk_cached": [
         "heart360tk_schema.get_descendant_ids(integer)",
@@ -80,10 +75,8 @@ REPORT_CHAT_NAMES = {
         "report_window",
         "report_flags",
         "report_adherence",
-        "report_adherence_buckets",
         "report_titration",
         "report_fudging",
-        "report_fudging_histogram",
         "report_statins",
         "report_statins_patients",
         "report_calling",
@@ -102,10 +95,8 @@ REPORT_CHAT_NAMES = {
         "report_window",
         "report_flags",
         "report_adherence",
-        "report_adherence_buckets",
         "report_titration",
         "report_fudging",
-        "report_fudging_histogram",
         "report_statins",
         "report_calling",
         "report_new_patients",
@@ -122,7 +113,6 @@ REPORT_CHAT_NAMES = {
         "chat_facility_rank_district",
         "chat_new_patient_return",
         "chat_phone_capture",
-        "chat_home_unit",
     ],
 }
 
@@ -340,17 +330,9 @@ Environment:
   GRAFANA_ADMIN_USER/PASSWORD default admin/admin (also GRAFANA_USER/GRAFANA_PASSWORD)
   GRAFANA_USERS               optional user:pass,user:pass replacing the default list
   H360_API_URL                default http://localhost:8090
-  DATABASE_URL or PGHOST, PGUSER, PGPASSWORD, PGDATABASE, PGPORT
+  H360_PG_CONTAINER           from scripts/h360_env.sh (SQL runs through scripts/h360_psql)
 """)
     return 0
-
-
-def resolve_dsn():
-    if os.environ.get("DATABASE_URL"):
-        return os.environ["DATABASE_URL"]
-    if any(os.environ.get(key) for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")):
-        return None
-    return DEFAULT_DSN
 
 
 def curl(args, timeout=15):
@@ -502,20 +484,8 @@ def grafana_api_absent(jar):
 
 
 def psql(sql):
-    import shutil
-    command = ["psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t"]
-    if not shutil.which("psql"):
-        # No host psql (a stock Mac): run psql inside the postgres container instead.
-        passthrough = [arg for key in ("PGHOST", "PGUSER", "PGPASSWORD", "PGDATABASE", "PGPORT")
-                       if os.environ.get(key) for arg in ("-e", key)]
-        command = ["docker", "exec", "-i", "-e", "PGCONNECT_TIMEOUT=3", *passthrough, os.environ.get("H360_PG_CONTAINER", "postgres"), *command]
-    dsn = resolve_dsn()
-    if dsn:
-        command.append(dsn)
-    command.extend(["-c", sql])
-    env = os.environ.copy()
-    env["PGCONNECT_TIMEOUT"] = "3"
-    proc = subprocess.run(command, capture_output=True, text=True, env=env, timeout=20)
+    command = ["scripts/h360_psql", "-X", "--no-psqlrc", "-v", "ON_ERROR_STOP=1", "-At", "-F", "\t", "-c", sql]
+    proc = subprocess.run(command, capture_output=True, text=True, timeout=20)
     if proc.returncode != 0:
         detail = (proc.stderr or proc.stdout or f"psql exit {proc.returncode}").strip()
         raise RuntimeError(detail.splitlines()[-1])

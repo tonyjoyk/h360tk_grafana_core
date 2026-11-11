@@ -1,11 +1,11 @@
 #!/bin/bash
 # Verifies 0.6.7_to_0.6.8 (medicine model): medicines seed, parse_obat, the
-# prescription trigger, htn_ladder_steps, visit_step / classify_visit_step,
+# prescription trigger, htn_ladder_steps, visit_step,
 # patient_cvd_history, grants and idempotence, against hand-checked fixtures
 # (CLINICAL-RULES.md sections 3 to 6).
 #
 # PSQL defaults to `sudo -u postgres psql`. The demo stack uses:
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_medicine_model.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_medicine_model.sh'
 # SQL is sent on stdin, so the files need not exist inside a container.
 set -euo pipefail
 
@@ -387,17 +387,6 @@ BEGIN
         RAISE EXCEPTION 'bucket_order or step_no inconsistent with bucket';
     END IF;
 
-    -- the wrapper returns the same row
-    SELECT count(*) INTO v_n
-    FROM fixture_expected f
-    CROSS JOIN LATERAL classify_visit_step(f.encounter_id) c
-    JOIN visit_step v ON v.encounter_id = f.encounter_id
-    WHERE (c.bucket, c.step_no, c.reason, c.n_htn_drugs, c.dose_units)
-          IS NOT DISTINCT FROM (v.bucket, v.step_no, v.reason, v.n_htn_drugs, v.dose_units);
-    IF v_n <> (SELECT count(*) FROM fixture_expected) THEN
-        RAISE EXCEPTION 'classify_visit_step agreed on % of % encounters', v_n, (SELECT count(*) FROM fixture_expected);
-    END IF;
-
     -- every bucket the spine lists is covered by the fixture
     SELECT count(DISTINCT bucket) INTO v_n FROM visit_step WHERE encounter_id <= 30;
     IF v_n <> 9 THEN
@@ -530,16 +519,15 @@ BEGIN
     END LOOP;
 
     IF EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'heart360tk_reader')
-       AND NOT (has_function_privilege('heart360tk_reader', 'heart360tk_schema.parse_obat(text)', 'EXECUTE')
-                AND has_function_privilege('heart360tk_reader', 'heart360tk_schema.classify_visit_step(bigint)', 'EXECUTE')) THEN
-        RAISE EXCEPTION 'heart360tk_reader lacks EXECUTE on the invoker helpers';
+       AND NOT has_function_privilege('heart360tk_reader', 'heart360tk_schema.parse_obat(text)', 'EXECUTE') THEN
+        RAISE EXCEPTION 'heart360tk_reader lacks EXECUTE on parse_obat';
     END IF;
 
     IF EXISTS (
         SELECT 1 FROM pg_proc p
         JOIN pg_namespace n ON n.oid = p.pronamespace
         WHERE n.nspname = 'heart360tk_schema'
-          AND p.proname IN ('parse_obat', 'classify_visit_step', 'prescriptions_parse_trigger')
+          AND p.proname IN ('parse_obat', 'prescriptions_parse_trigger')
           AND (p.prosecdef
                OR pg_get_userbyid(p.proowner) <> 'heart360tk'
                OR has_function_privilege('public', p.oid, 'EXECUTE')
@@ -573,8 +561,8 @@ SELECT (SELECT count(*) FROM medicines) AS medicines_n,
        (SELECT count(*) FROM prescriptions) AS prescriptions_n,
        (SELECT count(*) FROM prescription_lines) AS lines_n,
        (SELECT count(*) FROM patient_cvd_history) AS cvd_n;
--- Seed drift that the re-apply must restore.
-UPDATE htn_ladder_steps SET label = 'drifted' WHERE step_no = 1;
+-- A tuned seed row that the re-apply must keep (ON CONFLICT DO NOTHING).
+UPDATE htn_ladder_steps SET label = 'tuned' WHERE step_no = 1;
 -- A catalogue addition is picked up by re-parsing (the re-apply re-parses every cell).
 INSERT INTO medicines (drug_name, aliases, drug_class, htn_role) VALUES ('Xyzapril', ARRAY['xyzapril'], 'ACE inhibitor', 'not_htn');
 UPDATE prescriptions SET obat_raw = obat_raw WHERE encounter_id = 21;
@@ -602,9 +590,10 @@ BEGIN
        OR (SELECT count(*) FROM patient_cvd_history) <> b.cvd_n THEN
         RAISE EXCEPTION 'second apply changed row counts';
     END IF;
-    IF (SELECT label FROM htn_ladder_steps WHERE step_no = 1) <> '1 medicine, starting dose' THEN
-        RAISE EXCEPTION 'second apply did not restore the ladder seed';
+    IF (SELECT label FROM htn_ladder_steps WHERE step_no = 1) <> 'tuned' THEN
+        RAISE EXCEPTION 'second apply reset a tuned ladder row';
     END IF;
+    UPDATE htn_ladder_steps SET label = '1 medicine, starting dose' WHERE step_no = 1;
     IF (SELECT count(*) FROM pg_constraint WHERE conname = 'protocol_drugs_drug_name_fkey') <> 1 THEN
         RAISE EXCEPTION 'second apply duplicated the protocol_drugs FK';
     END IF;

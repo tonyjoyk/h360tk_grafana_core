@@ -6,7 +6,7 @@
 #   Bug 3: submitter email and append-only history (FR-21).
 #   Bug 5: blank strength makes the category unknown; subtree N; All row (FR-23).
 # PSQL overrides the psql command, e.g.
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_drug_stock_fixes.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_drug_stock_fixes.sh'
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
@@ -750,6 +750,15 @@ fi
 echo "re-apply kept $HIST_AFTER history rows and every stored row"
 
 echo "--- privileges"
+# drug_stock_pull_apply runs inside the definer save_drug_stock_entry: without pg_temp last, a
+# caller's temp table would be searched first.
+BAD_PATH="$(sql -tA -c "SELECT string_agg(p.oid::regprocedure::text, ', ') FROM pg_proc p JOIN pg_namespace n ON n.oid = p.pronamespace WHERE p.proname IN ('drug_stock_pull_apply', 'drug_stock_on_hand_matrix') AND NOT EXISTS (SELECT 1 FROM unnest(p.proconfig) c WHERE c LIKE 'search_path=%pg_temp')")"
+if [[ -n "$BAD_PATH" ]]; then
+    echo "search_path without pg_temp last: $BAD_PATH" >&2
+    exit 1
+fi
+echo "drug_stock_pull_apply and drug_stock_on_hand_matrix search_path ends in pg_temp"
+
 expect_denied() {
     local label="$1" role="$2" statement="$3" out status
     set +e

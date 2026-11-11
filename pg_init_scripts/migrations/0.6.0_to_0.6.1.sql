@@ -50,8 +50,7 @@ CREATE TABLE IF NOT EXISTS deploy_setting (
 -- to 10 Indian states and the ATTACC pair to 8.
 INSERT INTO programme_protocols (country_code, programme_code, protocol_code)
 VALUES ('India', 'IHCI', 'AATTCC')
-ON CONFLICT (country_code, programme_code) DO UPDATE
-    SET protocol_code = EXCLUDED.protocol_code;
+ON CONFLICT (country_code, programme_code) DO NOTHING;
 
 INSERT INTO protocol_drugs (
     country_code, programme_code, drug_name, dosage, rxnorm_code, drug_category, stock_tracked
@@ -62,17 +61,11 @@ INSERT INTO protocol_drugs (
     ('India', 'IHCI', 'Telmisartan',     '80 mg',   '316765', 'ARB',      TRUE),
     ('India', 'IHCI', 'Chlorthalidone',  '12.5 mg', '331132', 'Diuretic', TRUE),
     ('India', 'IHCI', 'Chlorthalidone',  '25 mg',   '197499', 'Diuretic', TRUE)
-ON CONFLICT (country_code, programme_code, rxnorm_code) DO UPDATE
-    SET drug_name     = EXCLUDED.drug_name,
-        dosage        = EXCLUDED.dosage,
-        drug_category = EXCLUDED.drug_category,
-        stock_tracked = EXCLUDED.stock_tracked;
+ON CONFLICT (country_code, programme_code, rxnorm_code) DO NOTHING;
 
 INSERT INTO deploy_setting (setting_name, country_code, programme_code)
 VALUES ('active_programme', 'India', 'IHCI')
-ON CONFLICT (setting_name) DO UPDATE
-    SET country_code   = EXCLUDED.country_code,
-        programme_code = EXCLUDED.programme_code;
+ON CONFLICT (setting_name) DO NOTHING;
 
 DO $$
 BEGIN

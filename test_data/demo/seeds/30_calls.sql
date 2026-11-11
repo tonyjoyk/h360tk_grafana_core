@@ -40,7 +40,6 @@ BEGIN
     END IF;
 
     SELECT COALESCE(
-        (SELECT anchor FROM demo_seed_marker WHERE seed = '10_visits'),
         (SELECT MAX(encounter_date)::date FROM encounters),
         DATE '2026-10-13'
     ) INTO v_anchor;

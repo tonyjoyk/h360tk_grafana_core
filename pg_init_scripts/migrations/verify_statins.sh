@@ -5,7 +5,7 @@
 # report_flag_thresholds, grants (patient list reader-only) and idempotence.
 #
 # PSQL defaults to `sudo -u postgres psql`. The demo stack uses:
-#   PSQL="docker exec -i postgres psql -U h360tk_root" ./verify_statins.sh
+#   bash -c 'source scripts/h360_env.sh; PSQL=scripts/h360_psql pg_init_scripts/migrations/verify_statins.sh'
 # SQL is sent on stdin, so the files need not exist inside a container.
 set -euo pipefail
 

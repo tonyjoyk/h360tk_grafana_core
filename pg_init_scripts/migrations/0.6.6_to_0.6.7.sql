@@ -255,7 +255,7 @@ COMMENT ON FUNCTION drug_stock_pull_parse(jsonb) IS
 CREATE OR REPLACE FUNCTION drug_stock_pull_apply(rows jsonb)
 RETURNS TABLE (accepted integer, rejected integer)
 LANGUAGE plpgsql
-SET search_path = heart360tk_schema
+SET search_path = heart360tk_schema, pg_temp
 AS $$
 DECLARE
     r                 record;
@@ -590,7 +590,7 @@ CREATE OR REPLACE FUNCTION heart360tk_reporting.drug_stock_on_hand_matrix(
 RETURNS TABLE (matrix json)
 LANGUAGE sql
 STABLE
-SET search_path = heart360tk_reporting, heart360tk_schema
+SET search_path = heart360tk_reporting, heart360tk_schema, pg_temp
 AS $$
     WITH scoped AS (
         SELECT v.*
