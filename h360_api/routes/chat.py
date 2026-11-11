@@ -11,10 +11,7 @@ plan, honesty, links} plus the widget's optional `title` and `control_line`; a n
 
 from __future__ import annotations
 
-import hashlib
-import json
 import threading
-from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -22,6 +19,7 @@ from starlette.concurrency import run_in_threadpool
 
 from h360_api import ranker, registry, wording
 from h360_api.auth import Actor, error_payload
+from h360_api.routes.write import read_json_object
 
 router = APIRouter()
 
@@ -33,8 +31,8 @@ MSG_BAD_MONTH = "The month must be the first day of a month, as YYYY-MM-01."
 MSG_BAD_CHIP = "This question is not available for this place."
 MSG_TOO_LONG = "Keep the question to 200 characters or fewer."
 
-_clients: dict[str, Any] = {}
-_clients_lock = threading.Lock()
+_client = None
+_client_lock = threading.Lock()
 
 
 def _error(code: str, message: str, status: int) -> JSONResponse:
@@ -56,19 +54,17 @@ def _db(request: Request) -> registry.ChatDb:
 
 
 def _client_factory(request: Request):
-    """Fakes in tests via app.state.claude_client_factory; one SDK client per key otherwise."""
+    """Fakes in tests via app.state.claude_client_factory; one SDK client otherwise (one key per process)."""
     injected = getattr(request.app.state, "claude_client_factory", None)
     if injected is not None:
         return injected
 
     def factory(api_key: str):
-        slot = hashlib.sha256(api_key.encode("utf-8")).hexdigest()
-        with _clients_lock:
-            client = _clients.get(slot)
-            if client is None:
-                client = wording.make_claude_client(api_key)
-                _clients[slot] = client
-            return client
+        global _client
+        with _client_lock:
+            if _client is None:
+                _client = wording.make_claude_client(api_key)
+            return _client
 
     return factory
 
@@ -157,12 +153,9 @@ async def chat_chips(request: Request) -> JSONResponse:
 @router.post("/chat")
 async def chat(request: Request) -> JSONResponse:
     actor: Actor = request.state.actor
-    try:
-        payload = json.loads(await request.body())
-    except (json.JSONDecodeError, UnicodeError):
-        return _error("bad_request", "The request body is not valid JSON.", 400)
-    if not isinstance(payload, dict):
-        return _error("bad_request", "The request body must be a JSON object.", 400)
+    payload = await read_json_object(request)
+    if isinstance(payload, JSONResponse):
+        return payload
     try:
         body = await run_in_threadpool(
             answer_body, _db(request), request.app.state.settings, actor, payload, _client_factory(request)

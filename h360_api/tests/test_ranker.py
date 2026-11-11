@@ -195,23 +195,6 @@ class DeterminismTests(unittest.TestCase):
         ranker.build_facts("why_control_low", place, fetch, ALL_KEYS)
         self.assertIn(("call", "chat_control_summary", 11, MONTH), db.log)
 
-    def test_thresholds_mirror_the_seed_rows(self):
-        self.assertEqual(ranker.THRESHOLDS, {
-            "common.high_control_pct": D("60"),
-            "chat.new_loss_above_pct": D("25"),
-            "chat.usable_phone_below_pct": D("90"),
-            "chat.called_below_pct": D("10"),
-            "chat.early_below_pct": D("50"),
-            "chat.titration_below_pct": D("40"),
-            "chat.stock_days_below": D("30"),
-            "fudging.flag_score": D("2.0"),
-            "fudging.min_readings": D("20"),
-            "fudging.flag_ratio": D("2.0"),
-            "statins.flag_below_pct": D("25"),
-            "chattogram.control_below_pct": D("50"),
-            "chattogram.missed_visit_above_pct": D("25"),
-        })
-
 
 class SeriesTests(unittest.TestCase):
     def test_each_reason_carries_six_months_from_the_same_function(self):

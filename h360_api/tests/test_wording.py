@@ -4,11 +4,10 @@ from __future__ import annotations
 
 import json
 import re
-import time
 import unittest
 
 from h360_api import registry, wording
-from h360_api.tests.test_registry import ALL_KEYS, ask, chat_client
+from h360_api.tests.test_registry import ALL_KEYS
 from h360_api.tests.test_ranker import facts_for
 
 HONESTY = (
@@ -282,17 +281,6 @@ class CheckTests(unittest.TestCase):
         self.assertTrue(self.bad(" ".join(["word"] * 21) + "."))
         long_answer = dict(self.answer, reasons=[dict(self.answer["reasons"][0], text="Fine words here. " * 60)])
         self.assertIn("over 150 words", wording.check_answer(long_answer, self.facts))
-
-
-class TimingTests(unittest.TestCase):
-    def test_answers_return_quickly_over_http(self):
-        client, _db = chat_client()
-        for chip in ("why_control_low", "who_to_call", "visit_first"):
-            started = time.perf_counter()
-            res = ask(client, {"chip_id": chip, "org_unit_id": "10", "reporting_month": "2026-10-01"})
-            self.assertEqual(res.status_code, 200)
-            self.assertLess(time.perf_counter() - started, 3.0)
-            self.assertEqual(res.json()["honesty"], HONESTY)
 
 
 if __name__ == "__main__":

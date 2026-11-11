@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 import threading
-from typing import Any
 
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
@@ -35,27 +34,31 @@ SELECT save_call_result(
 ) AS result
 """
 
-_pools: dict[str, Any] = {}
-_pools_lock = threading.Lock()
+_pool_instance = None
+_pool_lock = threading.Lock()
 
 
 def _pool(database_url: str):
+    """The one pool for the process. Every caller passes the same Settings.database_url."""
+    global _pool_instance
     import psycopg
     from psycopg_pool import ConnectionPool
 
-    with _pools_lock:
-        pool = _pools.get(database_url)
-        if pool is None:
-            pool = ConnectionPool(
+    with _pool_lock:
+        if _pool_instance is None:
+            _pool_instance = ConnectionPool(
                 database_url,
-                kwargs={"autocommit": True},
+                kwargs={
+                    "autocommit": True,
+                    "connect_timeout": 5,
+                    "options": "-c statement_timeout=10000",
+                },
                 min_size=1,
                 max_size=4,
                 open=True,
                 connection_class=psycopg.Connection,
             )
-            _pools[database_url] = pool
-        return pool
+        return _pool_instance
 
 
 def execute_save(settings: Settings, actor: Actor, patient_id: int, status: str) -> dict:
@@ -99,15 +102,42 @@ def _json_error(code: str, message: str, status: int) -> JSONResponse:
     return JSONResponse(status_code=status, content=error_payload(code, message))
 
 
-@router.post("/write/call-result")
-async def write_call_result(request: Request) -> JSONResponse:
-    actor: Actor = request.state.actor
+async def read_json_object(request: Request) -> dict | JSONResponse:
+    """The body as a JSON object, or the 400 to return."""
     try:
         payload = json.loads(await request.body())
     except (json.JSONDecodeError, UnicodeError):
         return _json_error("bad_request", "The request body is not valid JSON.", 400)
     if not isinstance(payload, dict):
         return _json_error("bad_request", "The request body must be a JSON object.", 400)
+    return payload
+
+
+def sql_result_response(result: object, sql_status: dict[str, int], failed: str) -> JSONResponse:
+    """A save function's {ok, error, message} object as HTTP. Not an object (or None): 500."""
+    if not isinstance(result, dict):
+        return _json_error("bad_request", failed, 500)
+    if result.get("ok") is True:
+        return JSONResponse(status_code=200, content=result)
+    code = result.get("error")
+    status_code = sql_status.get(code, 400)
+    message = result.get("message")
+    if not isinstance(message, str) or not message.strip():
+        message = "The save was refused."
+    body = dict(result)
+    body["ok"] = False
+    body["message"] = message
+    if not isinstance(code, str):
+        body["error"] = "bad_request"
+    return JSONResponse(status_code=status_code, content=body)
+
+
+@router.post("/write/call-result")
+async def write_call_result(request: Request) -> JSONResponse:
+    actor: Actor = request.state.actor
+    payload = await read_json_object(request)
+    if isinstance(payload, JSONResponse):
+        return payload
 
     patient_id = parse_patient_id(payload.get("patient_id"))
     status = payload.get("status")
@@ -120,20 +150,5 @@ async def write_call_result(request: Request) -> JSONResponse:
         result = request.app.state.writer(actor, patient_id, status)
     except Exception:
         # The database message can echo the call. Do not return or log it.
-        return _json_error("bad_request", "The save could not be recorded. Try again.", 500)
-
-    if not isinstance(result, dict):
-        return _json_error("bad_request", "The save could not be recorded. Try again.", 500)
-    if result.get("ok") is True:
-        return JSONResponse(status_code=200, content=result)
-    code = result.get("error")
-    status_code = _SQL_STATUS.get(code, 400)
-    message = result.get("message")
-    if not isinstance(message, str) or not message.strip():
-        message = "The save was refused."
-    body = dict(result)
-    body["ok"] = False
-    body["message"] = message
-    if not isinstance(code, str):
-        body["error"] = "bad_request"
-    return JSONResponse(status_code=status_code, content=body)
+        result = None
+    return sql_result_response(result, _SQL_STATUS, "The save could not be recorded. Try again.")

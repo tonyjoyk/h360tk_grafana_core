@@ -5,7 +5,7 @@ from __future__ import annotations
 import datetime as dt
 import unittest
 
-from h360_api.routes.stock import parse_entries, parse_month, parse_org_unit_id
+from h360_api.routes.stock import parse_entries
 from h360_api.tests.fakes import FakeGrafana, make_client, route_paths, sign_in, write_headers
 
 SESSION = "session-token-abc"
@@ -80,6 +80,8 @@ class StockRouteTests(unittest.TestCase):
         self.assertEqual(org_unit_id, 3)
         self.assertEqual(month, dt.date(2026, 10, 1))
         self.assertEqual(entries, GOOD["entries"])
+        # One /api/user and one /api/user/teams call: the email comes from the gate's lookup.
+        self.assertEqual([r.url.path for r in grafana.requests], ["/api/user", "/api/user/teams"])
         # Only the session cookie went to Grafana, and only to /api/user*.
         for req in grafana.requests:
             self.assertTrue(req.url.path.startswith("/api/user"))
@@ -113,6 +115,8 @@ class StockRouteTests(unittest.TestCase):
             "month mid": dict(GOOD, month="2026-10-15"),
             "month short": dict(GOOD, month="2026-10"),
             "month bad": dict(GOOD, month="2026-13-01"),
+            "month year 1": dict(GOOD, month="0001-01-01"),
+            "no month": {k: v for k, v in GOOD.items() if k != "month"},
             "no entries": dict(GOOD, entries=[]),
             "entries not list": dict(GOOD, entries={"329528": 1}),
             "fraction": dict(GOOD, entries=[{"drug_code": "329528", "stock": 1.5}]),
@@ -205,14 +209,7 @@ class StockRouteTests(unittest.TestCase):
 
 
 class ParseTests(unittest.TestCase):
-    def test_parsers(self):
-        self.assertEqual(parse_org_unit_id("3"), 3)
-        self.assertEqual(parse_org_unit_id(2147483647), 2147483647)
-        self.assertIsNone(parse_org_unit_id(-3))
-        self.assertIsNone(parse_org_unit_id(None))
-        self.assertEqual(parse_month("2026-02-01"), dt.date(2026, 2, 1))
-        self.assertIsNone(parse_month("2026-02-29"))
-        self.assertIsNone(parse_month(" 2026-02-01"))
+    def test_parse_entries(self):
         self.assertIsNone(parse_entries(None))
         self.assertIsNone(parse_entries([1]))
         self.assertEqual(parse_entries([{"drug_code": "1", "stock": None}]), [{"drug_code": "1", "stock": None}])

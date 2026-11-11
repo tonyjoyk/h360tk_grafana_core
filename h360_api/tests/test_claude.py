@@ -15,16 +15,19 @@ KEY = "sk-ant-test-0000-do-not-log"
 
 
 class FakeMessages:
-    def __init__(self, reply):
+    def __init__(self, reply, stop_reason="end_turn"):
         self.reply = reply
+        self.stop_reason = stop_reason
         self.calls = []
 
     def create(self, **kwargs):
         self.calls.append(kwargs)
+        # Sonnet 5.5's thinking-off switch: thinking tokens would otherwise eat max_tokens.
+        assert kwargs.get("thinking") == {"type": "between_tools"}, kwargs.get("thinking")
         if isinstance(self.reply, BaseException):
             raise self.reply
         text = self.reply(kwargs) if callable(self.reply) else self.reply
-        return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)])
+        return SimpleNamespace(content=[SimpleNamespace(type="text", text=text)], stop_reason=self.stop_reason)
 
 
 class FakeClaude:
@@ -60,6 +63,7 @@ class ClaudeModeTests(unittest.TestCase):
         call = fake.messages.calls[0]
         self.assertEqual(call["model"], "claude-sonnet-5-5")
         self.assertEqual(call["timeout"], 8.0)
+        self.assertEqual(call["thinking"], {"type": "between_tools"})
         self.assertTrue(answer["reasons"][0]["text"].startswith("So, "))
         self.assertIn("PHC-E", answer["also_check"])  # names restored after the call
         self.assertIsNotNone(answer["reasons"][0]["evidence"])  # the evidence is never sent, never lost
@@ -136,6 +140,13 @@ class ClaudeModeTests(unittest.TestCase):
                 answer, _fake, _facts = self.compose(reply)
                 self.assertEqual(answer["mode"], "offline_fallback")
                 self.assertEqual(answer["honesty"], wording.HONESTY)
+
+    def test_refusal_falls_back(self):
+        fake = FakeClaude(polite)
+        fake.messages.stop_reason = "refusal"
+        answer = wording.compose(facts_for("why_control_low", 11), KEY, "claude-sonnet-5-5", fake.factory)
+        self.assertEqual(answer["mode"], "offline_fallback")
+        self.assertEqual(answer["honesty"], wording.HONESTY)
 
     def test_factory_failure_falls_back(self):
         def broken(_key):

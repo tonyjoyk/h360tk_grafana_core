@@ -48,8 +48,8 @@ THRESHOLDS: dict[str, Decimal] = {
 }
 
 # Plain constants the sentences use. They are part of the facts, so the number check covers them.
-#   per_one, band_*: the readings ratio as report_fudging counts it (130-139 against 140-149, PRD);
-#     q_*: as report_fudging_quarterly counts it (130-139 against 140-149, the BP Fudging PRD).
+#   per_one, band_*: the readings ratio as report_fudging and report_fudging_quarterly count it
+#     (130-139 against 140-149, the BP Fudging PRD).
 #   calls_per_nurse_week: one nurse's weekly calls in the Dr Rai action plan ("Assign one nurse to
 #     call 25 overdue patients each week"); the plan is sized from it, never from the whole list.
 #   plan_weeks: the calling plan covers the next four weeks.
@@ -61,10 +61,6 @@ CONSTANTS = {
     "band_low_to": 139,
     "band_high_from": 140,
     "band_high_to": 149,
-    "q_low_from": 130,
-    "q_low_to": 139,
-    "q_high_from": 140,
-    "q_high_to": 149,
     "calls_per_nurse_week": 25,
     "plan_weeks": 4,
     "window_months": 3,
@@ -205,10 +201,10 @@ class Ranker:
             return None
         return (fetch or self.fetch).selected(key, self.node if node is None else node)
 
-    def _rows(self, key: str, node: int | None = None) -> list[dict]:
+    def _rows(self, key: str) -> list[dict]:
         if key not in self.live:
             return []
-        return self.fetch.rows(key, self.node if node is None else node)
+        return self.fetch.rows(key, self.node)
 
     def months(self) -> list[dt.date]:
         return [add_months(self.fetch.month, -i) for i in range(SERIES_MONTHS - 1, -1, -1)]
@@ -220,18 +216,18 @@ class Ranker:
         return {"start": start.isoformat(), "end": end.isoformat(),
                 "start_year": start.year, "end_year": end.year}
 
-    def series(self, name: str, node: int | None = None) -> list[dict]:
+    def series(self, name: str) -> list[dict]:
         """One point per month for the last six months, from the same registry function.
 
         Titration and statins use the Reports tab's monthly function (with the network average)
         and readings the quarterly one, when they are live (story 7.9).
         """
         if name == "titration_rate" and "titration_monthly" in self.live:
-            return self._monthly("titration_monthly", "follow_up_n", "titrated_n", node)
+            return self._monthly("titration_monthly", "follow_up_n", "titrated_n")
         if name == "statin_gap" and "statins_monthly" in self.live:
-            return self._monthly("statins_monthly", "eligible_n", "on_statin_n", node)
+            return self._monthly("statins_monthly", "eligible_n", "on_statin_n")
         if name == "fudging_score":
-            view = self.fudging_view(node)
+            view = self.fudging_view()
             if view and view["source"] == "quarterly":
                 return view["quarters"]
         key, value_col, num_col, den_col = SERIES[name]
@@ -239,7 +235,7 @@ class Ranker:
             return []
         points = []
         for m in self.months():
-            row = self._sel(key, node, self.fetch.at(m))
+            row = self._sel(key, fetch=self.fetch.at(m))
             point = {"month": m.isoformat(), "value": None, "num": None, "den": None}
             if row is not None and row.get("too_few") is not True and dec(row.get(value_col)) is not None:
                 point["value"] = num(row.get(value_col))
@@ -256,8 +252,8 @@ class Ranker:
             points.append(point)
         return points
 
-    def _monthly(self, key: str, den_col: str, num_col: str, node: int | None) -> list[dict]:
-        oid = self.node if node is None else node
+    def _monthly(self, key: str, den_col: str, num_col: str) -> list[dict]:
+        oid = self.node
         wanted = {m.isoformat() for m in self.months()}
         points = []
         for row in self.fetch.rows(key, oid):
@@ -397,11 +393,13 @@ class Ranker:
                                    self._titration_values(ti_row)))
         return out
 
-    def _calling_values(self, row: dict) -> dict:
+    def _calling_values(self, row: dict, overdue_with_phone_n: Any = None) -> dict:
+        """`overdue_with_phone_n`, when given, replaces the row's (the call plan's total)."""
         values = {
             "called_pct": num(row["called_pct"]),
             "called_n": num(row.get("called_n")),
-            "overdue_with_phone_n": num(row.get("overdue_with_phone_n")),
+            "overdue_with_phone_n": num(row.get("overdue_with_phone_n")) if overdue_with_phone_n is None
+            else overdue_with_phone_n,
             "early_pct": num(row.get("early_pct")),
             "early_n": num(row.get("early_n")),
             "returned_n": num(row.get("returned_n")),
@@ -458,13 +456,13 @@ class Ranker:
         return {"lever": lever, "triggered": bool(triggered), "values": values}
 
     # ------------------------------------------------------------------ flags for the place
-    def place_flags(self, node: int | None = None) -> list[dict]:
-        """Flagged fudging and titration rows for one place (PD-11), fudging first."""
+    def place_flags(self) -> list[dict]:
+        """Flagged fudging and titration rows for the place (PD-11), fudging first."""
         out = []
-        fu = self.fudging_view(node)
+        fu = self.fudging_view()
         if fu is not None and fu["flag"]:
             out.append({"lever": "fudging_score", "kind": "flag", "values": self._fudging_values(fu)})
-        ti = self._sel("titration_rate", node)
+        ti = self._sel("titration_rate")
         if ti is not None and ti.get("flag") is True:
             out.append({"lever": "titration_rate", "kind": "flag", "values": self._titration_values(ti)})
         return out
@@ -624,9 +622,7 @@ class Ranker:
         if plan is None or calling is None or calling.get("too_few") is True or calling.get("called_pct") is None:
             facts["state"] = "no_data"
             return facts
-        values = self._calling_values(calling)
-        values["overdue_with_phone_n"] = plan["total"]
-        values.update(self._call_sizing(values))
+        values = self._calling_values(calling, plan["total"])
         weeks_n = CONSTANTS["plan_weeks"]
         per_week = dec(values["per_week"])
         remaining = dec(plan["total"]) or Decimal(0)

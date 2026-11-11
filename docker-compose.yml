@@ -79,7 +79,9 @@ services:
       - postgres
       - grafana
     environment:
-      - DATABASE_URL=postgresql://h360_api:${H360_API_DB_PASSWORD:-h360_api_mvp}@postgres:5432/heart360tk_database
+      # config.py builds the URL and escapes the password. Not ${DATABASE_URL}: scripts/h360_env.sh
+      # exports a root URL under that name for host tools. A DATABASE_URL set on the container still wins.
+      - H360_API_DB_PASSWORD=${H360_API_DB_PASSWORD:-h360_api_mvp}
       - GRAFANA_URL=${H360_GRAFANA_INTERNAL_URL:-http://grafana:3000}
       - H360_ALLOWED_ORIGINS=${H360_ALLOWED_ORIGINS:-http://localhost:3000,http://127.0.0.1:3000}
       - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY:-}

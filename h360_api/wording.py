@@ -81,10 +81,8 @@ FLAG_SENTENCES = {
     "Statins": "Few eligible patients are on a statin.",
 }
 FLAG_SHORT = {"BP readings check": "BP readings", "Stepping up": "stepping up"}
-FLAG_PHRASES = {
-    "BP readings check": "many BP readings sit just under 140",
-    "Stepping up": "medicine is rarely stepped up",
-}
+# The same sentences inside another one, by tab name: "many BP readings sit just under 140".
+FLAG_PHRASES = {TABS[slug]: s[0].lower() + s[1:-1] for slug, s in FLAG_SENTENCES.items()}
 
 # The tag on each reason, as the prototype's issue chips.
 TAGS = {
@@ -359,7 +357,7 @@ def _plain_pct(value: Any) -> str:
 # ---------------------------------------------------------------------------- offline templates
 
 
-def _title(facts: dict, fmt: Fmt) -> str:
+def _title(facts: dict) -> str:
     name = facts["place"]["name"]
     chip = facts["chip"]
     if chip == "why_control_low":
@@ -415,15 +413,13 @@ def _calling_sizing(v: dict, fmt: Fmt, facts: dict) -> list[str]:
 def _readings(v: dict, kind: str, fmt: Fmt, facts: dict, win: str) -> tuple[str, str]:
     """The readings sentences and their figure. A pattern to check, never proof (UX-09, UX-25)."""
     const = facts["constants"]
+    low = f"{const['band_low_from']}–{const['band_low_to']}"
+    high = f"{const['band_high_from']}–{const['band_high_to']}"
     if v.get("source") == "quarterly":
         figure = plain(dec(v["score"]))
-        low = f"{const['q_low_from']}–{const['q_low_to']}"
-        high = f"{const['q_high_from']}–{const['q_high_to']}"
         period = f"in {v['period']}"
     else:
         figure = fmt.ratio(v["score"])
-        low = f"{const['band_low_from']}–{const['band_low_to']}"
-        high = f"{const['band_high_from']}–{const['band_high_to']}"
         period = f"in {win}"
     counts = f"{fmt.count(v['low_n'])} of {low} against {fmt.count(v['high_n'])} of {high} {period}"
     ratio = f"That is {figure} to {const['per_one']}"
@@ -663,7 +659,7 @@ def render_offline(facts: dict) -> dict:
         "mode": "offline",
         "place": dict(facts["place"]),
         "month": facts["month"],
-        "title": _title(facts, fmt),
+        "title": _title(facts),
         "control_line": control_line,
         "control_figure": control_figure,
         "control_evidence": None,
@@ -902,10 +898,16 @@ def claude_rewrite(answer: dict, facts: dict, client: Any, model: str) -> dict |
             max_tokens=CLAUDE_MAX_TOKENS,
             system=SYSTEM_PROMPT,
             messages=[{"role": "user", "content": json.dumps(payload, ensure_ascii=False)}],
+            # Thinking off: on Sonnet 5.5 it is on by default and its tokens count against max_tokens.
+            # between_tools is Sonnet 5.5's off switch ({"type": "disabled"} is a 400 there).
+            thinking={"type": "between_tools"},
             timeout=CLAUDE_TIMEOUT_S,
         )
     except Exception as exc:  # timeout, network, auth, rate limit: never log the message or the key
         LOG.warning("chat claude fallback: %s", type(exc).__name__)
+        return None
+    if getattr(response, "stop_reason", None) == "refusal":
+        LOG.warning("chat claude fallback: refusal")
         return None
     reply = _parse_reply(_reply_text(response))
     if reply is None or set(reply) != set(original):

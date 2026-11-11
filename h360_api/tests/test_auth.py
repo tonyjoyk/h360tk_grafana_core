@@ -363,10 +363,11 @@ class ConfigTests(unittest.TestCase):
                 database_url_from_env(),
                 "postgresql://h360_api:h360_api_mvp@postgres:5432/heart360tk_database",
             )
-            os.environ["H360_API_DB_PASSWORD"] = "p@ss:word"
+            os.environ["H360_API_DB_PASSWORD"] = "p@ss/1:x"
+            os.environ["DATABASE_URL"] = ""  # what compose passes when DATABASE_URL is unset
             self.assertEqual(
                 database_url_from_env(),
-                "postgresql://h360_api:p%40ss%3Aword@postgres:5432/heart360tk_database",
+                "postgresql://h360_api:p%40ss%2F1%3Ax@postgres:5432/heart360tk_database",
             )
             os.environ["DATABASE_URL"] = "postgresql://h360_api:explicit@postgres:5432/heart360tk_database"
             settings = Settings.from_env()

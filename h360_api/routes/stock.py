@@ -12,16 +12,15 @@ import re
 from fastapi import APIRouter, Request
 from fastapi.responses import JSONResponse
 
-from h360_api.auth import Actor, error_payload
+from h360_api.auth import Actor
 from h360_api.config import Settings
-from h360_api.routes.write import _pool
+from h360_api.registry import parse_month, parse_org_unit
+from h360_api.routes.write import _json_error, _pool, read_json_object, sql_result_response
 
 router = APIRouter()
 
 MAX_STOCK = 1_000_000
 MAX_ENTRIES = 100
-_INT_MAX = 2147483647
-_MONTH = re.compile(r"^\d{4}-\d{2}-01$")
 # protocol_drugs.rxnorm_code, varchar(64).
 _DRUG_CODE = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
 
@@ -77,31 +76,6 @@ def execute_stock_save(
     return result
 
 
-def parse_org_unit_id(value: object) -> int | None:
-    """A positive integer, or a string of digits, that fits a Postgres integer."""
-    if isinstance(value, bool):
-        return None
-    if isinstance(value, int):
-        number = value
-    elif isinstance(value, str) and value.isdigit():
-        number = int(value)
-    else:
-        return None
-    if number < 1 or number > _INT_MAX:
-        return None
-    return number
-
-
-def parse_month(value: object) -> dt.date | None:
-    """`YYYY-MM-01` only."""
-    if not isinstance(value, str) or not _MONTH.match(value):
-        return None
-    try:
-        return dt.date.fromisoformat(value)
-    except ValueError:
-        return None
-
-
 def parse_entries(value: object) -> list[dict] | None:
     """[{drug_code, stock}] with stock a whole number 0..1,000,000 or null (not counted)."""
     if not isinstance(value, list) or not value or len(value) > MAX_ENTRIES:
@@ -123,40 +97,6 @@ def parse_entries(value: object) -> list[dict] | None:
     return entries
 
 
-def actor_email(request: Request, actor: Actor) -> str | None:
-    """The Grafana email of the session's user, or None (SQL then records the login).
-
-    Actor carries no email, so this asks Grafana /api/user once more with the same cookie.
-    """
-    email = getattr(actor, "email", None)
-    if not email:
-        directory = request.app.state.directory
-        session = request.cookies.get("grafana_session", "")
-        client_factory = getattr(directory, "_client", None)
-        getter = getattr(directory, "_get", None)
-        if not session or client_factory is None or getter is None:
-            return None
-        try:
-            with client_factory() as client:
-                res = getter(client, "/api/user", session)
-            user = res.json() if res.status_code == 200 else None
-        except Exception:
-            return None
-        if not isinstance(user, dict) or user.get("login") != actor.login:
-            return None
-        email = user.get("email")
-    if not isinstance(email, str):
-        return None
-    email = email.strip()
-    if not email or len(email) > 320 or any(ch in email for ch in "\r\n"):
-        return None
-    return email
-
-
-def _json_error(code: str, message: str, status: int) -> JSONResponse:
-    return JSONResponse(status_code=status, content=error_payload(code, message))
-
-
 def _writer(request: Request):
     writer = getattr(request.app.state, "stock_writer", None)
     if writer is not None:
@@ -170,18 +110,15 @@ def _writer(request: Request):
 @router.post("/write/drug-stock")
 async def write_drug_stock(request: Request) -> JSONResponse:
     actor: Actor = request.state.actor
-    try:
-        payload = json.loads(await request.body())
-    except (json.JSONDecodeError, UnicodeError):
-        return _json_error("bad_request", "The request body is not valid JSON.", 400)
-    if not isinstance(payload, dict):
-        return _json_error("bad_request", "The request body must be a JSON object.", 400)
+    payload = await read_json_object(request)
+    if isinstance(payload, JSONResponse):
+        return payload
 
-    org_unit_id = parse_org_unit_id(payload.get("org_unit_id"))
-    if org_unit_id is None:
+    org_unit_id = parse_org_unit(payload.get("org_unit_id"))
+    if not org_unit_id:  # None (missing, empty or 0) or False (not digits)
         return _json_error("bad_request", "The place id must be digits.", 400)
     month = parse_month(payload.get("month"))
-    if month is None:
+    if not month:  # None (missing) or False (not YYYY-MM-01)
         return _json_error("bad_request", "The month must look like 2026-11-01.", 400)
     entries = parse_entries(payload.get("entries"))
     if entries is None:
@@ -191,25 +128,9 @@ async def write_drug_stock(request: Request) -> JSONResponse:
             400,
         )
 
-    email = actor_email(request, actor)
     try:
-        result = _writer(request)(actor, email, org_unit_id, month, entries)
+        result = _writer(request)(actor, actor.email, org_unit_id, month, entries)
     except Exception:
         # The database message can echo the call. Do not return or log it.
-        return _json_error("bad_request", "The stock could not be saved. Try again.", 500)
-
-    if not isinstance(result, dict):
-        return _json_error("bad_request", "The stock could not be saved. Try again.", 500)
-    if result.get("ok") is True:
-        return JSONResponse(status_code=200, content=result)
-    code = result.get("error")
-    status_code = _SQL_STATUS.get(code, 400)
-    message = result.get("message")
-    if not isinstance(message, str) or not message.strip():
-        message = "The save was refused."
-    body = dict(result)
-    body["ok"] = False
-    body["message"] = message
-    if not isinstance(code, str):
-        body["error"] = "bad_request"
-    return JSONResponse(status_code=status_code, content=body)
+        result = None
+    return sql_result_response(result, _SQL_STATUS, "The stock could not be saved. Try again.")

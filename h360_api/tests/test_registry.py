@@ -360,8 +360,9 @@ class RegistryShapeTests(unittest.TestCase):
             self.assertIs(registry.parse_org_unit(bad), False)
         self.assertEqual(registry.parse_month("2026-10-01"), MONTH)
         self.assertIsNone(registry.parse_month(None))
-        for bad in ("2026-10-02", "2026-13-01", "Oct-2026", 20261001):
+        for bad in ("2026-10-02", "2026-13-01", "Oct-2026", 20261001, "0001-01-01", "1999-12-01"):
             self.assertIs(registry.parse_month(bad), False)
+        self.assertEqual(registry.parse_month("2000-01-01"), dt.date(2000, 1, 1))
         self.assertEqual(registry.latest_completed_month(dt.date(2026, 11, 5)), MONTH)
         self.assertEqual(registry.latest_completed_month(dt.date(2026, 1, 31)), dt.date(2025, 12, 1))
 

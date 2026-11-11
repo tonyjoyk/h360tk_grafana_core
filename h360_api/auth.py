@@ -21,6 +21,7 @@ class Actor:
     actor_id: int
     is_admin: bool
     teams: tuple[str, ...]
+    email: str | None = None  # None: SQL records the login instead
 
 
 class _LeaveTransportOpen(httpx.BaseTransport):
@@ -97,4 +98,8 @@ def actor_from_grafana(user: object, teams: object) -> Actor:
             name = team.get("name")
             if isinstance(name, str):
                 names.append(name)
-    return Actor(login=login, actor_id=actor_id, is_admin=is_admin, teams=tuple(names))
+    email = user.get("email")
+    email = email.strip() if isinstance(email, str) else ""
+    if not email or len(email) > 320 or any(ch in email for ch in "\r\n"):
+        email = None
+    return Actor(login=login, actor_id=actor_id, is_admin=is_admin, teams=tuple(names), email=email)

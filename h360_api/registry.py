@@ -129,10 +129,11 @@ def latest_completed_month(today: dt.date | None = None) -> dt.date:
 
 
 def parse_month(value: object) -> dt.date | None | bool:
-    """None for missing, a date for YYYY-MM-01, False for anything else."""
+    """None for missing, a date for YYYY-MM-01 from 2000 on, False for anything else."""
     if value is None or value == "":
         return None
-    if not isinstance(value, str) or not _MONTH.match(value):
+    # Before 2000 is a typo, and such a date failed in SQL as a 500.
+    if not isinstance(value, str) or not _MONTH.match(value) or value < "2000":
         return False
     try:
         return dt.date.fromisoformat(value)
