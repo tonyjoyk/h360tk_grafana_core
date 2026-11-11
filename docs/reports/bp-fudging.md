@@ -37,4 +37,4 @@ A patient's readings count towards the place where the patient is registered.
 
 A red ratio is a reason to look, not proof. Some patients really are at 130 to 139. Next step: watch BP being measured on the next visit.
 
-SQL: `report_fudging_quarterly` and `report_fudging_share` (`0.6.15_to_0.6.16`), `report_fudging` and `report_fudging_histogram` (`0.6.16_to_0.6.17`). Thresholds: `fudging.min_readings` 20, `fudging.warn_ratio` 1.8, `fudging.flag_ratio` 2.0.
+SQL: `report_fudging_quarterly` and `report_fudging_share` (`0.6.15_to_0.6.16`), `report_fudging` (`0.6.16_to_0.6.17`). Thresholds: `fudging.min_readings` 20, `fudging.warn_ratio` 1.8, `fudging.flag_ratio` 2.0.

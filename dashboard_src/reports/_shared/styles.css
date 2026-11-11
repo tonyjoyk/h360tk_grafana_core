@@ -28,12 +28,8 @@
 .rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }
 .rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
 
-/* Look at these first: at most three items. */
+/* Card title. */
 .rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }
-.rpt-look { list-style: none; margin: 0; padding: 0; }
-.rpt-look li { padding: 8px 0 8px 10px; border-left: 4px solid var(--flag-bar); background: var(--flag-row-bg); margin-bottom: 8px; border-radius: 0 4px 4px 0; }
-.rpt-look-name { font-weight: 600; }
-.rpt-look-line { font-size: 12px; line-height: 1.4; margin-top: 2px; }
 
 /* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */
 .rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
@@ -73,8 +69,6 @@ a.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }
 .rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }
 .rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }
 .rpt-pager button:disabled { opacity: 0.35; cursor: default; }
-/* Access banner: the overdue list's .ovq-warn. */
-.rpt-warn { color: #e02424; background: rgba(224,36,36,0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4; }
 
 /* How this is worked out. */
 .rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }

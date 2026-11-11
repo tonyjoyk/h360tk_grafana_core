@@ -18,20 +18,7 @@
   "editable": true,
   "fiscalYearStartMonth": 0,
   "graphTooltip": 0,
-  "links": [
-    {
-      "asDropdown": false,
-      "icon": "external link",
-      "includeVars": false,
-      "keepTime": false,
-      "tags": [],
-      "targetBlank": false,
-      "title": "Find the cause",
-      "tooltip": "Reports for your place, from Stepping up",
-      "type": "link",
-      "url": "/d/heart360_reports?var-org_unit=${UserOrgUnitId}&var-reporting_month=${reporting_month}&-dtab=Stepping-up"
-    }
-  ],
+  "links": [],
   "panels": [
     {
       "fieldConfig": {
@@ -110,23 +97,6 @@
         "name": "UserDrillUrl",
         "options": [],
         "query": "SELECT COALESCE(\n  (SELECT '/d/heart360_showcase/hypertension-and-diabetes-program?var-org_unit=' || NULLIF('${UserOrgUnitId}', '')),\n  ''\n)",
-        "refresh": 1,
-        "regex": "",
-        "regexApplyTo": "value",
-        "sort": 0,
-        "type": "query"
-      },
-      {
-        "current": {},
-        "datasource": {
-          "type": "grafana-postgresql-datasource",
-          "uid": "postgres-grafana"
-        },
-        "definition": "SELECT to_char(date_trunc('month', CURRENT_DATE)::date - interval '1 month', 'YYYY-MM-DD') AS __value",
-        "hide": 2,
-        "name": "reporting_month",
-        "options": [],
-        "query": "SELECT to_char(date_trunc('month', CURRENT_DATE)::date - interval '1 month', 'YYYY-MM-DD') AS __value",
         "refresh": 1,
         "regex": "",
         "regexApplyTo": "value",

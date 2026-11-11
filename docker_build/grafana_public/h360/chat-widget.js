@@ -17,11 +17,8 @@
  * behind the number, the place and month, and `See this in Reports: <tab>`. The figure is a
  * button: Enter or Space pins the card, Tab moves into its link, Escape closes it.
  *
- * H360_API defaults to <page protocol>//<page hostname>:<Grafana port + 5090> (3000 -> 8090). To point it elsewhere:
- *   - set window.H360_API = 'http://host:port' (console or another script), or
- *   - open any Grafana page with ?h360_api=http://<same hostname>:<port> once; the value is kept
- *     in sessionStorage for the tab. Only the page's own hostname is accepted this way.
- *     ?h360_api=default clears it.
+ * window.H360_API defaults to <page protocol>//<page hostname>:<Grafana port + 5090> (3000 -> 8090).
+ * Set it before this script runs to point elsewhere (mocks). The stock form reads the same value.
  */
 (function () {
   'use strict';
@@ -34,7 +31,6 @@
 
   // ---------------------------------------------------------------- constants
   var STORE_OPEN = 'h360.chat.open';
-  var STORE_API = 'h360.chat.api';
   var MAX_TEXT = 200;
   var SLOW_MS = 3000;
   var GIVE_UP_MS = 10000;
@@ -46,14 +42,6 @@
   var ROW_TOGGLE = '[data-testid^="data-testid dashboard-row-toggle-for-Change location"], button[aria-label^="Expand row Change location"], button[aria-label^="Collapse row Change location"]';
   var ROW_WRAPPER = '[data-testid^="data-testid dashboard-row-wrapper-for-Change location"]';
   var ICON_ONLY_BELOW = 1440; // UX-22: the full pill covers panel content on smaller screens
-  var TAB_NAMES = {
-    'Start-here': 'Start here',
-    'Right-medicines': 'Right medicines',
-    'Stepping-up': 'Stepping up',
-    'BP-readings-check': 'BP readings check',
-    'Statins': 'Statins',
-    'Overdue-calls': 'Overdue calls'
-  };
   var MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
   var TXT = {
     pill: 'Ask HEARTS360',
@@ -84,7 +72,6 @@
     whatToDo: 'What to do',
     seeIn: 'See this in Reports: ',
     alsoCheck: 'Also check: ',
-    planOpen: 'Open the overdue list',
     planUnit: 'a week',
     planTotal: ' overdue with a phone',
     showData: 'Show the data',
@@ -95,27 +82,8 @@
   // ---------------------------------------------------------------- helpers
   function ssGet(k) { try { return window.sessionStorage.getItem(k); } catch (e) { return null; } }
   function ssSet(k, v) { try { window.sessionStorage.setItem(k, v); } catch (e) { /* ignore */ } }
-  function ssDel(k) { try { window.sessionStorage.removeItem(k); } catch (e) { /* ignore */ } }
 
-  (function readApiParam() {
-    var v;
-    try { v = new URLSearchParams(location.search).get('h360_api'); } catch (e) { v = null; }
-    if (v === null) { return; }
-    if (v === '' || v === 'default') { ssDel(STORE_API); return; }
-    try {
-      var u = new URL(v);
-      if ((u.protocol === 'http:' || u.protocol === 'https:') && u.hostname === location.hostname) {
-        ssSet(STORE_API, u.origin);
-      }
-    } catch (e) { /* ignore bad value */ }
-  })();
-
-  function apiBase() {
-    if (typeof window.H360_API === 'string' && window.H360_API) { return window.H360_API.replace(/\/+$/, ''); }
-    var s = ssGet(STORE_API);
-    if (s) { return s; }
-    return location.protocol + '//' + location.hostname + ':' + ((Number(location.port) || 80) + 5090);
-  }
+  window.H360_API = window.H360_API || (location.protocol + '//' + location.hostname + ':' + ((Number(location.port) || 80) + 5090));
 
   function el(tag, cls, text) {
     var n = document.createElement(tag);
@@ -146,15 +114,6 @@
       var p = new URL(u, location.href);
       if (p.origin === location.origin) { return p.pathname + p.search + p.hash; }
     } catch (e) { /* ignore */ }
-    return null;
-  }
-
-  function tabNameFromUrl(u) {
-    var m = /[?&]-?dtab=([^&#]+)/.exec(u || '');
-    if (m) {
-      var slug = decodeURIComponent(m[1]);
-      return TAB_NAMES[slug] || slug.replace(/-/g, ' ');
-    }
     return null;
   }
 
@@ -423,7 +382,7 @@
     var o = opts || {};
     var headers = { 'X-H360-Request': '1' };
     if (o.body) { headers['Content-Type'] = 'application/json'; }
-    return fetch(apiBase() + path, {
+    return fetch(String(window.H360_API).replace(/\/+$/, '') + path, {
       method: o.method || 'GET',
       credentials: 'include',
       headers: headers,
@@ -747,10 +706,8 @@
     var url = typeof l === 'string' ? l : l.url;
     var href = safeHref(url);
     if (!href) { return null; }
-    var label = (typeof l === 'object' && l.label) ? String(l.label) : null;
-    var tab = tabNameFromUrl(href);
-    if (!label) { label = tab || 'Reports'; }
-    return { href: href, label: label };
+    // The API always sends a label.
+    return { href: href, label: (typeof l === 'object' && l.label) ? String(l.label) : 'Reports' };
   }
 
   function reportLink(l) {
@@ -957,12 +914,18 @@
     card.style.setProperty('--h360c-arrow-y', Math.max(12, Math.min(h - 24, ar.top + ar.height / 2 - t - 7)) + 'px');
   }
 
+  // The card's chart, link and close button join the Tab order only while the card is pinned.
+  function cardTabs(card, on) {
+    card.querySelectorAll('svg[tabindex], a, button').forEach(function (n) { n.setAttribute('tabindex', on ? '0' : '-1'); });
+  }
+
   function hideCard(returnFocus) {
     clearTimeout(hideTimer);
     if (!openCard) { return; }
     var o = openCard;
     openCard = null;
     o.card.hidden = true;
+    cardTabs(o.card, false);
     o.anchor.setAttribute('aria-expanded', 'false');
     if (returnFocus) { o.anchor.focus(); }
   }
@@ -1001,11 +964,13 @@
       if (openCard === o && o.pinned) { o.pinned = false; hideCard(false); return; }
       o.pinned = true;
       showCard(o);
+      cardTabs(o.card, true);
     });
     built.card.addEventListener('mouseenter', function () { clearTimeout(hideTimer); });
     built.card.addEventListener('mouseleave', hideSoon);
     built.card.addEventListener('focusout', hideSoon);
     built.close.addEventListener('click', function () { o.pinned = false; hideCard(true); });
+    cardTabs(built.card, false);
     host.appendChild(built.card);
     return o;
   }
@@ -1075,7 +1040,7 @@
     // 2. Reasons (max three).
     var reasons = Array.isArray(d.reasons) ? d.reasons.slice(0, 3) : [];
     var seen = {};
-    if (reasons.length === 1 && !reasons[0].what_to_do && !reasons[0].link && reasons.length) {
+    if (reasons.length === 1 && !reasons[0].what_to_do && !reasons[0].link) {
       card.appendChild(textWithNumber(reasons[0].text, reasons[0].number));
     } else if (reasons.length) {
       var ol = el('ol', 'h360c-reasons');
@@ -1102,7 +1067,7 @@
 
     // Inline plan (who_to_call returns the plan with the answer).
     var planNode = null;
-    if (d.plan) { planNode = planCard(d.plan, pname, d.links, d.reasons && d.reasons[0] && d.reasons[0].evidence, m); }
+    if (d.plan) { planNode = planCard(d.plan, pname, d.reasons && d.reasons[0] && d.reasons[0].evidence, m); }
 
     // 3. Nudge button (a link when the API sends `nudge.url`).
     var nudgeHref = d.nudge && d.nudge.label ? safeHref(d.nudge.url) : null;
@@ -1160,7 +1125,7 @@
     var pname = placeName(d.place) || placeName(S.chipsData && S.chipsData.place);
     var node;
     if (d.plan) {
-      node = planCard(d.plan, pname, d.links, d.reasons && d.reasons[0] && d.reasons[0].evidence, fmtMonth(d.month));
+      node = planCard(d.plan, pname, d.reasons && d.reasons[0] && d.reasons[0].evidence, fmtMonth(d.month));
       if (d.mode === 'offline_fallback') { node.insertBefore(el('p', 'h360c-muted', TXT.fallback), node.children[1] || null); }
       setHonesty(d.honesty);
     } else {
@@ -1169,36 +1134,18 @@
     return node;
   }
 
-  function overdueHref(links) {
-    var arr = Array.isArray(links) ? links : [];
-    for (var i = 0; i < arr.length; i++) {
-      var li = linkInfo(arr[i]);
-      if (li && (/overdue list/i.test(li.label) || /dtab=Overdue-list/i.test(li.href))) { return li.href; }
-    }
-    var p = new URLSearchParams();
-    p.set('var-org_unit', S.scope.org);
-    if (S.scope.month) { p.set('var-reporting_month', S.scope.month); }
-    p.set('-dtab', 'Overdue-list');
-    return '/d/heart360_showcase?' + p.toString();
-  }
-
   // UX-08: a plan sized to one nurse's week, with how the number was chosen; the whole list is
   // context, not the target. UX-12: above facility level the link opens the Overdue calls table.
-  function planCard(plan, pname, links, ev, monthLabel) {
+  function planCard(plan, pname, ev, monthLabel) {
     var card = el('div', 'h360c-card');
     var title = el('h3', 'h360c-title', 'Calling plan' + (pname ? ' for ' + pname : ''));
     title.tabIndex = -1;
     title.setAttribute('data-h360-focus', '1');
     card.appendChild(title);
     var tot = el('div');
-    var perWeek = plan.per_week !== undefined && plan.per_week !== null ? String(plan.per_week) : null;
-    if (perWeek) {
-      tot.appendChild(el('div', 'h360c-big', perWeek + ' ' + TXT.planUnit));
-      var ctx = el('p', 'h360c-muted', fmtCount(plan.total) + TXT.planTotal);
-      tot.appendChild(ctx);
-    } else {
-      tot.appendChild(el('div', 'h360c-big', String(plan.total)));
-    }
+    // The API always sends per_week and list_link.
+    tot.appendChild(el('div', 'h360c-big', String(plan.per_week) + ' ' + TXT.planUnit));
+    tot.appendChild(el('p', 'h360c-muted', fmtCount(plan.total) + TXT.planTotal));
     card.appendChild(tot);
     var weeks = Array.isArray(plan.weeks) ? plan.weeks.slice(0, 4) : [];
     if (weeks.length) {
@@ -1213,9 +1160,11 @@
     }
     if (plan.text) { card.appendChild(el('p', 'h360c-plan-basis', plan.text)); }
     var ll = plan.list_link && safeHref(plan.list_link.url);
-    var a = el('a', 'h360c-link', ll ? plan.list_link.label : TXT.planOpen);
-    a.href = ll || overdueHref(links);
-    card.appendChild(a);
+    if (ll) {
+      var a = el('a', 'h360c-link', plan.list_link.label);
+      a.href = ll;
+      card.appendChild(a);
+    }
     if (ev) {
       var holder = el('div');
       var sd = el('button', 'h360c-showdata', TXT.showData);

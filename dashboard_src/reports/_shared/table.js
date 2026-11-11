@@ -4,8 +4,7 @@
 // rptTable(root, {
 //   report: 'fudging',                  // this tab's report key (report_flags.report)
 //   rows: [...],                        // report_<name> rows; the selection row comes first
-//   flags: [...],                       // optional report_flags rows; default: each row's flags_json column
-//                                       // (one result set: a panel with two queries gets Business Text's frame picker)
+//                                       // report_flags come from each row's flags_json column
 //   columns: [{ label, value: (r) => sortable, cell: (r) => html, num: true, guard: true, title: (r) => text }],
 //   flagNames: (r) => ['Pill text'],    // flag pill(s) of a flagged row, at most two shown
 //   reason: (r) => r.flag_reason,       // optional; sentence under the pills
@@ -35,7 +34,7 @@ const rptTable = (root, cfg) => {
 
   // report_flags per facility: { id: [{report, flag_reason, patients_n}] }
   const flagsOf = {};
-  (cfg.flags || rpt.flagsFrom(all)).forEach((f) => { (flagsOf[f.org_unit_id] = flagsOf[f.org_unit_id] || []).push(f); });
+  rpt.flagsFrom(all).forEach((f) => { (flagsOf[f.org_unit_id] = flagsOf[f.org_unit_id] || []).push(f); });
   const nFlags = (r) => (flagsOf[r.org_unit_id] || []).length;
   const patients = (r) => { const f = (flagsOf[r.org_unit_id] || [])[0]; return f && num(f.patients_n) !== null ? num(f.patients_n) : (cfg.size ? num(cfg.size(r)) || 0 : 0); };
   // 0 flagged, 1 too few, 2 clean.

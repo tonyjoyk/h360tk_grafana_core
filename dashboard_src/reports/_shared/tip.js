@@ -1,21 +1,20 @@
 // --- Reports shared ECharts tooltip (dashboard_src/reports/_shared/tip.js) ---
 // Copied from the program dashboard's ECharts panels (panel-outcomes, panel-overdue): same dark card,
 // bold header, "Label: 61%" over "3,901 of 6,523 patients" in lighter text.
-// Declares: fmt, soft, dot, pctStr, shareRows, tip, chartColors, lineVsAverage. ECharts getOption only.
+// Declares: frame, col, esc, fmt, soft, dot, tip, chartColors, lineVsAverage. ECharts getOption only.
+// The panel's query A (or its first frame), and one column of it as an array ([] when missing).
+const frame = (context.panel.data.series || []).find((s) => s.refId === 'A') || (context.panel.data.series || [])[0];
+function col(n) { const f = frame && frame.fields.find((x) => x.name === n); if (!f) { return []; } return Array.from(f.values && f.values.buffer ? f.values.buffer : f.values); }
+const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const fmt = (v) => Math.round(Number(v) || 0).toLocaleString('en-US');
 const soft = (t) => '<span style="opacity:0.7">' + t + '</span>';
 // Colour key for charts with more than one series. Like hearts360 (Chart.js), the colour sits on
 // white with a 1px white border, so translucent series colours read the same as on the chart.
 const dot = (c) => '<span style="display:inline-block;width:10px;height:10px;border-radius:2px;margin-right:6px;'
   + (c ? 'border:1px solid #fff;background:linear-gradient(' + c + ',' + c + '),#fff' : 'border:1px solid transparent') + '"></span>';
-const pctStr = (v, d) => (Number(d) ? Math.round(100 * (Number(v) || 0) / Number(d)) : 0) + '%';
-// "Label: 61%" over "3,901 of 6,523 patients"; several rows become "Label: 29%, 387 patients" over "of 1,352 patients"
-// (an optional third item per row adds a colour key).
-const shareRows = (rows, d) => rows.length === 1
-  ? [rows[0][0] + ': ' + pctStr(rows[0][1], d), soft(fmt(rows[0][1]) + ' of ' + fmt(d) + ' patients')]
-  : rows.map(([label, v, c]) => dot(c) + label + ': ' + pctStr(v, d) + ', ' + fmt(v) + ' patients').concat(soft('of ' + fmt(d) + ' patients'));
 // Shared tooltip. rowsFor(dataIndex, axisIndex) gives the lines under the bold header; headFor(dataIndex)
-// gives the header (default: the hovered axis label, e.g. a month or a band). extra overrides any option,
+// gives the header (default: the hovered axis label, e.g. a month or a band), escaped here; rows are HTML, so
+// escape data in them. extra overrides any option,
 // e.g. { axisPointer: { type: 'shadow' } } for bars.
 const tip = (rowsFor, headFor, extra) => Object.assign({
   trigger: 'axis', backgroundColor: 'rgba(28,28,28,0.92)', borderWidth: 0, padding: [8, 12],
@@ -25,7 +24,7 @@ const tip = (rowsFor, headFor, extra) => Object.assign({
     const p = [].concat(ps)[0];
     if (!p || p.dataIndex == null) { return ''; }
     const head = headFor ? headFor(p.dataIndex) : p.axisValueLabel;
-    return '<b>' + head + '</b><br>' + rowsFor(p.dataIndex, p.axisIndex || 0).join('<br>');
+    return '<b>' + esc(head) + '</b><br>' + rowsFor(p.dataIndex, p.axisIndex || 0).join('<br>');
   }
 }, extra || {});
 // DESIGN tokens used by charts (cascade colours keep their meaning).
@@ -56,7 +55,7 @@ const lineVsAverage = (cfg) => {
     color: [C.place, C.average],
     legend: { top: 0, left: 0, icon: 'circle', itemWidth: 10, itemHeight: 10, textStyle: { color: C.text, fontSize: 12 } },
     grid: { left: 8, right: 44, top: 32, bottom: 8, containLabel: true },
-    tooltip: tip((k) => [dot(C.place) + cfg.place + ': ' + pc(cfg.value[k])].concat((cfg.placeLines ? cfg.placeLines(k) : []).map(soft))
+    tooltip: tip((k) => [dot(C.place) + esc(cfg.place) + ': ' + pc(cfg.value[k])].concat((cfg.placeLines ? cfg.placeLines(k) : []).map(soft))
       .concat([dot(C.average) + 'Average: ' + pc(cfg.avg[k])]).concat((cfg.avgLines ? cfg.avgLines(k) : []).map(soft)),
       (k) => mon(cfg.months[k])),
     xAxis: { type: 'category', data: cfg.months.map(mon), boundaryGap: false, axisTick: { show: false },

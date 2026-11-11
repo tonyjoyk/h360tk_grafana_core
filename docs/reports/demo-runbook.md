@@ -27,18 +27,18 @@ docker exec -i demo-postgres psql -U h360tk_root -d heart360tk_database \
   -c "SELECT id, name FROM heart360tk_schema.org_units WHERE name IN ('District-D', 'PHC-E', 'PHC-A')"
 ```
 
-On the current demo database PHC-A is 3, District-D is 86 and PHC-E is 87.
+Ids change on every reload, so look them up before each demo. Below, `<PHC-E>` and `<District-D>` stand for those ids.
 
 ## 2. Run order
 
 | # | Where | Show |
 | --- | --- | --- |
-| 1 | Home dashboard, `/d/heart360_showcase?var-org_unit=87` | **Hypertension** tab: 75% controlled (726 of 968). Scroll to **Overdue patients**: 498 overdue, 4% called. |
+| 1 | Home dashboard, `/d/heart360_showcase?var-org_unit=<PHC-E>` | **Hypertension** tab: 75% controlled (726 of 968). Scroll to **Overdue patients**: 498 overdue, 4% called. |
 | 2 | Same, **Protocol adherence** tab | The Excel step table. 83% on a protocol step; control rises step by step. |
 | 3 | **Titration** tab | PHC-E 28% against an average of 45%, month by month. |
 | 4 | **BP fudging** tab | Q3 2026 ratio 2.45, red. Q2 was 2.20. |
 | 5 | **Statins** tab | 31% on a statin, 360 eligible. |
-| 6 | Reports, **Start here**, `/d/heart360_reports?var-org_unit=86` | District-D grid. PHC-E flagged on Stepping up, Right medicines, BP readings check and Overdue calls. Click a cell. |
+| 6 | Reports, **Start here**, `/d/heart360_reports?var-org_unit=<District-D>` | District-D grid. PHC-E flagged on Stepping up, Right medicines, BP readings check and Overdue calls. Click a cell. |
 | 7 | Reports, **BP readings check** at District-D, then click PHC-E | Same 2.45 as the home tab. |
 | 8 | Reports, **Stepping up** at District-D | 41% (123 of 302); PHC-E 28% with "Control looks fine, check stock". |
 | 9 | Ask HEARTS360 at PHC-E | "Why is my BP control low?" Hover **2.45** to show the evidence card, then click "See this in Reports". |

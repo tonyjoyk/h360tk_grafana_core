@@ -92,6 +92,11 @@ const rpt = (() => {
       go();
     });
   };
+  // Medicine stock board for the place and month in view.
+  const stockHref = () => '/d/heart360_drug_stock?' + (orgUnit() !== '0' ? 'var-org_unit=' + encodeURIComponent(orgUnit()) + '&' : '')
+    + 'var-reporting_month=' + encodeURIComponent(reportingMonth());
+  // The program dashboard's Overdue list tab for a facility.
+  const overdueHref = (id) => '/d/heart360_showcase?var-org_unit=' + encodeURIComponent(id) + '&-dtab=Overdue-list';
   // At or below the facility level (selected_level 3 or more): patient lists and the overdue list work here.
   const atFacility = () => (num(v('selected_level')) || 0) >= 3;
 
@@ -110,15 +115,15 @@ const rpt = (() => {
   const PICK_FACILITY = 'Pick a facility in Change location above to see its patients.';
   const NO_DATA = 'No data for this place.';
   const NO_FACILITIES = 'No facilities for this location.';
-  const NO_FLAGS = 'No facility is flagged.';
   const noData = (text) => '<div class="rpt-empty">' + esc(text || NO_DATA) + '</div>';
   // "Need at least 20; this place has 12."
   const needAtLeast = (k, n) => 'Need at least ' + fmt(k) + '; this place has ' + fmt(n) + '.';
   // Place for the subtitle: the selected name, or all locations.
   const place = (name) => (orgUnit() === '0' ? 'All locations you can access' : (name || 'This place'));
-
-  // Thresholds from report_flag_thresholds rows ({report, key, value}).
-  const thresholds = (list) => { const t = {}; (list || []).forEach((r) => { t[r.report + '.' + r.key] = num(r.value); }); return t; };
+  // One column of a headline strip: big number, label, muted lines; few greys the number.
+  const col = (big, color, label, lines, title, few) => '<div' + (title ? ' title="' + esc(title) + '"' : '') + '>'
+    + '<div class="rpt-big' + (few ? ' rpt-few' : '') + '"' + (color ? ' style="color:' + color + '"' : '') + '>' + esc(big) + '</div>'
+    + '<div class="rpt-label">' + esc(label) + '</div>' + [].concat(lines).filter(Boolean).map((l) => '<div class="rpt-line">' + esc(l) + '</div>').join('') + '</div>';
 
   // UX-02: a user with no location who may not see all places is moved to their home unit, keeping
   // the month and tab. Returns true when it does so.
@@ -152,6 +157,6 @@ const rpt = (() => {
   };
 
   return { v, esc, num, fmt, pct, score, yes, day, month, toDate, rows, orgUnit, reportingMonth, allowed, homeUnit,
-    TABS, REPORTS, tab, link, placeLink, nextStep, wireScroll, atFacility, flagsFrom, info, banner, OPENING_HOME, PICK_FACILITY,
-    NO_DATA, NO_FACILITIES, NO_FLAGS, noData, needAtLeast, place, thresholds, loading, goHome, mount };
+    TABS, REPORTS, tab, link, placeLink, nextStep, stockHref, overdueHref, wireScroll, atFacility, flagsFrom, info, banner, OPENING_HOME, PICK_FACILITY,
+    NO_DATA, NO_FACILITIES, noData, needAtLeast, place, col, loading, goHome, mount };
 })();

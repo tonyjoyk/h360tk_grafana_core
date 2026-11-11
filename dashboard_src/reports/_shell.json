@@ -2,7 +2,7 @@
   "_builder_notes": [
     "Source for heart360.reports.json. Edit here, then run scripts/build_reports_dashboard.py. Keys starting with _ are dropped by the builder.",
     "Tabs come from the TABS list in the builder; they are placed in the one row whose layout is a TabsLayout (tabs: []). The first tab, Start here (0-start.json), replaces the story 5.12 strip and the tabs' Look at these first cards (story 7.9, UX-14).",
-    "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. home_org_unit is the home dashboard's UserOrgUnitId query verbatim; states.js rpt.mount moves a user with no location and no access to all places to that unit (UX-02). place_name names the place in the Change location row title (UX-18).",
+    "Variables org_unit, isAdmin, isAllowed, requiredGroups, selected_level are verbatim copies of the program dashboard. isPatientsAllowed is isAllowed with patient-level teams only (patients groups and _view_patients_ALL); it gates patient lists. home_org_unit is the home dashboard's UserOrgUnitId query verbatim; states.js rpt.mount moves a user with no location and no access to all places to that unit (UX-02). place_name names the place in the Change location row title (UX-18).",
     "include_new is hidden (UX-38): the Right medicines tab links to var-include_new=true and back. reporting_month default 2026-10-01 is pinned for the demo (PD-9, C8); revert to the latest completed month after the demo."
   ],
   "uid": "heart360_reports",
@@ -513,6 +513,59 @@
               "format": "table",
               "rawQuery": true,
               "rawSql": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name IN (\n                  'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                  'heart360tk_' || hc.var_name || '_view_patients_ALL'\n              )\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'aggregated') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                  UNION\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name IN (\n                      'heart360tk_' || hc.var_name || '_view_aggregated_ALL',\n                      'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                  )\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+              "refId": "tempvar",
+              "sql": {
+                "columns": [
+                  {
+                    "parameters": [],
+                    "type": "function"
+                  }
+                ],
+                "groupBy": [
+                  {
+                    "property": {
+                      "type": "string"
+                    },
+                    "type": "groupBy"
+                  }
+                ],
+                "limit": 50
+              }
+            },
+            "version": "v0"
+          },
+          "refresh": "onTimeRangeChanged",
+          "regex": "",
+          "regexApplyTo": "value",
+          "skipUrlSync": true,
+          "sort": "disabled"
+        }
+      },
+      {
+        "kind": "QueryVariable",
+        "spec": {
+          "allowCustomValue": true,
+          "current": {
+            "text": "1",
+            "value": "1"
+          },
+          "definition": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name = 'heart360tk_' || hc.var_name || '_view_patients_ALL'\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name = 'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
+          "hide": "hideVariable",
+          "includeAll": false,
+          "multi": false,
+          "name": "isPatientsAllowed",
+          "options": [],
+          "query": {
+            "datasource": {
+              "name": "postgres-grafana"
+            },
+            "group": "grafana-postgresql-datasource",
+            "kind": "DataQuery",
+            "spec": {
+              "editorMode": "code",
+              "format": "table",
+              "rawQuery": true,
+              "rawSql": "SELECT COALESCE(MAX(1), 0) AS is_allowed\nFROM grafana_schema.user u\nLEFT OUTER JOIN grafana_schema.team_member tm ON tm.user_id = u.id\nLEFT OUTER JOIN grafana_schema.team t ON tm.team_id = t.id\nWHERE u.id = ${__user.id}\n  AND (\n      u.is_admin = true\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NULL\n          AND EXISTS (\n              SELECT 1\n              FROM heart360tk_schema.hierarchy_config hc\n              WHERE t.name = 'heart360tk_' || hc.var_name || '_view_patients_ALL'\n          )\n      )\n      OR (\n          NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0') IS NOT NULL\n          AND (\n              t.name IN (\n                  SELECT (SELECT group_name FROM heart360tk_schema.get_access_groups(lin.ancestor_id, 'patients') LIMIT 1)\n                  FROM heart360tk_schema.org_unit_lineage lin\n                  WHERE lin.org_unit_id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n              )\n              OR EXISTS (\n                  SELECT 1\n                  FROM heart360tk_schema.hierarchy_config hc\n                  WHERE t.name = 'heart360tk_' || hc.var_name || '_view_patients_ALL'\n                    AND hc.level <= (\n                      SELECT level FROM heart360tk_schema.org_units\n                      WHERE id = NULLIF(NULLIF(TRIM(BOTH FROM '${org_unit}'), ''), '0')::int\n                      LIMIT 1\n                    )\n              )\n          )\n      )\n  )",
               "refId": "tempvar",
               "sql": {
                 "columns": [

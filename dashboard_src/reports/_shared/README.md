@@ -4,29 +4,7 @@ Files here are pasted into panel options by `scripts/build_reports_dashboard.py`
 draw the title strip, headline strip, facility table, states and tooltips the same way. Edit a file
 here, rebuild, and every tab picks it up.
 
-## Story 7.9 changes for tab authors (UX audit groups C and I)
-
-Tab order is now `Start here · Stepping up · Right medicines · BP readings check · Overdue calls ·
-Statins` (builder `TABS`). File names are unchanged. What this means for `1-adherence.json` to
-`5-calling.json`:
-
-| Change | What to do in a tab |
-| --- | --- |
-| `Start here` (`0-start.json`) replaces the strip above the tabs and every `Look at these first` card (UX-14). | Remove the `panel-<slug>-look` panel and widen the chart or table into its space. |
-| Facility names in `rptTable` link to the same tab, narrowed to that facility (UX-15). | Nothing. Pass `nameLinks: false` only to turn it off. |
-| `Also flagged on` comes from `report_flags` (UX-16): every other report tab that flags the facility, in tab order. Each link opens that tab for that facility. | Delete `alsoOn: [...]`; arrays are now ignored. Pass `alsoOn: false` to hide the line. The query still needs the `flags_json` column. |
-| Access banner is a grey note with the next step; team names sit in a closed `Details for your admin` (UX-21). | Nothing; keep `rpt.mount(sel, { banner: true })` on the title strip. |
-| A user with no location who cannot see all places is moved to their home unit (UX-02). `rpt.mount` does it. | Nothing. Always mount through `rpt.mount`. |
-| New `rpt.info(html)` and `rpt.PICK_FACILITY` (UX-21). | Facility-only views (Statins patient list): `root.innerHTML = rpt.info(rpt.esc(rpt.PICK_FACILITY))` above facility level, and keep the panel short. |
-| New `rpt.nextStep(text, href)`. | End the tab with one `Next step` line (§2 of the audit), for example `rpt.nextStep('Check medicine stock first', '/d/heart360_drug_stock?var-org_unit=' + rpt.orgUnit() + '&var-reporting_month=' + rpt.reportingMonth())`. |
-| `rpt.link(report, org, mon, extra)` takes URL parameters in `extra`. | Right medicines: the `Patients counted` variable is hidden in the top bar (UX-38). Offer the switch in the tab, for example `rpt.link('adherence', null, null, { 'var-include_new': 'true' })`, and read it with `rpt.v('include_new')`. |
-| `rpt.REPORTS` is `rpt.TABS` without `Start here`. | Use it to loop over the five reports. |
-| `rpt.mount(sel, { loading: 'Finding facilities…' })` shows a line while the query runs (UX-39). | Optional. |
-| The Change location row is titled `Change location · <place>` (UX-18, hidden variable `place_name`). The header strip is gone. | Nothing. |
-
-## Story 7.9 established forms (UX audit groups D to H): additions
-
-Additive only; nothing above changed.
+## Story 7.9 established forms (UX audit groups D to H)
 
 | Addition | File | Use |
 | --- | --- | --- |
@@ -72,7 +50,7 @@ python3 scripts/build_reports_dashboard.py --check  # exit 1 if it is stale
 | `styles.css` | Business Text `styles` | classes `rpt-*`; put `class="rpt ..."` on the panel's root div |
 | `states.js` | Business Text `afterRender`, first | `rpt` (helpers, states, deep links, `{{tabs}}`) |
 | `table.js` | Business Text `afterRender`, after `states.js` | `rptTable(root, cfg)` |
-| `tip.js` | ECharts `getOption`, first | `fmt`, `soft`, `dot`, `pctStr`, `shareRows`, `tip`, `chartColors`, `lineVsAverage` |
+| `tip.js` | ECharts `getOption`, first | `frame`, `col`, `esc`, `fmt`, `soft`, `dot`, `tip`, `chartColors`, `lineVsAverage` |
 | `monthly.js` | Business Text `afterRender`, after `states.js` | `rptMonthly(root, cfg)` |
 | `user_home_unit.sql` | `_shell.json` variable `home_org_unit` (`definition`, `rawSql`) | the home dashboard's `UserOrgUnitId` query: the user's home unit id, or `''`. Keep the two texts equal (UX-02) |
 
@@ -91,7 +69,7 @@ Snippets are pasted as code into one function body, so do not redeclare the name
   `defaultContent` and still runs `afterRender`.
 - Use one query per Business Text panel. With two, Business Text shows a frame picker under the
   panel. Join `report_flags` into the main query as `flags_json` instead (see the table query in
-  `3-fudging.json`):
+  `4-statins.json`):
 
   ```sql
   WITH fl AS (
@@ -120,15 +98,16 @@ Snippets are pasted as code into one function body, so do not redeclare the name
 | `rpt.day(d)`, `rpt.month(d)` | `31-Oct-2026`, `Oct-2026` (dates arrive as ms or `YYYY-MM-DD`). |
 | `rpt.place(name)` | Subtitle place: the name, or `All locations you can access`. |
 | `rpt.needAtLeast(k, n)` | `Need at least 20; this place has 12.` |
-| `rpt.noData(text)`, `rpt.NO_DATA`, `rpt.NO_FACILITIES`, `rpt.NO_FLAGS` | The States copy from DESIGN. |
+| `rpt.noData(text)`, `rpt.NO_DATA`, `rpt.NO_FACILITIES` | The States copy from DESIGN. |
 | `rpt.info(html)`, `rpt.banner()`, `rpt.PICK_FACILITY`, `rpt.OPENING_HOME` | Grey note (no warning tone); the no-access note; `Pick a facility in Change location above to see its patients.` |
 | `rpt.TABS`, `rpt.REPORTS`, `rpt.tab(report)` | Tabs from the builder in tab order (`TABS[0]` is `Start here`, report `start`); `REPORTS` is the five report tabs. |
 | `rpt.link(report, org?, month?, extra?)` | AD-29 deep link keeping the location and month; `extra` is an object of more URL parameters. |
 | `rpt.placeLink(report, id, name)` | A facility name linking to `report`'s tab for that facility; plain text when it is the place in view. |
 | `rpt.nextStep(text, href)` | The `Next step` line that ends a tab. |
+| `rpt.stockHref()`, `rpt.overdueHref(id)` | Medicine stock board for the place and month in view; the program dashboard's Overdue list for a facility. |
+| `rpt.col(big, color, label, lines, title, few)` | One column of a headline strip (`.rpt-strip3`, `.rpt-strip4`). |
 | `rpt.homeUnit()`, `rpt.goHome()`, `rpt.loading()` | Home unit id or `''`; the UX-02 move (called by `mount`); true while the query runs. |
 | `rpt.flagsFrom(rows)` | `report_flags` rows from a `flags_json` column. |
-| `rpt.thresholds(rows)` | `{ 'fudging.flag_score': 2 }` from `report_flag_thresholds` rows. |
 
 ## `rptTable(root, cfg)` (table.js)
 
@@ -141,7 +120,6 @@ flagged row bar and tint, flag pill, two-sided check pill, guard pill, muted `No
 rptTable(root, {
   report: 'statins',                       // this tab's report_flags.report
   rows: rpt.rows('A'),                     // report_<name> rows, selection first
-  // flags: rpt.rows('B'),                 // optional; default: each row's flags_json
   columns: [                               // between Facility and Why look here
     { label: 'Eligible', num: true, value: (r) => rpt.num(r.eligible_n), cell: (r) => rpt.fmt(r.eligible_n) },
     { label: '% on a statin', num: true, guard: true, value: (r) => rpt.num(r.on_statin_pct), cell: (r) => rpt.pct(r.on_statin_pct) },
@@ -169,10 +147,11 @@ high-BP visits. Header clicks sort names A to Z and numbers high to low first; t
 
 ```js
 {{shared:tip.js}}
-// ... read the frame ...
+// frame (query A) and col(name) read the query's columns
 tooltip: tip((k) => [fmt(n[k]) + ' readings'], (k) => labels[k], { axisPointer: { type: 'shadow' } }),
 ```
 
 `tip(rowsFor, headFor, extra)` is the program dashboard's tooltip: dark card, bold header, then the
-lines from `rowsFor(dataIndex, axisIndex)`. `headFor` defaults to the hovered axis label. Colours
+lines from `rowsFor(dataIndex, axisIndex)`. `headFor` defaults to the hovered axis label; the header
+is escaped, the lines are HTML, so pass data in them through `esc`. Colours
 are in `chartColors` (DESIGN tokens).
