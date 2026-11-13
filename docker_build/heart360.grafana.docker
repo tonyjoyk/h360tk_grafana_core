@@ -1,4 +1,4 @@
-FROM grafana/grafana:latest
+FROM grafana/grafana:13.3.1
 
 COPY ./grafana_provisioning /etc/grafana/provisioning
 
@@ -18,6 +18,23 @@ RUN grafana cli plugins install yesoreyeram-infinity-datasource
 RUN grafana cli plugins install marcusolsson-dynamictext-panel
 RUN grafana cli plugins install volkovlabs-echarts-panel
 RUN grafana cli plugins install equansdatahub-tree-panel
+
+# HEARTS360 chat widget (AD-33, stories 6.8 and 6.9).
+# public/ is owned by uid 1000, not the grafana user, so these edits run as root.
+# The build fails unless the script tag appears exactly once in index.html.
+USER root
+COPY docker_build/grafana_public/h360/chat-widget.js /usr/share/grafana/public/h360/chat-widget.js
+RUN set -e; \
+    f=/usr/share/grafana/public/views/index.html; \
+    tag='<script nonce="[[.Nonce]]" src="public/h360/chat-widget.js" defer></script>'; \
+    test "$(grep -c '</body>' "$f")" = "1"; \
+    if ! grep -q 'public/h360/chat-widget.js' "$f"; then \
+      sed -i "s#</body>#  ${tag}\n  </body>#" "$f"; \
+    fi; \
+    test "$(grep -c 'public/h360/chat-widget.js' "$f")" = "1"; \
+    test "$(grep -cF "${tag}" "$f")" = "1"; \
+    chmod 644 /usr/share/grafana/public/h360/chat-widget.js
+USER 472
 
 ENV GF_SECURITY_ALLOW_EMBEDDING=true
 ENV GF_PANELS_DISABLE_SANITIZE_HTML=true

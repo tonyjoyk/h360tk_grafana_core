@@ -1,0 +1,24 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Leaf Database",
+      "Group": "Servers",
+      "Host": "db-leaf",
+      "Port": 5432,
+      "MaintenanceDB": "heart360tk_database",
+      "Username": "heart360tk",
+      "Password": "YmE4ZTk0OGI0OTNmNGU5YmFjZDY1YTA0",
+      "SSLMode": "prefer"
+    },
+    "2": {
+      "Name": "Central Database",
+      "Group": "Servers",
+      "Host": "db-central",
+      "Port": 5432,
+      "MaintenanceDB": "heart360tk_database",
+      "Username": "heart360tk",
+      "Password": "YmE4ZTk0OGI0OTNmNGU5YmFjZDY1YTA0",
+      "SSLMode": "prefer"
+    }
+  }
+}

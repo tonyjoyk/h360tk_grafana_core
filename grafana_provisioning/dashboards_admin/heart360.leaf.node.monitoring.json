@@ -1,0 +1,477 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "uid": "postgres-grafana",
+        "type": "grafana-postgresql-datasource"
+      },
+      "description": "",
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "links": [],
+      "options": {
+        "afterRender": "",
+        "content": "{{#if (eq user_is_admin 0)}}\n  <style>\n    /* Non-admins see the notice only: hide every other panel on this dashboard.\n       Scoped inside the panel, so it disappears with the panel on navigation. */\n    .react-grid-item:not(:has(#h360-access-denied)),\n    [data-viz-panel-key]:not(:has(#h360-access-denied)) {\n      display: none !important;\n    }\n  </style>\n  <div id=\"h360-access-denied\" style=\"color: #e02424; background: rgba(224, 36, 36, 0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4;\">\n    <span>\u26a0\ufe0f</span>\n    <span><strong>Access Denied:</strong> You must be an admin to view this page.</span>\n  </div>\n{{/if}}",
+        "contentPartials": [],
+        "defaultContent": "",
+        "editor": {
+          "format": "auto",
+          "language": "markdown"
+        },
+        "editors": [],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "everyRow",
+        "styles": "",
+        "wrap": true
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-grafana",
+            "type": "grafana-postgresql-datasource"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT $UserIsAdmin AS user_is_admin",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "type": "text",
+      "id": 201,
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "title": "",
+      "transparent": true,
+      "options": {
+        "mode": "html",
+        "content": "<div style='padding:4px 0 12px 0;border-bottom:1px solid #e5e7eb;'><div style='font-size:22px;font-weight:700;color:#111827;letter-spacing:-.3px;'>Leaf node - monitoring dashboard</div><div style='font-size:13px;color:#6b7280;margin-top:2px;'>export status to central node</div></div>\n<style>\ndiv[role=\"columnheader\"],\nth[role=\"columnheader\"],\n.table-panel-header,\n[class*=\"-table-header\"],\ndiv[data-testid=\"table-header\"],\ndiv[class*=\"tableHeader\"] {\n    color: #000000 !important;\n    font-weight: 700 !important;\n}\n</style>\n"
+      }
+    },
+    {
+      "id": 202,
+      "type": "marcusolsson-dynamictext-panel",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 0,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nWITH\nlatest_export AS (\n  SELECT source_key, status, started_at, error_message\n  FROM   heart360tk_reporting.export_run_log\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nlatest_success AS (\n  SELECT started_at\n  FROM   heart360tk_reporting.export_run_log\n  WHERE  status = 'success'\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nago AS (\n  SELECT\n    ts_name,\n    CASE\n      WHEN ts IS NULL                               THEN '\u2014'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <    60  THEN EXTRACT(EPOCH FROM now() - ts)::int || 's ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <  3600  THEN (EXTRACT(EPOCH FROM now() - ts) /   60)::int || ' min ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) < 86400  THEN (EXTRACT(EPOCH FROM now() - ts) / 3600)::int || ' hours ago'\n      ELSE                                               (EXTRACT(EPOCH FROM now() - ts) / 86400)::int || ' days ago'\n    END AS ago_text\n  FROM (VALUES\n    ('attempt', (SELECT started_at FROM latest_export)),\n    ('success', (SELECT started_at FROM latest_success))\n  ) t(ts_name, ts)\n)\nSELECT\n  COALESCE(le.source_key, '') AS source_key,\n  COALESCE(le.status, 'No exports yet') AS last_status,\n  (SELECT ago_text FROM ago WHERE ts_name = 'attempt') AS last_attempt_time,\n  (SELECT ago_text FROM ago WHERE ts_name = 'success') AS last_success_time\nFROM  (SELECT 1) base\nLEFT  JOIN latest_export le ON true\nWHERE $UserIsAdmin = 1\n",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "content": "<div class=\"h3-card\">\n  <div class=\"h3-card-header\">\n    <div class=\"h3-card-icon h3-icon-status\">\n      <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M22 11.08V12a10 10 0 1 1-5.93-9.14\"></path><polyline points=\"22 4 12 14.01 9 11.01\"></polyline></svg>\n    </div>\n    <div class=\"h3-card-title\">Last Export Status</div>\n  </div>\n  <div class=\"h3-card-value\" id=\"h3-val-status\">\n    {{last_status}}\n  </div>\n</div>",
+        "styles": ".h3-card {\n  background: #ffffff;\n  border-radius: 12px;\n  border: 1px solid rgba(128,128,128,0.25);\n  padding: 16px 24px;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  height: 100%;\n}\n.h3-card-header {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  margin-bottom: 8px;\n}\n.h3-card-icon {\n  width: 32px;\n  height: 32px;\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n.h3-icon-status { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }\n.h3-icon-clock { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }\n.h3-icon-check { background: rgba(16, 185, 129, 0.1); color: #10b981; }\n.h3-card-title {\n  font-size: 13px;\n  font-weight: 600;\n  color: #6b7280;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n}\n.h3-card-value {\n  font-size: 26px;\n  font-weight: 700;\n  color: #111827;\n}",
+        "afterRender": "\nif (!document.getElementById('custom-table-header-style')) {\n  const style = document.createElement('style');\n  style.id = 'custom-table-header-style';\n  style.innerHTML = `\n    div[role=\"columnheader\"] *, \n    th[role=\"columnheader\"] *, \n    [class*=\"-table-header\"] *,\n    div[role=\"columnheader\"], \n    th[role=\"columnheader\"], \n    [class*=\"-table-header\"] {\n      color: #000000 !important;\n      font-weight: 800 !important;\n    }\n  `;\n  document.head.appendChild(style);\n}\nconst el = context.element || context.grafana?.element;\nif (!el) return;\nconst statusEl = el.querySelector('#h3-val-status');\nif (statusEl) {\n  const status = statusEl.textContent.trim().toLowerCase();\n  if (status === 'success') {\n    statusEl.style.color = '#10b981';\n    statusEl.textContent = 'Success';\n  } else if (status === 'failed') {\n    statusEl.style.color = '#ef4444';\n    statusEl.textContent = 'Failed';\n  } else {\n    statusEl.style.color = '#6b7280';\n    statusEl.style.fontSize = '20px';\n  }\n}",
+        "defaultContent": ""
+      }
+    },
+    {
+      "id": 203,
+      "type": "marcusolsson-dynamictext-panel",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 8,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nWITH\nlatest_export AS (\n  SELECT source_key, status, started_at, error_message\n  FROM   heart360tk_reporting.export_run_log\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nlatest_success AS (\n  SELECT started_at\n  FROM   heart360tk_reporting.export_run_log\n  WHERE  status = 'success'\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nago AS (\n  SELECT\n    ts_name,\n    CASE\n      WHEN ts IS NULL                               THEN '\u2014'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <    60  THEN EXTRACT(EPOCH FROM now() - ts)::int || 's ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <  3600  THEN (EXTRACT(EPOCH FROM now() - ts) /   60)::int || ' min ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) < 86400  THEN (EXTRACT(EPOCH FROM now() - ts) / 3600)::int || ' hours ago'\n      ELSE                                               (EXTRACT(EPOCH FROM now() - ts) / 86400)::int || ' days ago'\n    END AS ago_text\n  FROM (VALUES\n    ('attempt', (SELECT started_at FROM latest_export)),\n    ('success', (SELECT started_at FROM latest_success))\n  ) t(ts_name, ts)\n)\nSELECT\n  COALESCE(le.source_key, '') AS source_key,\n  COALESCE(le.status, 'No exports yet') AS last_status,\n  (SELECT ago_text FROM ago WHERE ts_name = 'attempt') AS last_attempt_time,\n  (SELECT ago_text FROM ago WHERE ts_name = 'success') AS last_success_time\nFROM  (SELECT 1) base\nLEFT  JOIN latest_export le ON true\nWHERE $UserIsAdmin = 1\n",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "content": "<div class=\"h3-card\">\n  <div class=\"h3-card-header\">\n    <div class=\"h3-card-icon h3-icon-clock\">\n      <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"12\" cy=\"12\" r=\"10\"></circle><polyline points=\"12 6 12 12 16 14\"></polyline></svg>\n    </div>\n    <div class=\"h3-card-title\">Last Export Attempt</div>\n  </div>\n  <div class=\"h3-card-value\">\n    {{last_attempt_time}}\n  </div>\n</div>",
+        "styles": ".h3-card {\n  background: #ffffff;\n  border-radius: 12px;\n  border: 1px solid rgba(128,128,128,0.25);\n  padding: 16px 24px;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  height: 100%;\n}\n.h3-card-header {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  margin-bottom: 8px;\n}\n.h3-card-icon {\n  width: 32px;\n  height: 32px;\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n.h3-icon-status { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }\n.h3-icon-clock { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }\n.h3-icon-check { background: rgba(16, 185, 129, 0.1); color: #10b981; }\n.h3-card-title {\n  font-size: 13px;\n  font-weight: 600;\n  color: #6b7280;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n}\n.h3-card-value {\n  font-size: 26px;\n  font-weight: 700;\n  color: #111827;\n}",
+        "afterRender": "",
+        "defaultContent": ""
+      }
+    },
+    {
+      "id": 204,
+      "type": "marcusolsson-dynamictext-panel",
+      "title": "",
+      "transparent": true,
+      "gridPos": {
+        "h": 4,
+        "w": 8,
+        "x": 16,
+        "y": 5
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nWITH\nlatest_export AS (\n  SELECT source_key, status, started_at, error_message\n  FROM   heart360tk_reporting.export_run_log\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nlatest_success AS (\n  SELECT started_at\n  FROM   heart360tk_reporting.export_run_log\n  WHERE  status = 'success'\n  ORDER  BY started_at DESC\n  LIMIT  1\n),\nago AS (\n  SELECT\n    ts_name,\n    CASE\n      WHEN ts IS NULL                               THEN '\u2014'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <    60  THEN EXTRACT(EPOCH FROM now() - ts)::int || 's ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) <  3600  THEN (EXTRACT(EPOCH FROM now() - ts) /   60)::int || ' min ago'\n      WHEN EXTRACT(EPOCH FROM now() - ts) < 86400  THEN (EXTRACT(EPOCH FROM now() - ts) / 3600)::int || ' hours ago'\n      ELSE                                               (EXTRACT(EPOCH FROM now() - ts) / 86400)::int || ' days ago'\n    END AS ago_text\n  FROM (VALUES\n    ('attempt', (SELECT started_at FROM latest_export)),\n    ('success', (SELECT started_at FROM latest_success))\n  ) t(ts_name, ts)\n)\nSELECT\n  COALESCE(le.source_key, '') AS source_key,\n  COALESCE(le.status, 'No exports yet') AS last_status,\n  (SELECT ago_text FROM ago WHERE ts_name = 'attempt') AS last_attempt_time,\n  (SELECT ago_text FROM ago WHERE ts_name = 'success') AS last_success_time\nFROM  (SELECT 1) base\nLEFT  JOIN latest_export le ON true\nWHERE $UserIsAdmin = 1\n",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "content": "<div class=\"h3-card\">\n  <div class=\"h3-card-header\">\n    <div class=\"h3-card-icon h3-icon-check\">\n      <svg width=\"18\" height=\"18\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M12 22c5.523 0 10-4.477 10-10S17.523 2 12 2 2 6.477 2 12s4.477 10 10 10z\"></path><path d=\"m9 12 2 2 4-4\"></path></svg>\n    </div>\n    <div class=\"h3-card-title\">Last Successful Export</div>\n  </div>\n  <div class=\"h3-card-value\">\n    {{last_success_time}}\n  </div>\n</div>",
+        "styles": ".h3-card {\n  background: #ffffff;\n  border-radius: 12px;\n  border: 1px solid rgba(128,128,128,0.25);\n  padding: 16px 24px;\n  display: flex;\n  flex-direction: column;\n  justify-content: center;\n  height: 100%;\n}\n.h3-card-header {\n  display: flex;\n  align-items: center;\n  gap: 10px;\n  margin-bottom: 8px;\n}\n.h3-card-icon {\n  width: 32px;\n  height: 32px;\n  border-radius: 8px;\n  display: flex;\n  align-items: center;\n  justify-content: center;\n}\n.h3-icon-status { background: rgba(59, 130, 246, 0.1); color: #3b82f6; }\n.h3-icon-clock { background: rgba(139, 92, 246, 0.1); color: #8b5cf6; }\n.h3-icon-check { background: rgba(16, 185, 129, 0.1); color: #10b981; }\n.h3-card-title {\n  font-size: 13px;\n  font-weight: 600;\n  color: #6b7280;\n  text-transform: uppercase;\n  letter-spacing: 0.05em;\n}\n.h3-card-value {\n  font-size: 26px;\n  font-weight: 700;\n  color: #111827;\n}",
+        "afterRender": "",
+        "defaultContent": ""
+      }
+    },
+    {
+      "type": "timeseries",
+      "id": 205,
+      "title": "Export processing time",
+      "description": "Duration per attempt, in seconds",
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 9
+      },
+      "datasource": {
+        "uid": "postgres-hypertension",
+        "type": "grafana-postgresql-datasource"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\n  SELECT\n    started_at AS \"time\",\n    ROUND(COALESCE(duration_seconds, 0)::numeric, 1) AS \"Duration\",\n    CASE WHEN status = 'success' THEN ROUND(COALESCE(duration_seconds, 0)::numeric, 1) ELSE NULL END AS \"Success\",\n    CASE WHEN status = 'failed' THEN ROUND(COALESCE(duration_seconds, 0)::numeric, 1) ELSE NULL END AS \"Failed\"\n  FROM heart360tk_reporting.export_run_log\n  WHERE started_at BETWEEN $__timeFrom()::timestamp AND $__timeTo()::timestamp\n    AND $UserIsAdmin = 1\n  ORDER BY started_at ASC\n",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        },
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom",
+          "calcs": []
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "fillOpacity": 10,
+            "showPoints": "always",
+            "pointSize": 5,
+            "spanNulls": false
+          },
+          "color": {
+            "mode": "palette-classic"
+          },
+          "unit": "s"
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 2
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "never"
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 15
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Success"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 6
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "blue"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Failed"
+            },
+            "properties": [
+              {
+                "id": "custom.lineWidth",
+                "value": 0
+              },
+              {
+                "id": "custom.showPoints",
+                "value": "always"
+              },
+              {
+                "id": "custom.pointSize",
+                "value": 8
+              },
+              {
+                "id": "color",
+                "value": {
+                  "mode": "fixed",
+                  "fixedColor": "red"
+                }
+              },
+              {
+                "id": "custom.fillOpacity",
+                "value": 0
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "type": "table",
+      "id": 206,
+      "title": "Recent export attempts",
+      "gridPos": {
+        "h": 14,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "datasource": {
+        "uid": "postgres-hypertension",
+        "type": "grafana-postgresql-datasource"
+      },
+      "targets": [
+        {
+          "datasource": {
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "\nSELECT \n  started_at AS \"Attempt time\",\n  status AS \"Status\",\n  COALESCE(duration_seconds, 0) AS \"Duration (s)\",\n  CASE \n    WHEN error_message IS NULL THEN '\u2014' \n    WHEN error_message ~* 'sftp.*login|authentication.*fail|wrong.*password|bad.*password|ssh.*auth' THEN 'SFTP login rejected \u2014 check credentials' \n    WHEN error_message ~* 'connection.*refused|timed.?out|network.*unreachable|no.*route' THEN 'Connection failed \u2014 check network' \n    WHEN error_message ~* 'no such file|directory.*not.*found' THEN 'Remote path not found' \n    WHEN error_message ~* 'permission.*denied|access.*denied' THEN 'Permission denied \u2014 check SFTP access' \n    WHEN error_message ~* 'disk.*full|no space|quota.*exceeded' THEN 'Disk full on central node' \n    ELSE error_message \n  END AS \"Failure reason\" \nFROM heart360tk_reporting.export_run_log \nWHERE $UserIsAdmin = 1\nORDER BY started_at DESC \nLIMIT 200\n",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "showHeader": true,
+        "cellHeight": "sm",
+        "sortBy": [
+          {
+            "displayName": "Attempt time",
+            "desc": true
+          }
+        ],
+        "footer": {
+          "show": true,
+          "enablePagination": true,
+          "countRows": false,
+          "reducer": []
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "center",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          }
+        },
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Status"
+            },
+            "properties": [
+              {
+                "id": "custom.cellOptions",
+                "value": {
+                  "type": "color-background"
+                }
+              },
+              {
+                "id": "mappings",
+                "value": [
+                  {
+                    "options": {
+                      "success": {
+                        "color": "green",
+                        "index": 0,
+                        "text": "Success"
+                      },
+                      "failed": {
+                        "color": "red",
+                        "index": 1,
+                        "text": "Failed"
+                      }
+                    },
+                    "type": "value"
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Duration (s)"
+            },
+            "properties": [
+              {
+                "id": "unit",
+                "value": "s"
+              },
+              {
+                "id": "displayName",
+                "value": "Duration"
+              }
+            ]
+          }
+        ]
+      }
+    }
+  ],
+  "preload": false,
+  "refresh": "1m",
+  "schemaVersion": 39,
+  "tags": [
+    "admin"
+  ],
+  "templating": {
+    "list": [
+      {
+        "allowCustomValue": true,
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT CASE WHEN (u.is_admin OR EXISTS (\n  SELECT 1 FROM team_member tm\n  JOIN team t ON tm.team_id = t.id\n  WHERE tm.user_id = u.id AND t.name LIKE '%\\_ALL' ESCAPE '\\'\n)) THEN 1 ELSE 0 END\nFROM \"user\" u WHERE u.id = ${__user.id}",
+        "hide": 2,
+        "includeAll": false,
+        "multi": false,
+        "name": "UserIsAdmin",
+        "options": [],
+        "query": "SELECT CASE WHEN (u.is_admin OR EXISTS (\n  SELECT 1 FROM team_member tm\n  JOIN team t ON tm.team_id = t.id\n  WHERE tm.user_id = u.id AND t.name LIKE '%\\_ALL' ESCAPE '\\'\n)) THEN 1 ELSE 0 END\nFROM \"user\" u WHERE u.id = ${__user.id}",
+        "refresh": 1,
+        "regex": "",
+        "skipUrlSync": false,
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-2d",
+    "to": "now"
+  },
+  "timepicker": {
+    "hidden": false
+  },
+  "timezone": "browser",
+  "title": "Leaf Node - Monitoring Dashboard",
+  "uid": "heart360-leaf-node-monitoring",
+  "version": 1,
+  "weekStart": ""
+}

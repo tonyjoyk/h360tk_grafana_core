@@ -1,3 +1,55 @@
+> [!IMPORTANT]
+> **This is an experimental branch, not a release.**
+> `cursor/hearts360-mvp-7579` explores what HEARTS360 could become: report tabs, the Ask HEARTS360 chat, a drug stock entry form and demo data. The release under review is **0.7.0**, on its own branch. Nothing here is meant to merge into 0.7.0 as is.
+>
+> **It runs beside the release stack.** The release stack keeps the stock ports and container names. This branch moves to other ports through its own `.env`, so both stacks run on one machine at the same time.
+>
+> | | Release stack (0.7.0, stock) | This experiment |
+> | --- | --- | --- |
+> | Grafana | http://localhost:3000 | http://localhost:3100 |
+> | Postgres | 5432 | 5532 |
+> | h360-api | 8090 | 8190 |
+> | pgAdmin | 5050 | 5150 |
+> | filebrowser (upload) | 8080 | 8180 |
+> | Containers | `grafana`, `postgres`, … | `demo-grafana`, `demo-postgres`, … |
+>
+> **Set up the experiment in its own folder:**
+>
+> 1. Clone or add a worktree for this branch in a separate folder from the release checkout.
+> 2. Copy `.env.example` to `.env` and uncomment the "Host ports and container names" block. It holds the values in the table above.
+> 3. Run `./scripts/demo_up.sh`. It starts the stack, loads the demo data (about 10 to 15 minutes the first time), creates demo users and prints the links.
+> 4. Open http://localhost:3100 and sign in as `admin` / `admin`. The demo Viewers are `district.d` and `nurse.phc-a`, password `demo`.
+>
+> **Revert to the stock ports:** delete that block from `.env`, stop the release stack, then run `docker compose up -d`. The full steps are in [Running two stacks](docs/running-two-stacks.md).
+>
+> **Do not:**
+> - run `docker compose` for this branch from the release folder, or the other way round;
+> - remove the `.env` block while the release stack is running. Both stacks would then claim the same container names, and the scripts would talk to the wrong database.
+
+## Data for this experiment
+
+**One upload file holds everything about patients**: one row per visit, with the patient's details, the BP reading and the medicines given at that visit. Put all of a patient's visits in the file, in any order. Upload it on the upload page at http://localhost:8180 (sign in `admin` / `admin`), or copy it into `data/upload/`. The importer starts within seconds; the demo file takes a few minutes. Uploading the same file again changes nothing.
+
+Columns: `Registration Date`, `Patient ID`, `First Name`, `Middle Name`, `Last Name`, `Date of Birth`, `Gender`, `Phone Number`, `Region`, `District`, `Facility`, `Sub Facility`, `Systolic`, `Diastolic`, `Visit Time`, `Blood Sugar Type`, `Blood Sugar Value`, `Diagnosis 1`, `Diagnosis 2`, `Medicines`.
+
+An example row:
+
+| Registration Date | Patient ID | First Name | Last Name | Date of Birth | Gender | Phone Number | Region | District | Facility | Sub Facility | Systolic | Diastolic | Visit Time | Diagnosis 1 | Diagnosis 2 | Medicines |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| 06-06-2026 00:00:00 | DEMO-00091 | Demo | Patient 00091 | 26-10-1968 | Female | 9122595524 | Region-A | District-A | PHC-A | SHC-A | 134 | 86 | 06-06-2026 12:15:00 | I10 | E11 | Amlodipine 5 mg - 1 x 1 Tablet Sehari; Metformin 500 mg - 2 x 1 Tablet Sehari; Atorvastatin 20 mg - 1 x 1 Tablet Sehari |
+
+`Medicines` lists each medicine as `<name> <strength> mg - <times a day> x <tablets> Tablet Sehari`, separated by `;`. The column may also be called `Obat` or `Prescription`. A blank cell, or a file without the column, records no medicines for that visit.
+
+**Built in, not uploaded:** 12 months of drug stock for the six demo PHCs (2025-11 to 2026-10, plus 2026-11), and call results for 2026-05 to 2026-10. `./scripts/demo_up.sh` loads them from `test_data/demo/seeds/`. In a real install, drug stock comes from the Enter stock form and call results from the Overdue list.
+
+**The demo file** is `test_data/demo/demo_generated.xlsx`: 7,200 made-up patients and about 30,000 visits from 2025-01 to 2026-10-13, so reports open on Oct-2026. `./scripts/demo_up.sh` loads it into a new database. To rebuild it (the same rows every time):
+
+```bash
+python3 test_data/demo/build_demo_data.py
+```
+
+More detail, including what each demo PHC shows, is in [test_data/demo/README.md](test_data/demo/README.md).
+
 In order to launch this h360tk_grafana_core:
 
 ```
@@ -8,7 +60,7 @@ docker compose up -d
 
 Then just go to this url:
 
-http://localhost:3000/d/heart360_drilldown/hearts360-hypertension-dashboard
+http://localhost:3000/d/heart360_showcase
 
 to upload file:
 
@@ -85,7 +137,7 @@ Wait 30-60 seconds for all services to initialize.
 #### Step 4: Verify Installation
 
 1. **Check Grafana Dashboard:**
-   - Open browser: `http://localhost:3000`
+   - Open browser: `http://localhost:3000`. That is the stock port. To run two stacks on one machine, or to move a stack back, see [Running two stacks](docs/running-two-stacks.md).
    - Login with: `admin` / `admin`
    - You should see the "Hypertension Program" dashboard
 

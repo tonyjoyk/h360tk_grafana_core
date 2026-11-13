@@ -1,0 +1,123 @@
+/* --- Reports shared styles (dashboard_src/reports/_shared/styles.css) ---
+   Business Text styles. Every class starts rpt-; put class "rpt" on the panel's root div.
+   Tokens: ux-hearts360-mvp-2026-11-04/DESIGN.md front matter. Table, chips, pager and banner copy
+   the program dashboard's overdue list (.ovq-*). Light theme only (A40). */
+.rpt {
+  --text-primary: #111217; --text-muted: #6E6E6E; --border-subtle: #D8D9DA; --accent: #3D71D9;
+  --controlled: #3BB231; --uncontrolled: #EEAB00; --no-visit: #ED6300;
+  --flag-bar: #ED6300; --flag-row-bg: #FDF0E6; --flag-pill-bg: #FDE3CF; --flag-pill-text: #8A3A00;
+  --guard-pill-text: #4E545A; --cell-missing-bg: #EFEFEF;
+  font-size: 13px; line-height: 1.35; color: var(--text-primary);
+}
+.rpt a.rpt-link { color: #0075eb; text-decoration: none; }
+.rpt a.rpt-link:hover, .rpt a.rpt-link:focus-visible { text-decoration: underline; }
+.rpt-sr { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0, 0, 0, 0); white-space: nowrap; border: 0; }
+.rpt-muted { color: var(--text-muted); }
+.rpt-empty { color: var(--text-muted); font-size: 14px; text-align: center; padding: 18px 8px; }
+
+/* Title strip: question (card-title), then "{place} · {period}" (microcopy, muted). */
+.rpt-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; line-height: 1.3; }
+.rpt-sub { font-size: 12px; color: var(--text-muted); line-height: 1.4; }
+
+/* Headline strip: three equal columns, thin dividers (as panel-outcomes). */
+.rpt-strip3 { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); height: 100%; }
+.rpt-strip3 > div { padding: 2px 16px; border-left: 1px solid var(--border-subtle); min-width: 0; }
+.rpt-strip3 > div:first-child { border-left: 0; padding-left: 4px; }
+.rpt-big { font-size: 32px; font-weight: 600; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.rpt-big.rpt-few { font-size: 20px; font-weight: 500; color: var(--text-muted); line-height: 1.6; }
+.rpt-label { font-size: 14px; font-weight: 500; margin-top: 2px; }
+.rpt-line { font-size: 12px; color: var(--text-muted); line-height: 1.4; margin-top: 2px; }
+
+/* Card title. */
+.rpt-card-title { font-size: 16px; font-weight: 500; margin: 0 0 8px; }
+
+/* Facility table: overdue list style. No vertical lines or stripes, light header, hover highlight. */
+.rpt-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px; }
+.rpt-chip { font: inherit; font-size: 12px; border: 1px solid #d9e3ff; background: transparent; color: inherit; border-radius: 14px; padding: 2px 10px; cursor: pointer; text-decoration: none; display: inline-block; white-space: nowrap; }
+.rpt-chip.on { background: #0075eb; border-color: #0075eb; color: #fff; cursor: default; }
+a.rpt-chip:hover, button.rpt-chip:not(.on):hover { background: #EEF3FD; }
+.rpt-wrap { overflow-x: auto; }
+.rpt-table { width: 100%; border-collapse: collapse; border: 0; }
+.rpt-table th, .rpt-table td { border: 0 !important; border-bottom: 1px solid rgba(128,128,128,0.2) !important; padding: 8px 8px; text-align: left; vertical-align: top; }
+.rpt-table thead th { background: rgba(0,117,235,0.06); color: #6e7f8d; font-size: 12px; font-weight: 600; white-space: nowrap; vertical-align: bottom; }
+.rpt-table tbody th { font-weight: 400; white-space: nowrap; background: transparent; color: inherit; }
+.rpt-table tbody tr:hover { background: rgba(0,117,235,0.04); }
+.rpt-table .num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.rpt-table thead th.num .rpt-sortbtn { text-align: right; }
+.rpt-table td.rpt-why { width: 42%; min-width: 260px; }
+.rpt-sortbtn { font: inherit; font-weight: 600; background: none; border: 0; padding: 0; color: inherit; cursor: pointer; }
+.rpt-sortbtn:focus-visible, .rpt-chip:focus-visible, .rpt-pager button:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+/* Flagged row: 4px orange bar and light tint. */
+.rpt-table tr.rpt-flagged, .rpt-table tr.rpt-flagged:hover { background: var(--flag-row-bg); }
+.rpt-table tr.rpt-flagged > th:first-child { box-shadow: inset 4px 0 0 var(--flag-bar); padding-left: 12px; }
+/* All places in view: bold first row. */
+.rpt-table tr.rpt-total > th, .rpt-table tr.rpt-total > td { font-weight: 700; }
+.rpt-table tr.rpt-total .rpt-reason, .rpt-table tr.rpt-total .rpt-pill { font-weight: 400; }
+.rpt-ctl { color: var(--controlled); font-weight: 600; }
+/* Pills: text, never colour only. */
+.rpt-pills { display: flex; flex-wrap: wrap; gap: 4px; }
+.rpt-pill { display: inline-block; padding: 1px 8px; border-radius: 9999px; font-size: 12px; font-weight: 600; white-space: nowrap; line-height: 1.5; }
+.rpt-pill-flag { background: var(--flag-pill-bg); color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }
+.rpt-pill-check { background: #FFFFFF; color: var(--flag-pill-text); border: 1px solid var(--flag-bar); }
+.rpt-pill-guard { background: var(--cell-missing-bg); color: var(--guard-pill-text); border: 1px solid var(--cell-missing-bg); }
+.rpt-reason { font-size: 12px; line-height: 1.4; margin-top: 3px; color: var(--text-primary); }
+.rpt-also { font-size: 12px; margin-top: 3px; }
+.rpt-also a { color: #0075eb; text-decoration: none; }
+.rpt-also a:hover, .rpt-also a:focus-visible { text-decoration: underline; }
+.rpt-clean { color: var(--text-muted); }
+/* Pager: overdue list. */
+.rpt-pager { display: flex; justify-content: center; align-items: center; gap: 12px; padding: 10px 0 2px; }
+.rpt-pager button { font: inherit; width: 28px; height: 26px; border-radius: 4px; border: 1px solid #d9e3ff; background: transparent; color: inherit; cursor: pointer; }
+.rpt-pager button:disabled { opacity: 0.35; cursor: default; }
+
+/* How this is worked out. */
+.rpt-note { font-size: 12px; color: var(--text-muted); line-height: 1.45; }
+
+.rpt-demo { font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+
+/* Grey note (no warning tone, UX-21): no access, pick a facility, and other next-step lines. */
+.rpt-info { color: var(--text-primary); background: #F4F5F5; border-left: 4px solid var(--border-subtle); padding: 8px 14px; font-size: 13px; line-height: 1.45; border-radius: 2px; }
+.rpt-details { margin-top: 4px; font-size: 12px; color: var(--text-muted); }
+.rpt-details summary { cursor: pointer; }
+.rpt-loading { padding: 8px 0; }
+
+/* Next step: one link at the end of a tab. */
+.rpt-next { display: flex; align-items: baseline; gap: 10px; font-size: 14px; padding: 4px 0; }
+.rpt-next-label { font-size: 12px; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.03em; }
+.rpt-next a.rpt-link { font-weight: 500; }
+
+/* Start here grid: facilities down the side, reports across; each cell is a link. */
+.rpt-start-do { margin: 6px 0 10px; font-size: 14px; }
+.rpt-grid { table-layout: fixed; }
+.rpt-grid thead th:first-child, .rpt-grid tbody th { width: 16%; }
+.rpt-grid tbody th { font-weight: 600; vertical-align: middle; }
+.rpt-table.rpt-grid td.rpt-cell { padding: 3px; vertical-align: middle; }
+.rpt-cell a { display: block; padding: 5px 8px; border-radius: 4px; text-decoration: none; color: inherit; border: 1px solid transparent; line-height: 1.3; }
+.rpt-cell a:hover, .rpt-cell a:focus-visible { border-color: var(--accent); outline: none; }
+.rpt-cell-word { display: block; font-weight: 600; font-size: 13px; }
+.rpt-cell-n { display: block; font-size: 12px; color: var(--text-muted); font-variant-numeric: tabular-nums; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.rpt-cell-flag a { background: var(--flag-pill-bg); border-color: var(--flag-bar); }
+.rpt-cell-flag .rpt-cell-word { color: var(--flag-pill-text); }
+.rpt-cell-flag .rpt-cell-n { color: var(--flag-pill-text); }
+.rpt-cell-check a { background: #FFFFFF; border-color: var(--flag-bar); border-style: dashed; }
+.rpt-cell-check .rpt-cell-word { color: var(--flag-pill-text); }
+.rpt-cell-few a { background: var(--cell-missing-bg); }
+.rpt-cell-few .rpt-cell-word { color: var(--guard-pill-text); }
+.rpt-cell-fine .rpt-cell-word { font-weight: 400; color: var(--text-muted); }
+.rpt-cell-none { color: var(--text-muted); text-align: center; }
+.rpt-start-key { display: flex; flex-wrap: wrap; gap: 4px 18px; font-size: 12px; color: var(--text-muted); margin-top: 8px; }
+.rpt-start-key b { color: var(--text-primary); font-weight: 600; }
+
+/* Headline strip with four numbers (Overdue calls). */
+.rpt-strip4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); height: 100%; }
+.rpt-strip4 > div { padding: 2px 14px; border-left: 1px solid var(--border-subtle); min-width: 0; }
+.rpt-strip4 > div:first-child { border-left: 0; padding-left: 4px; }
+
+/* Monthly table, place against the average (monthly.js; Metabase titration and statins form). */
+.rpt-mt th, .rpt-mt td { padding: 5px 5px; }
+.rpt-mt thead tr.rpt-mt-group th { text-align: center; color: var(--text-primary); font-size: 12px; border-bottom: 0 !important; }
+.rpt-mt thead tr.rpt-mt-group th.rpt-mt-place { box-shadow: inset 0 -3px 0 #3D71D9; }
+.rpt-mt thead tr.rpt-mt-group th.rpt-mt-avg { box-shadow: inset 0 -3px 0 #9B7FD4; }
+.rpt-mt .rpt-mt-gap { border-left: 1px solid var(--border-subtle) !important; }
+.rpt-mt tbody tr.rpt-mt-last > * { font-weight: 700; }
+.rpt-mt-few { color: var(--text-muted); font-weight: 400; }

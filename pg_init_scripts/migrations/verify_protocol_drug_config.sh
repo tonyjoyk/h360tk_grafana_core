@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
+MIGRATION="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
 DB_NAME="${PROTOCOL_DRUG_VERIFY_DB:-protocol_drug_config_verify}"
 
 if [[ ! -f "$MIGRATION" ]]; then
@@ -275,15 +275,16 @@ BEGIN
     WHERE country_code IS DISTINCT FROM 'India'
        OR programme_code IS DISTINCT FROM 'IHCI';
 
-    IF v_protocol IS DISTINCT FROM 'AATTCC'
-       OR v_tracked IS DISTINCT FROM TRUE
-       OR v_category IS DISTINCT FROM 'CCB'
-       OR v_active_country IS DISTINCT FROM 'India'
-       OR v_active_programme IS DISTINCT FROM 'IHCI'
-       OR v_view <> 6
-       OR v_other <> 0 THEN
+    -- Re-run safety: a third apply keeps the tuned rows (seeds are ON CONFLICT DO NOTHING).
+    IF v_protocol IS DISTINCT FROM 'ATTACC'
+       OR v_tracked IS DISTINCT FROM FALSE
+       OR v_category IS DISTINCT FROM 'Other'
+       OR v_active_country IS DISTINCT FROM 'Bangladesh'
+       OR v_active_programme IS DISTINCT FROM 'NCDC'
+       OR v_view <> 1
+       OR v_other <> 1 THEN
         RAISE EXCEPTION
-            're-seed did not converge: protocol % tracked % category % active %/% view % other %',
+            're-run reset tuned rows: protocol % tracked % category % active %/% view % other %',
             v_protocol, v_tracked, v_category, v_active_country, v_active_programme, v_view, v_other;
     END IF;
 END $$;
@@ -305,7 +306,7 @@ echo "apply via \\ir"
 sudo -u postgres psql -d "$DB_NAME" -v ON_ERROR_STOP=1 -f "$INCLUDE_DIR/01_include.sql" >/dev/null
 rm -rf "$INCLUDE_DIR"
 
-if ! grep -q '\\ir migrations/0.5.1_to_0.5.2.sql' "$ROOT/pg_init_scripts/01_heart360_tables.sql"; then
+if ! grep -q '\\ir migrations/0.6.0_to_0.6.1.sql' "$ROOT/pg_init_scripts/01_heart360_tables.sql"; then
     echo "01_heart360_tables.sql does not include the migration" >&2
     exit 1
 fi

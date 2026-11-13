@@ -1,0 +1,96 @@
+{
+  "title": "Start here",
+  "elements": {
+    "panel-start-grid": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH p AS (\n  SELECT '${reporting_month}'::date AS m, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int AS ou\n),\nr AS (\n  SELECT 'titration'::text AS report, t.org_unit_id, t.org_unit_name, t.level, t.is_selected, t.too_few, t.flag,\n         t.looks_fine_check AS look_check, t.flag_reason, t.titration_pct::numeric AS value\n  FROM p, report_titration(p.m, p.ou) t\n  UNION ALL\n  SELECT 'adherence', a.org_unit_id, a.org_unit_name, a.level, a.is_selected, a.too_few, a.flag,\n         false, a.flag_reason, a.one_medicine_pct\n  FROM p, report_adherence(p.m, p.ou) a\n  UNION ALL\n  SELECT 'fudging', f.org_unit_id, f.org_unit_name, f.level, f.is_selected, f.too_few, f.flag,\n         f.looks_fine_check, f.flag_reason, f.score\n  FROM p, report_fudging(p.m, p.ou) f\n  UNION ALL\n  SELECT 'calling', c.org_unit_id, c.org_unit_name, c.level, c.is_selected, c.too_few, c.flag,\n         false, c.flag_reason, c.called_pct\n  FROM p, report_calling(p.m, p.ou) c\n  UNION ALL\n  SELECT 'statins', s.org_unit_id, s.org_unit_name, s.level, s.is_selected, s.too_few, s.flag,\n         false, s.flag_reason, s.on_statin_pct\n  FROM p, report_statins(p.m, p.ou) s\n),\nfl AS (\n  SELECT f.org_unit_id, f.report, f.flag_reason, f.patients_n FROM p, report_flags(p.m, p.ou) f\n)\nSELECT r.report, r.org_unit_id, r.org_unit_name, r.level, r.too_few,\n       (COALESCE(r.flag, false) OR fl.report IS NOT NULL) AS flag, r.look_check,\n       COALESCE(fl.flag_reason, r.flag_reason) AS flag_reason, r.value,\n       fl.report IS NOT NULL AS in_flags, fl.patients_n,\n       (SELECT name FROM org_units WHERE id = (SELECT ou FROM p)) AS place\nFROM r\nLEFT JOIN fl ON fl.org_unit_id = r.org_unit_id AND fl.report = r.report\nWHERE '$isAllowed' = '1' AND NOT (r.is_selected AND r.level < 3)",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Start here (story 7.9, UX-14, UX-04, UX-39): facilities in view down the side, the five reports across.\n// Each cell is one state (Flagged, Check, Too few, Fine) with its number, and opens that report tab\n// for that facility and month. Facilities that need a look come first, ordered by report_flags.\nconst root = rpt.mount('.rpt-start', { banner: true, loading: 'Finding facilities…' });\nif (!root) { return; }\nconst { esc, num, pct, score, yes } = rpt;\nconst all = rpt.rows('A');\nconst place = rpt.place(all.length ? all[0].place : '');\nconst head = '<h2 class=\"rpt-title\">Which facility needs a look first?</h2>'\n  + '<div class=\"rpt-sub\">' + esc(place) + ' · ' + esc(rpt.month(rpt.reportingMonth())) + '</div>'\n  + '<p class=\"rpt-start-do\">Pick the facility to visit first. Click a cell to see why.</p>';\nconst demo = '<div class=\"rpt-demo\">Demo data. Facility names and numbers are made up.</div>';\nif (!all.length) { root.innerHTML = head + rpt.noData(rpt.NO_FACILITIES) + demo; return; }\n\n// The number in each cell, per report.\nconst VALUE = {\n  titration: (x) => pct(x) + ' stepped up',\n  adherence: (x) => pct(x) + ' on one medicine',\n  fudging: (x) => 'ratio ' + score(x),\n  calling: (x) => pct(x) + ' called',\n  statins: (x) => pct(x) + ' on a statin',\n};\nconst STATE = {\n  flag: { word: 'Flagged', cls: 'rpt-cell-flag' },\n  check: { word: 'Check', cls: 'rpt-cell-check' },\n  few: { word: 'Too few', cls: 'rpt-cell-few' },\n  fine: { word: 'Fine', cls: 'rpt-cell-fine' },\n};\nconst stateOf = (c) => (!c ? null : yes(c.flag) ? 'flag' : yes(c.too_few) ? 'few' : yes(c.look_check) ? 'check' : 'fine');\n\n// One entry per facility: { id, name, cells: {report: row}, nFlags, patients }.\nconst by = {};\nall.forEach((r) => {\n  const k = String(r.org_unit_id);\n  const f = by[k] = by[k] || { id: r.org_unit_id, name: String(r.org_unit_name || ''), cells: {}, nFlags: 0, patients: 0 };\n  f.cells[r.report] = r;\n  if (yes(r.in_flags)) { f.nFlags += 1; f.patients = Math.max(f.patients, num(r.patients_n) || 0); }\n});\nconst count = (f, s) => rpt.REPORTS.filter((t) => stateOf(f.cells[t.report]) === s).length;\n// Needs a look first: any flag, then any check, then the rest. Within that: more report_flags\n// entries, more flagged cells, more patients under care, then name.\nconst rank = (f) => (count(f, 'flag') ? 0 : count(f, 'check') ? 1 : 2);\nconst list = Object.values(by).sort((a, b) => rank(a) - rank(b) || b.nFlags - a.nFlags\n  || count(b, 'flag') - count(a, 'flag') || b.patients - a.patients || a.name.localeCompare(b.name));\n\nconst cell = (f, t) => {\n  const c = f.cells[t.report];\n  const s = stateOf(c);\n  if (!s) { return '<td class=\"rpt-cell rpt-cell-none\">—</td>'; }\n  const st = STATE[s];\n  const n = s === 'few' || num(c.value) === null ? '' : VALUE[t.report](c.value);\n  const why = s === 'flag' && c.flag_reason ? c.flag_reason : '';\n  const label = f.name + ', ' + t.title + ': ' + st.word + (n ? ', ' + n : '') + '. Open this report.';\n  return '<td class=\"rpt-cell ' + st.cls + '\"><a href=\"' + esc(rpt.link(t.report, f.id)) + '\" aria-label=\"' + esc(label) + '\"'\n    + (why ? ' title=\"' + esc(why) + '\"' : '') + '><span class=\"rpt-cell-word\">' + esc(st.word) + '</span>'\n    + (n ? '<span class=\"rpt-cell-n\">' + esc(n) + '</span>' : '') + '</a></td>';\n};\nroot.innerHTML = head\n  + '<div class=\"rpt-wrap\"><table class=\"rpt-table rpt-grid\">'\n  + '<caption class=\"rpt-sr\">Each facility in view against the five reports. Facilities that need a look come first.</caption>'\n  + '<thead><tr><th scope=\"col\">Facility</th>' + rpt.REPORTS.map((t) => '<th scope=\"col\">' + esc(t.title) + '</th>').join('') + '</tr></thead>'\n  + '<tbody>' + list.map((f) => '<tr class=\"' + (rank(f) === 0 ? 'rpt-flagged' : '') + '\"><th scope=\"row\">' + esc(f.name) + '</th>'\n    + rpt.REPORTS.map((t) => cell(f, t)).join('') + '</tr>').join('') + '</tbody></table></div>'\n  + '<div class=\"rpt-start-key\"><span><b>Flagged</b> needs a look</span><span><b>Check</b> looks fine, worth a second look</span>'\n  + '<span><b>Too few</b> not enough patients to judge</span><span><b>Fine</b> no flag</span></div>'\n  + demo;",
+              "content": "<div class=\"rpt rpt-start\"><div class=\"rpt-muted rpt-loading\">Finding facilities…</div></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-start\"><div class=\"rpt-muted rpt-loading\">Finding facilities…</div></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "GridLayout",
+    "spec": {
+      "items": [
+        {
+          "kind": "GridLayoutItem",
+          "spec": {
+            "element": {
+              "kind": "ElementReference",
+              "name": "panel-start-grid"
+            },
+            "height": 14,
+            "width": 24,
+            "x": 0,
+            "y": 0
+          }
+        }
+      ]
+    }
+  }
+}
