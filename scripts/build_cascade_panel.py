@@ -23,6 +23,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "dashboard_src" / "cascade"
 DASHBOARD = ROOT / "grafana_provisioning" / "dashboards" / "HEARTS360 Dashboards" / "heart360.hypertension-diabetes.program.json"
+SQL = SRC / "panel.sql"
 ELEMENT = "panel-stc"
 # Overview indicators row, as in the baseline: the cascades take 2 of 3 columns, "Patients
 # protected" (panel-1) the third. The compact card (DESIGN.md) fits this.
@@ -65,7 +66,7 @@ cascade.draw(root, row);
 def render(dashboard: dict) -> dict:
     js = (SRC / "cascade.js").read_text().rstrip("\n")
     css = (SRC / "cascade.css").read_text().rstrip("\n")
-    sql = "\n".join(line for line in (SRC / "panel.sql").read_text().splitlines() if not line.startswith("--")).strip()
+    sql = "\n".join(line for line in SQL.read_text().splitlines() if not line.startswith("--")).strip()
     element = dashboard["spec"]["elements"][ELEMENT]
     spec = element["spec"]
     spec["title"] = TITLE
@@ -94,16 +95,23 @@ def render(dashboard: dict) -> dict:
 
 
 def main(argv: list[str]) -> int:
+    # --dashboard PATH and --sql PATH write the card into another checkout (for example H360-321
+    # with dashboard_src/cascade/panel_placeholder.sql). Defaults: this branch.
+    global DASHBOARD, SQL
+    if "--dashboard" in argv:
+        DASHBOARD = Path(argv[argv.index("--dashboard") + 1]).resolve()
+    if "--sql" in argv:
+        SQL = Path(argv[argv.index("--sql") + 1]).resolve()
     text = DASHBOARD.read_text()
     out = json.dumps(render(json.loads(text)), indent=2, ensure_ascii=True) + "\n"
     if "--check" in argv:
         if out != text:
-            print(f"stale: {DASHBOARD.relative_to(ROOT)} (run scripts/build_cascade_panel.py)")
+            print(f"stale: {DASHBOARD} (run scripts/build_cascade_panel.py)")
             return 1
-        print(f"ok: {DASHBOARD.relative_to(ROOT)} is up to date")
+        print(f"ok: {DASHBOARD} is up to date")
         return 0
     DASHBOARD.write_text(out)
-    print(f"wrote {ELEMENT} in {DASHBOARD.relative_to(ROOT)}")
+    print(f"wrote {ELEMENT} in {DASHBOARD}")
     return 0
 
 
