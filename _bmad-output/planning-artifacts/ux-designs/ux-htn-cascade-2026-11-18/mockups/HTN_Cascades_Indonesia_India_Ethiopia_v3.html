@@ -290,7 +290,8 @@ function screening(c,d){
   const sameGroup=prev&&(prev.apart||null)===(b.apart||null);
   if(b.apart&&!sameGroup&&prev)b.apartFirst=true;
   b.apart=b.apartFirst||(b.apart&&sameGroup)?b.apart:null;
-  if((k==="screened"||k==="diagnosed")&&num(tgt)!==null){
+  // The diagnosed target line can be turned off per country (Enter data, Show target line).
+  if((k==="screened"||(k==="diagnosed"&&d.diagTargetShow!==false))&&num(tgt)!==null){
    const tp=num(tgt)*share,want=tp/100*base,diff=v-want;
    b.target={p:tp,c:k==="diagnosed"?"start":"screen",label:due?`Target by ${d.month} = ${pctTxt(tp)}`:`Target = ${pctTxt(tp)}`};
    const passed=tp<=(base>0?v/base*100:0);
@@ -334,7 +335,7 @@ function panel(c){
   return `<tr id="row-${c.id}-${k}"><td class="slot">${SLOTNAME[k]}<br>${show}</td>
    <td><input type="text" data-f="${c.id}.steps.${k}.0" value="${esc(lab)}" aria-label="${SLOTNAME[k]} name"><div class="rowmsg" role="status"></div></td>
    <td>${numInput(`${c.id}.steps.${k}.1`,v,`${SLOTNAME[k]} count`)}<div class="fieldmsg"></div></td>
-   <td style="width:90px">${hasT?numInput(`${c.id}.steps.${k}.2`,tgt,`${SLOTNAME[k]} target percent`,'placeholder="none"'):""}</td></tr>`;}).join("");
+   <td style="width:90px">${hasT?numInput(`${c.id}.steps.${k}.2`,tgt,`${SLOTNAME[k]} target percent`,'placeholder="none"'):""}${k==="diagnosed"?`<label class="showbox" style="margin-top:4px"><input type="checkbox" data-f="${c.id}.diagTargetShow"${d.diagTargetShow!==false?" checked":""}> Show target line</label>`:""}</td></tr>`;}).join("");
  const tr=TR.map(([k,l])=>`<div class="field"><label>${l}</label>${numInput(`${c.id}.tr.${k}`,d.tr[k],l)}<div class="fieldmsg"></div></div>`).join("");
  const months=MON.map(m=>`<option${m===d.month?" selected":""}>${m}</option>`).join("");
  return `<details class="dpanel" id="panel-${c.id}"${dn("33")}><summary>Enter data for ${c.name} <span class="hint">· names, counts and targets</span><span class="wcount" id="wc-${c.id}"></span></summary>
@@ -347,7 +348,7 @@ function panel(c){
     <div class="field"><label>Age group</label><input type="text" data-f="${c.id}.age" value="${esc(d.age)}"></div>
    </div>
    <h4>Screening cascade</h4>
-   <p class="help">Counts are year to date, in ${u}. Target % is a share of step 1${c.targetType==="due"?`, for the full year. The chart shows the share due by the month above`:""}. Leave target empty to hide its line.</p>
+   <p class="help">Counts are year to date, in ${u}. Target % is a share of step 1${c.targetType==="due"?`, for the full year. The chart shows the share due by the month above`:""}. Leave a target empty, or untick Show target line, to hide its line.</p>
    <table><thead><tr><th>Step</th><th>Name on the chart</th><th style="text-align:right">Count <span class="unit">(${u})</span></th><th style="text-align:right">Target %</th></tr></thead><tbody>${rows}</tbody></table>
   </div>
   <div class="grp">
@@ -411,6 +412,7 @@ function flat(){const out=[];
   out.push([`${p}_period`,d.period],[`${p}_target_month`,d.month],[`${p}_treatment_as_of`,d.asof],[`${p}_age_group`,d.age]);
   SLOTS.forEach(k=>{const [l,v,t]=d.steps[k];out.push([`${p}_${k}_label`,l],[`${p}_${k}`,v]);
    if(k==="screened"||k==="diagnosed")out.push([`${p}_${k}_target_pct`,t]);
+   if(k==="diagnosed")out.push([`${p}_diagnosed_target_show`,d.diagTargetShow!==false]);
    if(k==="linked")out.push([`${p}_linked_show`,!!d.linkedShow]);});
   Object.entries(d.tr).forEach(([k,v])=>out.push([`${p}_t_${k}`,v]));});
  return out;}
@@ -435,6 +437,7 @@ function fromMarkdown(text){
   if(g(`${p}_treatment_as_of`)!==undefined)d.asof=String(g(`${p}_treatment_as_of`)??"");
   if(g(`${p}_age_group`)!==undefined)d.age=String(g(`${p}_age_group`)??"");
   if(g(`${p}_linked_show`)!==undefined)d.linkedShow=!!g(`${p}_linked_show`);
+  if(g(`${p}_diagnosed_target_show`)!==undefined)d.diagTargetShow=g(`${p}_diagnosed_target_show`)!==false;
   SLOTS.forEach(k=>{if(g(`${p}_${k}_label`)!=null)d.steps[k][0]=String(g(`${p}_${k}_label`));if(g(`${p}_${k}`)!==undefined)d.steps[k][1]=g(`${p}_${k}`);
    if(g(`${p}_${k}_target_pct`)!==undefined)d.steps[k][2]=g(`${p}_${k}_target_pct`);});
   Object.keys(d.tr).forEach(k=>{if(g(`${p}_t_${k}`)!==undefined)d.tr[k]=g(`${p}_t_${k}`);});});
