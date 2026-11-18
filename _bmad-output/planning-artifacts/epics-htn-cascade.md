@@ -72,9 +72,11 @@ As a country reviewer, I want to see screening and treatment on one card, so tha
 **Owns:** `dashboard_src/cascade/cascade.js`, `dashboard_src/cascade/cascade.css`, `dashboard_src/cascade/panel.sql`
 
 **Acceptance criteria:**
-- **Given** all locations, **When** the card shows, **Then** the screening bars show 100%, 40%, 3.6%, 2% and 0.9%. The screened bar has a "Year target 46%" line.
+- **Given** all locations, **When** the card shows, **Then** the screening bars show 100%, 40%, 3.6% and 0.9% (step 4 hidden). The screened bar has a dashed target line and the status "87% of target".
 - **Given** the same view, **When** you read the treatment half, **Then** the estimate is 250,740. Registered, under care and BP controlled match the live reporting tables.
-- **Given** `showLinked: false` in `COUNTRIES.idn`, **When** you rebuild, **Then** step 4 does not show.
+- **Given** `showLinked: true` in `COUNTRIES.idn`, **When** you rebuild, **Then** "Given starter medicine" shows as step 4.
+- **Given** the treatment chart, **When** you read it, **Then** every percent is a share of the estimate, and there are no step-rate lines.
+- **Given** the screening chart, **When** you read a bar after "Adults screened", **Then** a grey line shows the share of the step before, for example "→ 9% of screened".
 - **Given** a new step name in `COUNTRIES.idn`, **When** you rebuild, **Then** the new name shows.
 - **Given** a place with no screening rows, **When** the card shows, **Then** the left half says "No screening data for this place and month." It does not show zero.
 - **Given** a 375 px wide screen, **When** the card shows, **Then** the treatment half is below the screening half, and the screening chart scrolls sideways.
@@ -83,10 +85,10 @@ As a country reviewer, I want to see screening and treatment on one card, so tha
 
 As the design owner, I want the new card in place of the old cascade, so that reviewers see it first.
 
-**Owns:** `scripts/build_cascade_panel.py`, `panel-stc` and the Overview row layout in the program dashboard, `REVIEWED_EDITS` and `REVIEWED_LAYOUT` in `scripts/check_htn_dm_untouched.py`
+**Owns:** `scripts/build_cascade_panel.py`, `panel-stc` in the program dashboard, `REVIEWED_EDITS` in `scripts/check_htn_dm_untouched.py`
 
 **Acceptance criteria:**
-- **Given** the Hypertension tab, **When** it opens, **Then** the first card is "Screening and treatment cascades", full width. "Patients protected from heart attacks and strokes" is below it.
+- **Given** the Hypertension tab, **When** it opens, **Then** the cascade card takes two of three columns, with two charts of equal width. "Patients protected from heart attacks and strokes" is in the third column. No count or label overlaps at 1366 px.
 - **Given** one location, **When** you select it, **Then** both halves show only that location.
 - **Given** `build_cascade_panel.py --check`, **When** it runs, **Then** it exits 0.
 - **Given** `check_htn_dm_untouched.py`, **When** it runs, **Then** it exits 0. **When** any other Hypertension panel changes, **Then** it fails.

@@ -14,7 +14,7 @@ updated: 2026-11-18
 ## Where it is
 
 - Dashboard: **Hypertension and Diabetes Program**. Tab: **Hypertension**. Row: **Overview indicators**. It is the first card.
-- The card is full width. The "Patients protected from heart attacks and strokes" chart is below it.
+- The card takes two of three columns. "Patients protected from heart attacks and strokes" is in the third column, as before.
 - Direct link: `/d/heart360_showcase?var-org_unit=<id>&-dtab=Hypertension`
 
 ## How it works
@@ -39,10 +39,12 @@ updated: 2026-11-18
 
 ## Text
 
-- Panel title: "Screening and treatment cascades".
-- Screening info icon (Indonesia): "Steps 1 to 4 come from CKG. Diagnosed counts new I10 registrations in puskesmas EHR data, a different system. Targets are for the full year."
-- Treatment info icon: "Under care means at least one visit in the last 12 months. BP controlled means below 140/90 at the last visit."
-- Footnote: "Screening counts this year only. Treatment counts every patient ever registered. Each chart reads against its own first bar. Population, prevalence and screening counts are example data, not program data."
+- No panel title and no info icons. The panel description holds the definitions, the data sources and the example-data note.
+- Screening subtitle (Indonesia): "Eligible adults (15+) in {place} screened and diagnosed, Jan to Oct 2026."
+- Treatment subtitle: "Estimated adults (15+) in {place} with hypertension, as of Oct 2026."
+- Screening labels (Indonesia): "Adults eligible for screening", "Adults screened", "Raised BP (140/90 or higher)", "Newly diagnosed with hypertension". "Given starter medicine" is hidden for now (owner, 2026-11-18).
+- Treatment labels: "Estimated people with hypertension", "Cumulative registered patients", "Patients under care", "Patients with BP controlled".
+- Status lines (screening only): "87% of target", "→ 9% of screened", "7.9% of goal".
 
 ## Customization
 

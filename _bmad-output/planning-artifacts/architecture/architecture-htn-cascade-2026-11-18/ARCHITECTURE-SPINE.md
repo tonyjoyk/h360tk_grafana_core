@@ -38,7 +38,7 @@ flowchart LR
 | Inherited | From parent | Binds here |
 | --- | --- | --- |
 | AD-14 | MVP spine | The panel reads as `heart360tk_cached` through `postgres-hypertension-cached`. The demo tables get `SELECT` for the read roles only. |
-| AD-17 | MVP spine | Only the reviewed program-dashboard edits are allowed. This spine adds `panel-stc` and the Overview row layout as reviewed edits (owner request, 2026-11-18). |
+| AD-17 | MVP spine | Only the reviewed program-dashboard edits are allowed. This spine adds `panel-stc` as a reviewed edit (owner request, 2026-11-18). The layout does not change. |
 | AD-34 | MVP spine | The seed only adds rows. It does not use `UPDATE`, `DELETE` or `random()`. |
 | NFR-1 | MVP PRD | The Diabetes tab, the variables and every other Hypertension panel stay the same. `check_htn_dm_untouched.py` enforces it. |
 
@@ -79,8 +79,8 @@ flowchart LR
 - **Prevents:** Hand edits to the 330 KB dashboard JSON. A second design that drifts from the HTML file.
 - **Rule:**
   - Edit only `dashboard_src/cascade/` (`cascade.js`, `cascade.css`, `panel.sql`).
-  - `scripts/build_cascade_panel.py` writes `panel-stc` and the Overview row layout. `--check` fails when the dashboard is stale.
-  - `check_htn_dm_untouched.py` pins the `panel-stc` hash in `REVIEWED_EDITS` and the grid places in `REVIEWED_LAYOUT`. Update the hash after each change.
+  - `scripts/build_cascade_panel.py` writes `panel-stc` and keeps the Overview row at its baseline layout (16 + 8 columns). `--check` fails when the dashboard is stale.
+  - `check_htn_dm_untouched.py` pins the `panel-stc` hash in `REVIEWED_EDITS`. Update the hash after each change.
   - The drawing code copies `bar()`, `half()` and `screeningBars()` from the HTML design. CSS classes use the prefix `csc-`.
 
 ## Consistency Conventions

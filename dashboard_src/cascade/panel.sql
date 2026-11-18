@@ -1,5 +1,5 @@
 -- Screening and treatment cascades, Hypertension tab panel-stc (story 14.3, H360-463, H360-454).
--- One row of numbers; names, targets and step 4 live in cascade.js (COUNTRIES).
+-- One row: the place name and the numbers; names, targets and step 4 live in cascade.js (COUNTRIES).
 -- Month: the latest completed month, like the other Hypertension headlines.
 -- Temporary sources (demo seed 50): demo_cascade_population, demo_cascade_prevalence and
 -- demo_cascade_screening. Gyan's H360-501, H360-504 and H360-505 replace them; keep these columns.
@@ -27,6 +27,7 @@ trt AS (
     (SELECT SUM(c.nb_patients_controlled) FROM heart360tk_reporting.heart360_patients_category c, m
       WHERE c.ref_month = m.mon AND c.org_unit_id IN (SELECT id FROM scope)) AS controlled)
 SELECT to_char(m.mon, 'YYYY-MM-DD') AS reporting_month,
+  (SELECT name FROM org_units WHERE id = (SELECT id FROM sel)) AS place,
   pop.adults, prev.prevalence_pct, ROUND(pop.adults * prev.prevalence_pct / 100) AS estimated,
   scr.screening_rows, scr.screened, scr.raised, scr.linked, scr.diagnosed,
   trt.registered, trt.under_care, trt.controlled

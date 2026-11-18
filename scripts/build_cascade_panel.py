@@ -24,18 +24,24 @@ ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "dashboard_src" / "cascade"
 DASHBOARD = ROOT / "grafana_provisioning" / "dashboards" / "HEARTS360 Dashboards" / "heart360.hypertension-diabetes.program.json"
 ELEMENT = "panel-stc"
-# Overview indicators row: the cascades take the full width (the design needs it); the
-# "Patients protected" trend (panel-1) moves under them, full width. Was 16 + 8 wide, 9 high.
+# Overview indicators row, as in the baseline: the cascades take 2 of 3 columns, "Patients
+# protected" (panel-1) the third. The compact card (DESIGN.md) fits this.
 LAYOUT = {
-    "panel-stc": {"x": 0, "y": 0, "width": 24, "height": 16},
-    "panel-1": {"x": 0, "y": 16, "width": 24, "height": 9},
+    "panel-stc": {"x": 0, "y": 0, "width": 16, "height": 9},
+    "panel-1": {"x": 16, "y": 0, "width": 8, "height": 9},
 }
 
-TITLE = "Screening and treatment cascades"
+# No panel title: the two charts carry their own titles, and the header row is space the card needs.
+TITLE = ""
 DESCRIPTION = (
-    "Left: adults screened this year, from eligible to diagnosed with hypertension. "
-    "Right: estimated adults with hypertension, then registered, under care and BP controlled. "
-    "Both are for the location you picked, at the end of the latest completed month. "
+    "Screening cascade: adults screened this year, from eligible to newly diagnosed with hypertension. "
+    "Each percent above a bar is a share of the first bar. The arrow line under a bar is the share of the step before it. "
+    "Steps 1 to 3 come from CKG. Newly diagnosed counts new I10 registrations in puskesmas EHR data, a different system, "
+    "so that bar has a dashed line and a hatched fill. Targets are for the full year. "
+    "Treatment cascade: estimated adults with hypertension, then registered, under care and BP controlled. "
+    "Each percent is a share of the estimate. Under care means at least one visit in the last 12 months. "
+    "BP controlled means below 140/90 at the last visit. "
+    "Both charts use the location you picked and the latest completed month. "
     "Population, prevalence and screening counts are example data, not program data."
 )
 

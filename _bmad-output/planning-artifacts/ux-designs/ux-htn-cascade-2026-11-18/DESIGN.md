@@ -1,6 +1,6 @@
 ---
 name: HEARTS360 hypertension cascades
-description: Visual rules for the cascade card on the Hypertension tab. They copy the approved HTML design. They do not add new styles.
+description: Visual rules for the compact cascade card on the Hypertension tab (2 of 3 columns). Colors and bars from the approved HTML design; hierarchy from the hearts360.org reference and the UX audit.
 status: final
 sources:
   - {planning_artifacts}/research/htn-cascade-2026-11-18/imports/HTN_Cascades_Indonesia_India_Ethiopia.html
@@ -30,38 +30,37 @@ colors:
 
 **Source of truth:** `HTN_Cascades_Indonesia_India_Ethiopia.html`. When this file and the HTML file are different, the HTML file is correct.
 
-## Layout
+## Layout (compact card, 2026-11-18)
 
-- One full-width card in the Overview indicators row holds two halves. A thin line separates them. The Grafana panel is the card, so the inner card has no second border.
-- Left half: **Screening cascade**. Right half: **Treatment cascade**.
-- Each half has these parts, from top to bottom:
-  1. Title and an info icon.
-  2. A grey period chip. Screening: "This year: Jan to Oct 2026". Treatment: "All registered patients, as of Oct 2026".
-  3. A subtitle that names the base. Example: "Of **2,100,000 adults aged 15+**, how many reached each step this year."
-  4. A bar chart, 210 px high, with a y-axis from 0% to 100%.
-  5. Under each bar: the count (in the bar color), the step name and one or two small grey lines.
-- A bar that is "set apart" has a dashed divider on its left and a hatched fill. Its grey line says why. Example: "From EHR, not CKG".
-- Below 860 px width, the two halves go one above the other. The screening chart keeps a 420 px minimum width and scrolls sideways.
+The owner asked for the card at two of three columns, with "Patients protected" in the third column. The UX audit (`ux-audit-2026-11-18.md`) set the rules below. The reference is the hearts360.org treatment cascade.
+
+- One card, 16 of 24 grid columns, 9 rows high. No Grafana panel title: the two charts carry their own titles.
+- Two charts of equal width, side by side, with a thin line between them. Below a 560 px panel width they stack.
+- Each chart, from top to bottom:
+  1. Title, 16 px bold. No info icon. The definitions are in the panel description.
+  2. A subtitle of one sentence that names who is counted, the place and the period. Two lines are reserved, so both charts start at the same height.
+  3. Bars, 120 px high. No y-axis. Thin column lines between bars, as in the reference.
+  4. Under each bar: the exact count (regular weight, 11 to 13 px, it shrinks with the card width), then the descriptive label in grey (11 px).
+  5. Screening only: one status line in grey. "→ 9% of screened" is the share of the step before. On a bar with a target, the line is the progress in the target color: "87% of target", "7.9% of goal".
 
 ## Bars
 
-- Bar height is the share of the first bar.
-- The percent is inside the bar when the bar is 34 px high or more. When the bar is shorter, the percent goes above the bar.
-- A bar above zero is never less than 5 px high.
-- Corners: 2 px on bars, 6 px on the card.
+- The first bar is the denominator: grey, "100%" inside.
+- Every other percent is a share of the first bar, 16 px bold, in the bar color. It is inside the bar when the bar is 28 px high or more, otherwise above the bar.
+- When a target line is above a short bar, the percent sits just above the line.
+- A bar above zero is at least 3 px high.
+- A bar from another data system (Indonesia: newly diagnosed, from EHR) has a dashed column line and a hatched fill. There is no text label for this.
 
 ## Targets
 
-- A target is a dashed line in the bar color. A light tint fills the space up to the line.
-- The label is above the line. Example: "Year target 46%". For the diagnosed bar: "Year goal 11%".
-- The grey line under the count says how close the count is to the target. Example: "87% of year target".
+- A target is a dashed line in the bar color, with a light tint up to the line. It has no text on the chart.
+- The status line under the bar says the progress: "87% of target".
 
 ## Text and numbers
 
-- Font: the Grafana font. Numbers use tabular figures.
-- Counts are 12 px when a chart has five bars or a count has 8 or more characters (for example 2,100,000). This stops overlap.
-- Counts use a thousands comma: 2,100,000.
-- Percent: whole number at 10% or more. One decimal below 10%.
+- Only the percents are bold. Counts are regular weight.
+- Counts are exact, with a thousands comma: 2,100,000.
+- Percent: whole number at 10% or more, one decimal below 10%.
 - Use sentence case. Do not use em dashes.
 
 ## Do not

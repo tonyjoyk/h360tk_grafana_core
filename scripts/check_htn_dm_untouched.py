@@ -14,7 +14,6 @@ The check:
      the ref exactly. So nothing else on the tab can move, change or disappear.
   4. Elements in REVIEWED_EDITS may differ from the ref, but only to the reviewed version: each is
      pinned by a SHA-256 of its JSON, the same way.
-  5. Layout items in REVIEWED_LAYOUT must have exactly the reviewed grid place and size.
 """
 import copy
 import hashlib
@@ -46,7 +45,7 @@ REVIEWED_EDITS = {
     # Owner request 2026-11-18 (story 14.3, H360-463, H360-454): the new screening and treatment
     # cascades replace the old cascade card. Built from dashboard_src/cascade/ by
     # scripts/build_cascade_panel.py; temporary demo data until H360-501, H360-504 and H360-505.
-    "panel-stc": "261768fb533756f175d6ac6adf7fd556a1bbd1aa013f1c12de4118625184fd31",
+    "panel-stc": "7492d5105a565d31c309bde448f1ff37170d932d7a5bfd472704682ce854543d",
     "panel-outcomes": "e1572c327a784463b92c50ecd35f4a44d3b8c23f8ba4a6c679ad0898ce1fc6f7",
     "panel-7": "1e81f98c68630066a95df33f50a8f38c4438070c07de50d87c5d53ee2da03a51",
     "panel-8": "a12d8757a7adf5e94bd9947b5f5183cf1fa429a235c17e071dde41182da73c0d",
@@ -54,29 +53,6 @@ REVIEWED_EDITS = {
     "panel-dm-14": "672fbb39a08157d75bebd6ae0f7b47e72403890bb04c20d954403327b804d7a8",
     "panel-dm-15": "c4e651db85242b092c8c71c260b4d859e3321a8c2cfdbb657a254e3c41b45c72",
 }
-
-
-# Owner request 2026-11-18 (story 14.3): the new cascades take the full width of the Overview
-# indicators row and the "Patients protected" trend moves under them. Grid places the layout must
-# have; everything else in the layout still equals the ref.
-REVIEWED_LAYOUT = {
-    "panel-stc": {"x": 0, "y": 0, "width": 24, "height": 16},
-    "panel-1": {"x": 0, "y": 16, "width": 24, "height": 9},
-}
-
-
-def pin_layout(base_snap):
-    """Give the base layout the reviewed grid places, so the head must have exactly those places."""
-    def walk(node):
-        if isinstance(node, dict):
-            if node.get("kind") == "GridLayoutItem" and node["spec"]["element"]["name"] in REVIEWED_LAYOUT:
-                node["spec"].update(REVIEWED_LAYOUT[node["spec"]["element"]["name"]])
-            for value in node.values():
-                walk(value)
-        elif isinstance(node, list):
-            for value in node:
-                walk(value)
-    walk(base_snap["layout"])
 
 
 def element_hash(element):
@@ -165,8 +141,7 @@ def main():
     for title in TABS:
         problems = []
         head_tab = strip_additions(head, title, problems, hashes)
-        base_snap, head_snap = tab_snapshot(base, copy.deepcopy(find_tab(base, title))), tab_snapshot(head, head_tab)
-        pin_layout(base_snap)
+        base_snap, head_snap = tab_snapshot(base, find_tab(base, title)), tab_snapshot(head, head_tab)
         pin_edits(base_snap, head_snap, title, problems, hashes)
         same = base_snap == head_snap
         extra = [a["title"] for a in REVIEWED_ADDITIONS.get(title, [])]

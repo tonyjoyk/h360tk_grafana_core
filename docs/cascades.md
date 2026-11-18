@@ -1,6 +1,6 @@
 # Screening and treatment cascades
 
-The Hypertension tab now opens with two cascade charts on one card. They replace the old "Screening-to-treatment cascade" card.
+The Hypertension tab now opens with two cascade charts on one card. They replace the old "Screening-to-treatment cascade" card. The card takes two of three columns. "Patients protected from heart attacks and strokes" stays in the third column.
 
 **The numbers for population, prevalence and screening are example data for Indonesia. They are not program data.**
 
@@ -16,28 +16,29 @@ If your stack uses port 3000, change `3100` to `3000` in the link.
 
 | Chart | What it shows | Where the numbers come from |
 |---|---|---|
-| **Screening cascade** (left) | Adults screened this year: eligible, screened, raised BP, given starter medicine, diagnosed with hypertension | Example data (seed 50) |
+| **Screening cascade** (left) | Adults screened this year: eligible, screened, raised BP, newly diagnosed with hypertension. "Given starter medicine" is hidden for now. | Example data (seed 50) |
 | **Treatment cascade** (right) | Estimated adults with hypertension, then registered, under care and BP controlled | Estimate: example population × example prevalence (11.94%). The other three numbers are live patient data. |
 
-- Each bar is a share of the first bar in its chart.
-- The grey line under each count is the step rate, or the progress against the target.
-- Dashed lines are targets: "Year target 46%" on screened and "Year goal 11%" on diagnosed.
-- The diagnosed bar has a dashed divider and a hatched fill because it comes from a different system (EHR, not CKG).
+- The big colored percent on each bar is a share of the first bar in its chart.
+- In the screening chart, the grey line "→ 9% of screened" is the share of the step before.
+- Dashed lines are targets. The line under the bar says the progress: "87% of target", "7.9% of goal".
+- The newly diagnosed bar has a dashed column line and a hatched fill because it comes from a different system (EHR).
 - The month is the latest completed month (October 2026 in the demo). Screening counts are year to date.
+- Definitions and data sources are in the panel description (hover the panel header).
 
 ## How to use it
 
 - **Pick a location.** Open **Change location** and pick a region, district, PHC or SHC. Both charts change to that location.
 - **Read the info icons.** The (i) next to each chart title gives the data source and the definitions.
-- **On a phone.** The two charts go one above the other. Swipe the screening chart left to see all five steps.
+- **On a phone or a narrow window.** The two charts go one above the other. A chart that does not fit scrolls sideways.
 
 ## Change names, targets or step 4
 
 The chart settings are in one place: `COUNTRIES` at the top of `dashboard_src/cascade/cascade.js`.
 
 1. Edit the `idn` entry. For example:
-   - Rename a step: `linked: 'Referred to puskesmas'`
-   - Hide step 4: `showLinked: false`
+   - Rename a step: `raised: 'Raised BP (140/90 or higher)'` in `labels`
+   - Show step 4 again: `showLinked: true`
    - Change a target: `screenedTargetPct: 50`
 2. Run `python3 scripts/build_cascade_panel.py`.
 3. Run `python3 scripts/check_htn_dm_untouched.py --print-hashes`. Copy the new `panel-stc` hash into `REVIEWED_EDITS` in that script.

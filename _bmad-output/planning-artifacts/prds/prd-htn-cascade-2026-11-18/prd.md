@@ -82,7 +82,7 @@ Numbers continue from the MVP PRD (FR-49) and the review addendum (FR-88).
 
 | ID | Requirement |
 |---|---|
-| NFR-16 | `scripts/check_htn_dm_untouched.py` exits 0. The new `panel-stc` and the Overview row layout are reviewed exceptions, by owner request on 2026-11-18. Nothing else on the tab changes. |
+| NFR-16 | `scripts/check_htn_dm_untouched.py` exits 0. The new `panel-stc` content is a reviewed exception, by owner request on 2026-11-18. The layout and every other panel on the tab are unchanged. |
 | NFR-17 | Seeds only add rows. `scripts/verify_seeds_insert_only.sh` exits 0. |
 | NFR-18 | `scripts/build_cascade_panel.py --check` exits 0. |
 | NFR-19 | No migration and no change to `pg_init_scripts/`. |
@@ -100,12 +100,12 @@ Numbers continue from the MVP PRD (FR-49) and the review addendum (FR-88).
 - [ASSUMPTION A-C2] The seed divides the national example numbers across the org units that have patients, by their share of patients.
 - [ASSUMPTION A-C3] The latest completed month is October 2026. Screening counts grow evenly from January. Month m has m/10 of the October total.
 - [ASSUMPTION A-C4] "Under care" means one or more visits in the last 12 months, as in the design info text.
-- [ASSUMPTION A-C5] The "Patients protected from heart attacks and strokes" chart stays. It moves below the cascades, full width, because the design needs the full width.
+- [ASSUMPTION A-C5] The "Patients protected from heart attacks and strokes" chart stays in the third column. The cascade card takes two of three columns, so the design is compact (UX audit 2026-11-18).
 
 ## 10. Open questions
 
 | # | Question | Who answers | Blocks the demo? |
 |---|---|---|---|
-| Q-1 | Do we remove the "Patients protected" chart, now that the treatment cascade shows BP controlled? | Tony | No |
+| Q-1 | Do we show "Given starter medicine" (step 4) for Indonesia? It is hidden for now. | Tony, Pusdatin | No |
 | Q-2 | What is the real prevalence and population source for Indonesia? | Indonesia team, Gyan (H360-496, H360-504) | No |
 | Q-3 | Does CKG report "Given starter medicine"? If not, set `showLinked: false`. | Pusdatin | No |
