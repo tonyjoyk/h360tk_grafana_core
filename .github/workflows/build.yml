@@ -34,12 +34,12 @@ jobs:
           cd .github/workflows
           bash dockertag.sh
 
-      - name: Document Databae
+      - name: Document Database
         run: |
           cd autodoc
           mkdir -p schemaspy-output
           chmod -R 777 schemaspy-output
-          docker compose up --exit-code-from schemaspy
+          docker compose up --exit-code-from schemaspy --timeout 0 
           zip -r schemaspy-report.zip schemaspy-output
 
       - name: Upload SchemaSpy Artifact
@@ -53,3 +53,15 @@ jobs:
         run: |
           cd .github/workflows
           bash dockerpush.sh
+
+      - name: Run Ci
+        run: |
+          cd .github/workflows
+          bash run-ci.sh
+
+      - name: Publish Test Report
+        uses: mikepenz/action-junit-report@v6
+        if: success() || failure() # always run even if the previous step fails
+        with:
+          report_paths: '**/ci-tests/target/TESTS-*.xml'
+

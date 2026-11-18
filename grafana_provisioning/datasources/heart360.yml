@@ -6,11 +6,12 @@ datasources:
     uid: postgres-hypertension
     type: postgres
     url: postgres:5432
-    user: heart360tk
+    # Read-only role (AD-14); the table owner heart360tk never backs a datasource.
+    user: heart360tk_reader
     access: proxy
     isDefault: false 
     version: 4
-    editable: true
+    editable: false
     jsonData:
       # Host is the Docker service name, port is the default 5432
       host: 
@@ -31,7 +32,7 @@ datasources:
       intVal: true
     secureJsonData:
       # Password must be stored securely
-      password: YmE4ZTk0OGI0OTNmNGU5YmFjZDY1YTA0
+      password: h360tk_reader_mvp
 
   - name: Hypertension Data Cached (PostgreSQL)
     uid: postgres-hypertension-cached
@@ -41,7 +42,7 @@ datasources:
     access: proxy
     isDefault: false
     version: 4
-    editable: true
+    editable: false
     jsonData:
       # Use the reporting schema first so unqualified dashboard queries resolve to matviews.
       host:

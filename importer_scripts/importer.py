@@ -9,6 +9,7 @@ import sys
 import tempfile
 import time
 import zipfile
+from contextlib import contextmanager
 from datetime import datetime, timezone
 
 import paramiko
@@ -18,6 +19,7 @@ from apscheduler.triggers.cron import CronTrigger
 
 from import_versions import get_importer
 from import_versions.base import BaseImportVersion
+from orgunit_mapping import MappingRule, load_mapping_config
 
 logging.basicConfig(
     level=logging.INFO,
@@ -26,16 +28,48 @@ logging.basicConfig(
 )
 log = logging.getLogger(__name__)
 
+# Suppress APScheduler's verbose job execution logs so the 5s poller doesn't flood stdout
+apscheduler_logger = logging.getLogger('apscheduler')
+apscheduler_logger.setLevel(logging.WARNING)
+apscheduler_logger.propagate = False
+
+apscheduler_exec_logger = logging.getLogger('apscheduler.executors.default')
+apscheduler_exec_logger.setLevel(logging.WARNING)
+apscheduler_exec_logger.propagate = False
+
+apscheduler_sched_logger = logging.getLogger('apscheduler.scheduler')
+apscheduler_sched_logger.setLevel(logging.WARNING)
+apscheduler_sched_logger.propagate = False
+
+# import_run_log.log_type values (enforced by a CHECK constraint).
+LOG_TYPE_LEAF_NODE = 'leaf_node'
+LOG_TYPE_INFRASTRUCTURE = 'infrastructure'
+
+# import_run_log.source_key for infrastructure rows — names the failing layer.
+SOURCE_SFTP = 'SFTP'
+SOURCE_POSTGRES = 'Postgres'
+SOURCE_MAPPING_FILE = 'Mapping file'
+SOURCE_IMPORTER = 'Importer'
+
+
+def _int_env(name: str, default: str) -> int | None:
+    """Parse an integer env var; None when it is not a number (see validate_config)."""
+    try:
+        return int(os.getenv(name, default).strip())
+    except ValueError:
+        return None
+
+
 IMPORT_CRON = os.getenv('IMPORT_CRON', '0 * * * *').strip()
 IMPORT_AGGREGATE_DATA = os.getenv('IMPORT_AGGREGATE_DATA', 'false').strip().lower() == 'true'
 IMPORT_PROTOCOL = os.getenv('IMPORT_PROTOCOL', 'sftp').strip().lower()
 IMPORT_FOLDER_PATH = os.getenv('IMPORT_FOLDER_PATH', '/export').strip()
 
 SFTP_HOST = os.getenv('SFTP_HOST', '').strip()
-SFTP_PORT = int(os.getenv('SFTP_PORT', '22').strip())
+SFTP_PORT = _int_env('SFTP_PORT', '22')
 SFTP_USER = os.getenv('SFTP_USER', '').strip()
 SFTP_PASSWORD = os.getenv('SFTP_PASSWORD', '').strip()
-SFTP_TIMEOUT_SECONDS = int(os.getenv('SFTP_TIMEOUT', '60').strip())
+SFTP_TIMEOUT_SECONDS = _int_env('SFTP_TIMEOUT', '60')
 
 DB_CONNECTION_PARAMS = {
     'host': os.getenv('POSTGRES_HOST', 'postgres'),
@@ -57,10 +91,20 @@ def validate_config():
             'SFTP_PASSWORD': SFTP_PASSWORD,
         })
 
+    problems = []
     missing = [k for k, v in required.items() if not v]
     if missing:
-        log.error('Missing required environment variables: %s', ', '.join(missing))
-        sys.exit(1)
+        problems.append(f'Missing required environment variables: {", ".join(missing)}')
+    not_numeric = [
+        name
+        for name, value in (('SFTP_PORT', SFTP_PORT), ('SFTP_TIMEOUT', SFTP_TIMEOUT_SECONDS))
+        if value is None
+    ]
+    if not_numeric:
+        problems.append(f'Environment variables must be integers: {", ".join(not_numeric)}')
+
+    if problems:
+        exit_with_importer_error('; '.join(problems), started_at=time.time())
 
     log.info('Config validated OK.')
     log.info('  IMPORT_CRON            : %s', IMPORT_CRON)
@@ -81,10 +125,24 @@ def is_import_enabled():
     return True
 
 
+def get_paused_source_keys() -> set[str]:
+    paused_keys = set()
+    try:
+        with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
+            with conn.cursor() as cur:
+                cur.execute('SELECT source_key FROM heart360tk_reporting.import_source_control WHERE is_paused = true')
+                for row in cur.fetchall():
+                    paused_keys.add(row[0])
+    except Exception as e:
+        log.warning('Could not fetch paused source keys from DB: %s', e)
+    return paused_keys
+
+
 def log_import_run(
     source_key,
     started_at,
     status,
+    log_type,
     duration_seconds=None,
     error_message=None,
 ):
@@ -96,8 +154,8 @@ def log_import_run(
                     '''
                     INSERT INTO heart360tk_reporting.import_run_log
                         (source_key, started_at, finished_at, status,
-                         duration_seconds, error_message)
-                    VALUES (%s, %s, NOW(), %s, %s, %s)
+                         duration_seconds, error_message, log_type)
+                    VALUES (%s, %s, NOW(), %s, %s, %s, %s)
                     ''',
                     (
                         source_key,
@@ -105,16 +163,155 @@ def log_import_run(
                         status,
                         duration_seconds,
                         error_message,
+                        log_type,
                     ),
                 )
         log.info(
-            '  Import run logged to DB — source_key=%s, status=%s, duration=%.2fs',
+            '  Import run logged to DB — source_key=%s, log_type=%s, status=%s, '
+            'duration=%.2fs',
             source_key,
+            log_type,
             status,
             duration_seconds or 0,
         )
     except Exception as e:
         log.warning('Could not write import run log to DB (non-fatal): %s', e)
+
+def update_import_source_control(source_key, data_status, review_note=None):
+    try:
+        with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                if review_note is not None:
+                    cur.execute(
+                        """
+                        INSERT INTO heart360tk_reporting.import_source_control
+                            (source_key, data_status, review_note)
+                        VALUES (%s, %s, %s)
+                        ON CONFLICT (source_key) DO UPDATE SET
+                            data_status = EXCLUDED.data_status,
+                            review_note = EXCLUDED.review_note
+                        """,
+                        (source_key, data_status, review_note),
+                    )
+                else:
+                    cur.execute(
+                        """
+                        INSERT INTO heart360tk_reporting.import_source_control
+                            (source_key, data_status)
+                        VALUES (%s, %s)
+                        ON CONFLICT (source_key) DO UPDATE SET
+                            data_status = EXCLUDED.data_status
+                        """,
+                        (source_key, data_status),
+                    )
+        log.info(
+            "Import source status updated — source_key=%s, data_status=%s, review_note=%s", 
+            source_key, data_status, review_note
+        )
+    except Exception as e:
+        log.warning("Could not update import source status in DB (non-fatal): %s", e)
+
+def set_global_review_note(review_note: str):
+    try:
+        with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE heart360tk_reporting.import_source_control SET review_note = %s",
+                    (review_note,)
+                )
+    except Exception as e:
+        log.warning("Could not set global review note: %s", e)
+
+def _log_import_failure(source_key: str, log_type: str, started_at: float, error) -> None:
+    log_import_run(
+        source_key=source_key,
+        started_at=started_at,
+        status='failed',
+        log_type=log_type,
+        duration_seconds=round(time.time() - started_at, 2),
+        error_message=str(error),
+    )
+
+
+def log_leaf_node_failure(source_key: str, started_at: float, error) -> None:
+    """Record a failure in one leaf node's data under that node's source_key."""
+    _log_import_failure(source_key, LOG_TYPE_LEAF_NODE, started_at, error)
+
+
+def log_infrastructure_failure(layer: str, started_at: float, error) -> None:
+    """Record a failure not tied to a leaf node, e.g. layer='SFTP'."""
+    _log_import_failure(layer, LOG_TYPE_INFRASTRUCTURE, started_at, error)
+
+
+def exit_with_importer_error(error, started_at: float) -> None:
+    """Log a startup configuration failure and stop the container."""
+    log.error('Importer configuration error: %s', error)
+    log_infrastructure_failure(SOURCE_IMPORTER, started_at, error)
+    sys.exit(1)
+
+
+class InfrastructureError(Exception):
+    """A job-level failure tagged with the infrastructure layer that raised it."""
+
+    def __init__(self, layer: str, cause: Exception):
+        super().__init__(str(cause))
+        self.layer = layer
+
+
+@contextmanager
+def infrastructure_layer(layer: str):
+    """Attribute any exception raised inside the block to ``layer``."""
+    try:
+        yield
+    except InfrastructureError:
+        raise
+    except Exception as e:
+        raise InfrastructureError(layer, e) from e
+
+
+def update_schedule_status(
+    next_run_at=None,
+    last_run_started_at=None,
+    last_run_finished_at=None,
+):
+    try:
+        with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(
+                    '''
+                    INSERT INTO heart360tk_reporting.import_schedule_status
+                        (id, cron_expression, next_run_at,
+                         last_run_started_at, last_run_finished_at, updated_at)
+                    VALUES (1, %s, %s, %s, %s, now())
+                    ON CONFLICT (id) DO UPDATE SET
+                        cron_expression = EXCLUDED.cron_expression,
+                        next_run_at = COALESCE(
+                            EXCLUDED.next_run_at,
+                            heart360tk_reporting.import_schedule_status.next_run_at
+                        ),
+                        last_run_started_at = COALESCE(
+                            EXCLUDED.last_run_started_at,
+                            heart360tk_reporting.import_schedule_status.last_run_started_at
+                        ),
+                        last_run_finished_at = COALESCE(
+                            EXCLUDED.last_run_finished_at,
+                            heart360tk_reporting.import_schedule_status.last_run_finished_at
+                        ),
+                        updated_at = now()
+                    ''',
+                    (
+                        IMPORT_CRON,
+                        next_run_at,
+                        last_run_started_at,
+                        last_run_finished_at,
+                    ),
+                )
+        log.info('  Schedule status updated — next_run_at=%s', next_run_at)
+    except Exception as e:
+        log.warning('Could not write import schedule status to DB (non-fatal): %s', e)
 
 
 def _open_sftp_client():
@@ -251,6 +448,14 @@ def read_zip_source_key(zip_path: str) -> str:
     return source_key
 
 
+def zip_source_key_or_name(zip_path: str, zip_name: str) -> str:
+    """The zip's source_key, or its file name when metadata.json is unreadable."""
+    try:
+        return read_zip_source_key(zip_path)
+    except Exception:
+        return os.path.splitext(zip_name)[0]
+
+
 def validate_zip(zip_path: str, zip_name: str) -> tuple[bool, str]:
     """Return (True, '') when the ZIP is safe to import, (False, reason) otherwise.
 
@@ -302,7 +507,12 @@ def validate_zip(zip_path: str, zip_name: str) -> tuple[bool, str]:
     return True, ''
 
 
-def import_zip_file(conn, zip_path: str, source_key: str) -> None:
+def import_zip_file(
+    conn,
+    zip_path: str,
+    source_key: str,
+    mapping_config: dict[str, list[MappingRule]] | None = None,
+) -> None:
     extract_dir = tempfile.mkdtemp(prefix='h360tk_import_')
     try:
         with zipfile.ZipFile(zip_path, 'r') as zf:
@@ -311,8 +521,16 @@ def import_zip_file(conn, zip_path: str, source_key: str) -> None:
         metadata = load_metadata(extract_dir)
         version = int(metadata['import_export_version'])
 
+        mapping_rules = (mapping_config or {}).get(source_key)
+        if mapping_config and mapping_rules is None:
+            log.info(
+                '  No org unit mapping block for source_key=%s — '
+                'importing its org units unmapped.',
+                source_key,
+            )
+
         importer = get_importer(version)
-        importer.import_zip(conn, extract_dir, metadata)
+        importer.import_zip(conn, extract_dir, metadata, mapping_rules=mapping_rules)
 
     finally:
         shutil.rmtree(extract_dir, ignore_errors=True)
@@ -331,7 +549,25 @@ def run_import():
         if IMPORT_PROTOCOL != 'sftp':
             raise ValueError(f'Unsupported IMPORT_PROTOCOL: {IMPORT_PROTOCOL}')
 
-        zip_names = fetch_sftp_zip_names()
+        # Read up front so a broken mapping file stops the job before anything
+        # is downloaded or truncated.
+        mapping_config = {}
+        mapping_is_empty = True
+        try:
+            with infrastructure_layer(SOURCE_MAPPING_FILE):
+                mapping_config = load_mapping_config()
+                mapping_is_empty = len(mapping_config) == 0
+        except Exception as e:
+            from orgunit_mapping import OrgUnitMappingError
+            if isinstance(e, OrgUnitMappingError) or (hasattr(e, 'layer') and isinstance(e.__cause__, OrgUnitMappingError)):
+                set_global_review_note('Invalid mapping rule')
+            raise
+
+        with infrastructure_layer(SOURCE_POSTGRES):
+            paused_keys = get_paused_source_keys()
+
+        with infrastructure_layer(SOURCE_SFTP):
+            zip_names = fetch_sftp_zip_names()
         if not zip_names:
             log.info(
                 'No zip files found at %s on SFTP server — nothing to import.',
@@ -342,7 +578,13 @@ def run_import():
         log.info('Phase 1 — Downloading %d zip file(s)...', len(zip_names))
         downloaded: list[tuple[str, str]] = []
         for zip_name in zip_names:
+            guessed_source_key = os.path.splitext(zip_name)[0]
+            if guessed_source_key in paused_keys:
+                log.info('  [SKIPPED] %s (paused in dashboard)', zip_name)
+                continue
+
             local_zip_path = os.path.join(work_dir, zip_name)
+            download_start = time.time()
             try:
                 download_sftp_zip_with_retry(zip_name, local_zip_path)
                 downloaded.append((zip_name, local_zip_path))
@@ -350,6 +592,9 @@ def run_import():
                 log.error(
                     'Failed to download %s after %d attempts — skipping: %s',
                     zip_name, _SFTP_RETRY_MAX_ATTEMPTS, e,
+                )
+                log_infrastructure_failure(
+                    SOURCE_SFTP, download_start, f'Failed to download {zip_name}: {e}'
                 )
 
         if not downloaded:
@@ -365,12 +610,18 @@ def run_import():
         log.info('Phase 2 — Validating %d downloaded zip file(s)...', len(downloaded))
         valid_zips: list[tuple[str, str]] = []
         for zip_name, local_zip_path in downloaded:
+            validate_start = time.time()
             ok, reason = validate_zip(local_zip_path, zip_name)
             if ok:
                 log.info('  [VALID]   %s', zip_name)
                 valid_zips.append((zip_name, local_zip_path))
             else:
                 log.warning('  [SKIPPED] %s — %s', zip_name, reason)
+                log_leaf_node_failure(
+                    zip_source_key_or_name(local_zip_path, zip_name),
+                    validate_start,
+                    f'Validation failed for {zip_name}: {reason}',
+                )
 
         if not valid_zips:
             log.error(
@@ -385,15 +636,15 @@ def run_import():
             len(downloaded),
         )
 
-        conn = psycopg2.connect(**DB_CONNECTION_PARAMS)
-        conn.autocommit = False
-
         log.info(
             'Phase 3 — Truncating reporting tables and importing %d zip file(s)...',
             len(valid_zips),
         )
-        BaseImportVersion.truncate_reporting_tables(conn)
-        conn.commit()
+        with infrastructure_layer(SOURCE_POSTGRES):
+            conn = psycopg2.connect(**DB_CONNECTION_PARAMS)
+            conn.autocommit = False
+            BaseImportVersion.truncate_reporting_tables(conn)
+            conn.commit()
 
         imported_count = 0
         for zip_name, local_zip_path in valid_zips:
@@ -402,7 +653,12 @@ def run_import():
 
             try:
                 source_key = read_zip_source_key(local_zip_path)
-                import_zip_file(conn, local_zip_path, source_key)
+
+                if source_key in paused_keys:
+                    log.info('  [SKIPPED] %s (source_key=%s is paused)', zip_name, source_key)
+                    continue
+
+                import_zip_file(conn, local_zip_path, source_key, mapping_config)
                 conn.commit()
 
                 duration = round(time.time() - zip_start, 2)
@@ -410,8 +666,17 @@ def run_import():
                     source_key=source_key,
                     started_at=zip_start,
                     status='success',
+                    log_type=LOG_TYPE_LEAF_NODE,
                     duration_seconds=duration,
                 )
+                if mapping_is_empty:
+                    review_note = 'Unmapped by design'
+                elif source_key in mapping_config:
+                    review_note = 'Mapped'
+                else:
+                    review_note = 'Missing central mapping'
+                
+                update_import_source_control(source_key, 'data_loaded', review_note)
                 imported_count += 1
                 log.info(
                     '  Imported %s (source_key=%s) in %.2fs',
@@ -422,20 +687,18 @@ def run_import():
 
             except Exception as e:
                 conn.rollback()
-                duration = round(time.time() - zip_start, 2)
                 log.error(
                     'Failed to import zip %s: %s',
                     zip_name,
                     e,
                     exc_info=True,
                 )
-                log_import_run(
-                    source_key=source_key or os.path.splitext(zip_name)[0],
-                    started_at=zip_start,
-                    status='failed',
-                    duration_seconds=duration,
-                    error_message=str(e),
+                log_leaf_node_failure(
+                    source_key or zip_source_key_or_name(local_zip_path, zip_name),
+                    zip_start,
+                    e,
                 )
+                update_import_source_control(source_key or os.path.splitext(zip_name)[0], 'no_data', 'Not imported yet')
 
         if imported_count == 0:
             log.error('No zip files were imported successfully.')
@@ -451,24 +714,100 @@ def run_import():
     except Exception as e:
         if conn is not None:
             conn.rollback()
-        log.error('Import job failed: %s', e, exc_info=True)
-
+        # Per-zip failures are handled in the loop above, so anything reaching
+        # here is infrastructure; untagged errors come from the importer itself.
+        layer = e.layer if isinstance(e, InfrastructureError) else SOURCE_IMPORTER
+        log.error('Import job failed (source_key=%s): %s', layer, e, exc_info=True)
+        log_infrastructure_failure(layer, job_start, e)
     finally:
         if conn is not None:
             conn.close()
         shutil.rmtree(work_dir, ignore_errors=True)
 
 
+def _get_next_run_time(scheduler):
+    job = scheduler.get_job('import_job')
+    if job is None:
+        return None
+    try:
+        return job.trigger.get_next_fire_time(None, datetime.now(timezone.utc))
+    except Exception:
+        # Absolute last-resort: attribute may exist post-start
+        return getattr(job, 'next_run_time', None)
+
+
+def scheduled_import_job(scheduler):
+    last_run_started_at = datetime.now(timezone.utc)
+    job_start = time.time()
+    try:
+        run_import()
+    except Exception as e:
+        log.error('Unexpected import failure (source_key=%s): %s', SOURCE_IMPORTER, e)
+        log_infrastructure_failure(SOURCE_IMPORTER, job_start, e)
+    finally:
+        last_run_finished_at = datetime.now(timezone.utc)
+        update_schedule_status(
+            next_run_at=_get_next_run_time(scheduler),
+            last_run_started_at=last_run_started_at,
+            last_run_finished_at=last_run_finished_at,
+        )
+
+
+def poll_for_force_import(scheduler):
+    try:
+        requested = False
+        with psycopg2.connect(**DB_CONNECTION_PARAMS) as conn:
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute('SELECT force_import_requested FROM heart360tk_reporting.import_schedule_status WHERE id = 1')
+                row = cur.fetchone()
+                if row and row[0]:
+                    requested = True
+                    # Set it to false immediately so we don't double-trigger
+                    cur.execute('UPDATE heart360tk_reporting.import_schedule_status SET force_import_requested = false WHERE id = 1')
+        
+        if requested:
+            log.info('Force import requested via dashboard. Triggering import now...')
+            import_job = scheduler.get_job('import_job')
+            if import_job:
+                # Modifying the next_run_time forces APScheduler to run the existing job immediately.
+                # Because max_instances=1 on import_job, this natively prevents it from running 
+                # concurrently with a scheduled cron execution!
+                import_job.modify(next_run_time=datetime.now(timezone.utc))
+            
+    except Exception as e:
+        log.warning('Error polling for force import (non-fatal): %s', e)
+
+
 def start_scheduler():
     try:
         trigger = CronTrigger.from_crontab(IMPORT_CRON)
     except Exception as e:
-        log.error("Invalid IMPORT_CRON expression '%s': %s", IMPORT_CRON, e)
-        sys.exit(1)
+        exit_with_importer_error(
+            f"Invalid IMPORT_CRON expression '{IMPORT_CRON}': {e}", started_at=time.time()
+        )
 
     scheduler = BlockingScheduler()
-    scheduler.add_job(run_import, trigger, id='import_job', name='h360tk import')
+    scheduler.add_job(
+        lambda: scheduled_import_job(scheduler),
+        trigger,
+        id='import_job',
+        name='h360tk import',
+        max_instances=1,
+    )
+    
+    # Fast polling job for manual force imports
+    scheduler.add_job(
+        lambda: poll_for_force_import(scheduler),
+        'interval',
+        seconds=5,
+        id='poll_force_import',
+        name='h360tk force import poller',
+        max_instances=1,
+    )
+    
     log.info("Scheduler started. Import will run on cron: '%s'", IMPORT_CRON)
+    update_schedule_status(next_run_at=_get_next_run_time(scheduler))
 
     try:
         scheduler.start()

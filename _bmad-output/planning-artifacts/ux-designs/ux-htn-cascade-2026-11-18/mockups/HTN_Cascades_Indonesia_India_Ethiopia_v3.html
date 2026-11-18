@@ -1,0 +1,489 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTN Cascade Designs v3</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#f5f6f8;--card:#fff;--ink:#16202b;--ink2:#4a5562;--ink3:#6b7480;
+  --line:#e6e9ee;--line2:#cfd5dd;
+  --base:#dfe3e6;--baseInk:#6b7480;
+  --screen:#5f5bd4;--screenTint:#ecebfb;--raised:#c9525c;--link:#2f9aa8;
+  --start:#2f7bdb;--startTint:#e3eefb;--reg:#2f7bdb;--care:#a830d6;--ctrl:#55a93f;
+  --warn:#8a4b00;--warnBg:#fff6e5;--warnLine:#f0d49b;--bad:#a3262f;--ok:#2e6b1f;--note:#e8590c;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:1200px;margin:0 auto;padding:28px 20px 56px}
+button,input,select{font:inherit}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px}
+.top h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.01em}
+.top p{color:var(--ink2);margin:4px 0 0}
+.toggle{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;user-select:none;background:var(--card);border:1px solid var(--line2);border-radius:6px;padding:6px 12px 6px 8px}
+.toggle input{position:absolute;opacity:0;width:0;height:0}
+.sw{width:32px;height:18px;border-radius:9px;background:var(--line2);position:relative;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle input:checked+.sw{background:var(--note)}
+.toggle input:checked+.sw::after{transform:translateX(14px)}
+.toggle input:focus-visible+.sw{outline:2px solid var(--note);outline-offset:2px}
+
+/* data file bar */
+.filebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:18px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px}
+.filebar b{font-size:13px}
+.fstat{font-size:12px;color:var(--ink2);margin-right:auto}
+.fstat.ok{color:var(--ok)}.fstat.err{color:var(--bad)}
+.btn{font-size:12px;font-weight:600;border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:4px;padding:6px 10px;cursor:pointer}
+.btn:hover{background:#f3f5f7}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.btn.link{border:0;background:none;padding:0;color:var(--screen);font-weight:500;text-decoration:underline;text-underline-offset:2px}
+.btn:focus-visible{outline:2px solid var(--screen);outline-offset:2px}
+.fhint{flex-basis:100%;font-size:12px;color:var(--ink3);margin:0}
+
+/* country section */
+.country{margin-top:40px}
+.chead{display:flex;flex-wrap:wrap;align-items:baseline;gap:6px 14px}
+.chead h2{font-size:20px;font-weight:700;margin:0}
+.ctx{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:1px;margin:10px 0 12px;background:var(--line);border:1px solid var(--line);border-radius:6px;overflow:hidden}
+.ctx>div{background:var(--card);padding:8px 12px}
+.ctx dt{font-size:11px;color:var(--ink3);text-transform:uppercase;letter-spacing:.04em}
+.ctx dd{margin:1px 0 0;font-size:13px;color:var(--ink)}
+.caveat{font-size:13px;color:var(--ink2);margin:0 0 12px;padding-left:10px;border-left:3px solid var(--line2)}
+
+/* the chart card: matches the Grafana card (ux-audit-2026-11-18) */
+.section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:22px 24px;display:flex;gap:28px;box-shadow:0 1px 2px rgba(22,32,43,.04)}
+.cwrap{container-type:inline-size}
+.divider{width:1px;background:var(--line);flex:none}
+.half{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
+.htop{display:flex;align-items:baseline;gap:10px}
+.half h3{font-size:18px;font-weight:700;margin:0}
+.check{margin-left:auto;font-size:12px;font-weight:600;color:var(--warn);background:var(--warnBg);border:1px solid var(--warnLine);border-radius:10px;padding:1px 9px;cursor:pointer}
+.sub{font-size:13px;color:var(--ink2);margin:4px 0 0;line-height:1.45;min-height:2.9em}
+.scroll{min-width:0}
+.chart{position:relative;height:180px;margin-top:26px}
+.bars{position:absolute;inset:0;display:flex;align-items:flex-end;border-bottom:1px solid var(--line2)}
+.col{flex:1 1 0;min-width:0;height:100%;position:relative;display:flex;flex-direction:column;justify-content:flex-end;padding:0 4px}
+/* One divider for every column, in every country (design note 34). */
+.col+.col,.meta>div+div{border-left:1px dashed var(--line2)}
+.bar{position:relative;width:100%;border-radius:2px 2px 0 0}
+.in{position:absolute;top:6px;left:0;right:0;text-align:center;font-size:20px;font-weight:700}
+.up{position:relative;z-index:3;align-self:center;font-size:20px;font-weight:700;background:#fff;border-radius:3px;padding:0 3px;margin-bottom:3px;line-height:1.2}
+.tzone{position:absolute;left:4px;right:4px;bottom:0;border-radius:2px 2px 0 0}
+.tline{position:absolute;left:4px;right:4px;border-top:2px dashed var(--screen);z-index:2}
+.tlab{position:absolute;left:0;right:0;text-align:center;font-size:11px;font-weight:500;line-height:13px;white-space:nowrap;z-index:2;opacity:.9}
+.meta{display:flex;margin-top:10px}
+.meta>div{flex:1 1 0;min-width:0;padding:0 8px}
+.meta>div:first-child{padding-left:4px}
+.n{font-size:15px;font-weight:400;color:var(--ink);white-space:nowrap}
+.l{font-size:12px;color:var(--ink3);line-height:1.35;margin-top:3px}
+.s{font-size:12px;color:var(--ink3);line-height:1.35;margin-top:4px}
+.empty{display:flex;align-items:center;justify-content:center;height:180px;margin-top:26px;border:1px dashed var(--line2);border-radius:4px;color:var(--ink3);font-size:13px;text-align:center;padding:12px}
+@container (max-width:640px){
+  .section{flex-direction:column;gap:18px}
+  .divider{width:auto;height:1px}
+  .scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding-bottom:4px}
+  .plot{min-width:340px}
+  .in,.up{font-size:16px}
+}
+@media (max-width:640px){.section{padding:16px}}
+
+/* data entry */
+.dpanel{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.dpanel>summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;align-items:center;gap:8px}
+.dpanel>summary::-webkit-details-marker{display:none}
+.dpanel>summary::before{content:"+";display:inline-flex;width:18px;height:18px;border:1px solid var(--line2);border-radius:3px;align-items:center;justify-content:center;font-size:13px;color:var(--ink2);flex:none}
+.dpanel[open]>summary::before{content:"\2212"}
+.dpanel>summary .hint{font-weight:400;color:var(--ink3);font-size:12px}
+.dpanel>summary .wcount{margin-left:auto;font-weight:600;font-size:12px;color:var(--warn)}
+.dbody{padding:4px 14px 16px;display:grid;grid-template-columns:minmax(0,1.5fr) minmax(0,1fr);gap:24px}
+.grp h4{font-size:12px;margin:10px 0 6px;color:var(--ink);text-transform:uppercase;letter-spacing:.04em}
+.grp p.help{font-size:12px;color:var(--ink3);margin:0 0 8px}
+.fields{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:10px}
+.field label{display:block;font-size:12px;color:var(--ink2);font-weight:600;margin-bottom:3px}
+.field input,.field select,table input{width:100%;font-size:13px;border:1px solid var(--line2);border-radius:4px;padding:6px 8px;background:#fff;color:var(--ink);min-width:0}
+input.num{text-align:right}
+input:focus,select:focus{outline:2px solid var(--screen);outline-offset:0;border-color:var(--screen)}
+input.bad{border-color:var(--bad);background:#fff5f5}
+table{width:100%;border-collapse:collapse;font-size:12px}
+th{text-align:left;font-weight:600;color:var(--ink2);padding:4px 6px;border-bottom:1px solid var(--line)}
+td{padding:5px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+td.slot{color:var(--ink2);white-space:nowrap;width:1%}
+tr.off td:not(.slot){opacity:.45}
+tr.flag td{background:var(--warnBg)}
+.rowmsg{font-size:11px;color:var(--warn);margin-top:3px}
+.fieldmsg{font-size:11px;color:var(--bad);margin-top:3px}
+.unit{font-size:11px;color:var(--ink3)}
+.showbox{display:inline-flex;align-items:center;gap:5px;cursor:pointer;font-size:11px;color:var(--ink2)}
+.showbox input{accent-color:var(--link);margin:0;width:auto}
+.calc{margin-top:8px;padding:10px;background:#f7f8fa;border-radius:4px}
+.calc .row{display:flex;gap:8px;align-items:flex-end;flex-wrap:wrap}
+.calc .row .field{flex:1;min-width:110px}
+.calc .res{font-size:12px;color:var(--ink2);margin-top:6px}
+.dfoot{grid-column:1/-1;display:flex;gap:10px;align-items:center;border-top:1px solid var(--line);padding-top:10px}
+.dfoot .muted{font-size:12px;color:var(--ink3);margin-right:auto}
+@media (max-width:860px){.dbody{grid-template-columns:1fr}td.slot{white-space:normal}}
+
+/* design notes */
+.mk{display:none;position:absolute;z-index:20;width:20px;height:20px;border-radius:50%;background:var(--note);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);font-style:normal;line-height:1}
+body.notes .mk{display:inline-flex}
+body.notes [data-notes]{outline:1.5px dashed rgba(232,89,12,.45);outline-offset:3px}
+.tip{position:absolute;z-index:50;max-width:320px;background:var(--ink);color:#fff;border-radius:4px;padding:12px 14px;font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(22,32,43,.25);display:none}
+.tip b{display:block;margin-bottom:4px}
+.notes-list{display:none;margin-top:48px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px}
+body.notes .notes-list{display:block}
+.notes-list h2{font-size:18px;margin:0 0 4px}
+.notes-list>p{color:var(--ink2);margin:0 0 16px;font-size:13px}
+.notes-list ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}
+.notes-list li{display:flex;gap:10px;font-size:13px;color:var(--ink2)}
+.notes-list li b{color:var(--ink)}
+.notes-list .num{flex:none;width:22px;height:22px;border-radius:50%;background:var(--note);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+@media (max-width:860px){.notes-list ol{grid-template-columns:1fr}}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:8px 14px;border-radius:4px;display:none;z-index:99}
+footer{margin-top:32px;color:var(--ink3);font-size:12px}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+ <div>
+  <h1>Hypertension screening and treatment cascades</h1>
+  <p>One design for Indonesia, India and Ethiopia. Each country names its own steps. All numbers are example data until you enter your own.</p>
+ </div>
+ <label class="toggle"><input type="checkbox" id="noteToggle"><span class="sw"></span>Show design notes</label>
+</div>
+
+<div class="filebar" data-notes="28">
+ <b>Data file</b>
+ <span class="fstat" id="fstat">Saved in this browser only</span>
+ <button class="btn primary fsa" id="openFile" type="button">Open .md file</button>
+ <button class="btn fsa" id="newFile" type="button">Create .md file</button>
+ <button class="btn" id="dlFile" type="button">Download .md</button>
+ <button class="btn" id="loadFile" type="button">Load .md</button>
+ <input type="file" id="loadInput" accept=".md,text/markdown,text/plain" hidden>
+ <p class="fhint" id="fhint">Open this page in Chrome or Edge, then open or create a .md file in your Obsidian vault. Every change saves to that file. The file uses the same properties as before (for example <code>idn_screened</code>).</p>
+</div>
+
+<div id="countries"></div>
+
+<section class="notes-list" id="notesList">
+ <h2>Design notes</h2>
+ <p>Hover or tap a marker on the page to read a note in place.</p>
+ <ol id="notesOl"></ol>
+</section>
+<footer>Screening counts this year only. Treatment counts every patient ever registered. Each chart reads against its own first bar.</footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+<div class="toast" id="toast" role="status"></div>
+
+<script>
+/* ---------- design notes (numbers continue from HTN_Cascades_Design_Decisions.md) ---------- */
+const NOTES={
+ 1:["One section","Screening and treatment sit in one card, so they read as one story."],
+ 4:["Each chart reads against its own first bar","The big percent on every bar is a share of the first bar. One denominator per chart."],
+ 6:["Raised BP, one term","Indonesia and Ethiopia say Raised BP. India records referral, so its label is Referred (raised BP). Same slot, same meaning."],
+ 10:["India: base set on 1 April","People already on treatment are left out of the base. The year target is fixed on 1 April."],
+ 13:["Ethiopia: counts visits","Screening happens at OPD visits. Counts are visits, not people, so one person can count twice. The labels say visits."],
+ 22:["India: examined has no step rate","Examined by MO includes walk-ins, so it can be bigger than referred. It is not shown as a share of referred. It looks like every other bar."],
+ 25:["Five slots, country names","Every country fills the same five slots. The meaning is fixed; the name is free."],
+ 26:["Step 4 is optional","Untick Show in Enter data to hide it. Indonesia hides it until CKG reports starter medicine."],
+ 28:["Data lives in one Markdown file","Same properties as before, so your Obsidian note still loads."],
+ 29:["Reference hierarchy","From the hearts360.org treatment cascade: bold colored percent, light black count, grey label, thin column lines. Only the percents are bold."],
+ 30:["Target = x%","Each dashed target line has a small label in its own color. On a short bar, the percent moves above the label."],
+ 31:["Step rate only where it is a funnel","The grey line \"9% of screened\" shows the share of the step before. It is not shown on a bar from another source (Indonesia diagnosed, India examined), so it never compares two systems. The caveat line above the chart says why."],
+ 34:["Every bar looks the same in every country","No hatching and no special dividers. One dotted line between columns everywhere. A different data source is explained in words in the caveat line, not with a visual code that changes by country."],
+ 32:["Country context first","Who is counted, the unit, the year and the sources sit above each chart. One caveat line says what is different about this country."],
+ 33:["Data entry that catches mistakes","Type numbers with commas. A row that breaks the funnel turns amber and says why, and the chart shows Check data."]
+};
+
+/* ---------- helpers ---------- */
+const MON=["Jan","Feb","Mar","Apr","May","Jun","Jul","Aug","Sep","Oct","Nov","Dec"];
+const num=x=>x===null||x===undefined||x===""||isNaN(Number(x))?null:Number(x);
+const fmt=x=>num(x)===null?"–":Math.round(num(x)).toLocaleString("en-US");
+const pctTxt=p=>!isFinite(p)?"–":p>=10?Math.round(p)+"%":(Math.round(p*10)/10)+"%";
+const esc=t=>String(t??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const parseNum=s=>{const t=String(s??"").replace(/[,\s]/g,"");if(t==="")return null;return /^\d+(\.\d+)?$/.test(t)?Number(t):NaN;};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const SLOTS=["eligible","screened","raised","linked","diagnosed"];
+const SLOTNAME={eligible:"1 Eligible",screened:"2 Screened",raised:"3 Raised BP",linked:"4 Facility step",diagnosed:"5 Diagnosed"};
+const COLOR={eligible:"base",screened:"screen",raised:"raised",linked:"link",diagnosed:"start"};
+const TR=[["estimated","Estimated people with hypertension","base"],["registered","Cumulative registered patients","reg"],["undercare","Patients under care","care"],["controlled","Patients with BP controlled","ctrl"]];
+
+/* ---------- what each country is (not its numbers) ---------- */
+const CONFIG=[
+ {id:"idn",name:"Indonesia",unit:"people",who:"Eligible adults",
+  ctx:[["Who is counted","Adults 15+"],["Unit","People"],["Year","Calendar year (Jan to Dec)"],["Sources","CKG for steps 1 to 4, puskesmas EHR for diagnosed"]],
+  caveat:"Newly diagnosed comes from the puskesmas EHR, a different system from CKG, so it has no step rate. Starter medicine is hidden until CKG reports it.",
+  targetType:"year",apart:{diagnosed:"ehr"},apartNote:{},
+  short:{eligible:"eligible",screened:"screened",raised:"raised BP",linked:"given medicine"},notes:{raised:"6",linked:"26",diagnosed:"31"}},
+ {id:"ind",name:"India",unit:"people",who:"Eligible adults",
+  ctx:[["Who is counted","Adults 30+ not on treatment on 1 April"],["Unit","People"],["Year","Financial year (Apr to Mar)"],["Sources","NP-NCD reports"]],
+  caveat:"Examined by MO includes walk-ins and OPD checks, so it can be bigger than referred and has no step rate. Targets are due by the month shown.",
+  targetType:"due",apart:{linked:"facility",diagnosed:"facility"},apartNote:{},
+  short:{eligible:"eligible",screened:"screened",raised:"referred",linked:"examined"},notes:{eligible:"10",linked:"22"}},
+ {id:"eth",name:"Ethiopia",unit:"visits",who:"Adult OPD visits",
+  ctx:[["Who is counted","Adult OPD visits without known hypertension"],["Unit","Visits (one person can count twice)"],["Year","Ethiopian fiscal year"],["Sources","Facility registers and the HTN register"]],
+  caveat:"Counts are visits, not people. There is no diagnosis target yet.",
+  targetType:"year",apart:{},apartNote:{},
+  short:{eligible:"eligible",screened:"screened",raised:"raised BP",linked:"linked"},notes:{eligible:"13"}}
+];
+const cfg=id=>CONFIG.find(c=>c.id===id);
+
+/* ---------- editable numbers and names (same shape as HTN_Cascade_Data.md) ---------- */
+const DEFAULTS={
+ idn:{period:"Jan to Nov 2026",month:"Nov",asof:"Nov 2026",linkedShow:false,age:"15+",
+  steps:{eligible:["Adults eligible for screening",2100000],screened:["Adults screened",840000,46],raised:["Raised BP (140/90 or higher)",75600],linked:["Given starter medicine",41000],diagnosed:["Newly diagnosed with hypertension",18900,11.4]},
+  tr:{estimated:250800,registered:12213,undercare:10632,controlled:4808}},
+ ind:{period:"FY 2026-27, Apr to Nov",month:"Nov",asof:"Nov 2026",linkedShow:true,age:"30+",
+  steps:{eligible:["Adults eligible for screening",1640000],screened:["Adults screened",984000,66.7],raised:["Referred (raised BP)",196800],linked:["Examined by MO",360000],diagnosed:["Newly diagnosed with hypertension",76000,12.6]},
+  tr:{estimated:520000,registered:210000,undercare:160000,controlled:82000}},
+ eth:{period:"EFY 2019 to date",month:"Nov",asof:"Nov 2026",linkedShow:true,age:"30+",
+  steps:{eligible:["OPD visits eligible for screening",48000],screened:["Visits with BP measured",33600,80],raised:["Raised BP (140/90 or higher)",4700],linked:["Linked to NCD clinic",3760],diagnosed:["Newly diagnosed with hypertension",1500,null]},
+  tr:{estimated:180000,registered:21600,undercare:15100,controlled:6200}}
+};
+const LS="h360-cascade-data-v3";
+let DATA;
+try{DATA=JSON.parse(localStorage.getItem(LS))||clone(DEFAULTS)}catch(e){DATA=clone(DEFAULTS)}
+for(const k in DEFAULTS){if(!DATA[k])DATA[k]=clone(DEFAULTS[k]);}
+
+/* ---------- the chart ---------- */
+const H=180,IN=34;
+const dn=n=>n?` data-notes="${n}"`:"";
+function bar(b,base,isBase){
+ const p=base>0?b.v/base*100:0,px=H*p/100,inside=isBase||px>=IN;
+ const h=isBase?"100%":(px<3?(b.v>0?"3px":"0"):Math.min(p,100)+"%");
+ const label=isBase?"100%":pctTxt(p);
+ let t="";
+ if(b.target){
+  const tp=Math.min(b.target.p,100),tc=b.target.c;
+  if(tp>p){
+   t+=`<div class="tzone" style="height:${tp}%;background:var(--${tc}Tint)"></div>`;
+   t+=`<div class="tline" style="bottom:${tp}%;border-top-color:var(--${tc})"></div><div class="tlab" style="bottom:calc(${tp}% + 2px);color:var(--${tc})">${esc(b.target.label)}</div>`;
+  }else{
+   // Target already passed: a white dashed line crosses the bar; its label moves to the status line under the bar.
+   t+=`<div class="tline" style="bottom:${tp}%;border-top-color:rgba(255,255,255,.85);z-index:4"></div>`;
+  }
+ }
+ const color=isBase?"var(--baseInk)":inside?"#fff":`var(--${b.c})`;
+ const over=!inside&&b.target&&Math.min(b.target.p,100)>p;
+ const lift=over?`;position:absolute;left:0;right:0;text-align:center;bottom:calc(${Math.min(b.target.p,100)}% + 18px)`:"";
+ const pct=`<span class="${inside?"in":"up"}" style="color:${color}${lift}">${label}</span>`;
+ return `<div class="col">${t}${inside?"":pct}<div class="bar" style="height:${h};background-color:var(--${b.c})"${dn(b.notes)}>${inside?pct:""}</div></div>`;
+}
+function half(o){
+ const body=o.empty?`<div class="empty">${esc(o.empty)}</div>`
+  :`<div class="scroll"><div class="plot"><div class="chart"><div class="bars">${o.bars.map((b,i)=>bar(b,o.base,i===0)).join("")}</div></div>
+   <div class="meta">${o.bars.map(b=>`<div><div class="n">${fmt(b.v)}</div><div class="l">${esc(b.label)}</div>${b.line?`<div class="s"${b.lineColor?` style="color:var(--${b.lineColor})"`:""}>${esc(b.line)}</div>`:""}</div>`).join("")}</div></div></div>`;
+ return `<div class="half"><div class="htop"><h3>${esc(o.title)}</h3>${o.checks?`<button class="check" type="button" data-open="${o.id}">${o.checks} data check${o.checks>1?"s":""}</button>`:""}</div>
+  <p class="sub">${esc(o.sub)}</p>${body}</div>`;
+}
+// Bars, step rates, targets and data checks for one country's screening chart.
+function screening(c,d){
+ const base=num(d.steps.eligible[1])||0,due=c.targetType==="due",share=due?monthsIn(c,d.month)/12:1;
+ const keys=SLOTS.filter(k=>k!=="linked"||d.linkedShow);
+ const checks={};let prev=null;
+ const bars=keys.map(k=>{
+  const [label,v0,tgt]=d.steps[k],v=num(v0)||0;
+  const b={k,label,v,c:COLOR[k],apart:c.apart[k]||null,notes:c.notes[k]||""};
+  // A bar starts a new group when it is apart and its group differs from the bar before.
+  const sameGroup=prev&&(prev.apart||null)===(b.apart||null);
+  if(b.apart&&!sameGroup&&prev)b.apartFirst=true;
+  b.apart=b.apartFirst||(b.apart&&sameGroup)?b.apart:null;
+  // The diagnosed target line can be turned off per country (Enter data, Show target line).
+  if((k==="screened"||(k==="diagnosed"&&d.diagTargetShow!==false))&&num(tgt)!==null){
+   const tp=num(tgt)*share,want=tp/100*base,diff=v-want;
+   b.target={p:tp,c:k==="diagnosed"?"start":"screen",label:due?`Target by ${d.month} = ${pctTxt(tp)}`:`Target = ${pctTxt(tp)}`};
+   const passed=tp<=(base>0?v/base*100:0);
+   b.line=passed?`${b.target.label}: ${due?fmt(diff)+" ahead":pctTxt(want>0?v/want*100:NaN)+" of target"}`
+    :due?`${fmt(Math.abs(diff))} behind ${d.month} target`:`${pctTxt(want>0?v/want*100:NaN)} of target`;
+   b.lineColor=b.target.c;
+  }else if(prev&&prev.k!=="eligible"&&(!b.apartFirst)){
+   b.line=`${pctTxt(prev.v>0?v/prev.v*100:NaN)} of ${c.short[prev.k]||prev.label.toLowerCase()}`;
+  }
+  if(prev&&prev.k!=="eligible"&&!b.apartFirst&&v>prev.v)checks[k]=`${label} (${fmt(v)}) is bigger than ${prev.label} (${fmt(prev.v)}). Check the numbers.`;
+  if(k!=="eligible"&&v>base)checks[k]=`${label} is bigger than ${d.steps.eligible[0].toLowerCase()} (${fmt(base)}). Check the numbers.`;
+  prev=b;return b;});
+ return {bars,base,checks};
+}
+function monthsIn(c,month){const ys={idn:1,ind:4,eth:7}[c.id]||1,m=MON.indexOf(month)+1||12;return((m-ys+12)%12)+1;}
+function render(id){
+ const c=cfg(id),d=DATA[id],s=screening(c,d),est=num(d.tr.estimated)||0;
+ const nChecks=Object.keys(s.checks).length;
+ const scr=half({id,title:"Screening cascade",checks:nChecks,
+  sub:`${c.who} (${d.age}) screened and diagnosed, ${d.period}.${c.unit==="visits"?" Counts are visits.":""}`,
+  base:s.base,bars:s.bars,empty:s.base?"":"Enter the number eligible to draw this chart."});
+ const tb=TR.map(([k,l,col])=>({k,label:l,v:num(d.tr[k])||0,c:col}));
+ const trt=half({title:"Treatment cascade",sub:`Estimated adults (${d.age}) with hypertension, as of ${d.asof}.`,base:est,bars:tb,
+  empty:est?"":"Enter the estimated number with hypertension to draw this chart."});
+ const el=document.getElementById("chart-"+id);
+ el.innerHTML=`<div class="section"${dn("1,4,29,34")}>${scr}<div class="divider"></div>${trt}</div>`;
+ // data checks in the form
+ SLOTS.forEach(k=>{const row=document.getElementById(`row-${id}-${k}`);if(!row)return;
+  row.classList.toggle("flag",!!s.checks[k]);row.querySelector(".rowmsg").textContent=s.checks[k]||"";
+  row.classList.toggle("off",k==="linked"&&!d.linkedShow);});
+ const wc=document.getElementById("wc-"+id);if(wc)wc.textContent=nChecks?`${nChecks} data check${nChecks>1?"s":""}`:"";
+ attachMarkers(el);listNotes();
+}
+
+/* ---------- data entry ---------- */
+const numInput=(f,v,label,extra="")=>`<input class="num" type="text" inputmode="numeric" data-f="${f}" data-num="1" value="${num(v)===null?"":fmt(v)}" aria-label="${esc(label)}" ${extra}>`;
+function panel(c){
+ const d=DATA[c.id],u=c.unit;
+ const rows=SLOTS.map(k=>{const [lab,v,tgt]=d.steps[k];const hasT=k==="screened"||(k==="diagnosed");
+  const show=k==="linked"?`<label class="showbox"><input type="checkbox" data-f="${c.id}.linkedShow"${d.linkedShow?" checked":""}> Show</label>`:"";
+  return `<tr id="row-${c.id}-${k}"><td class="slot">${SLOTNAME[k]}<br>${show}</td>
+   <td><input type="text" data-f="${c.id}.steps.${k}.0" value="${esc(lab)}" aria-label="${SLOTNAME[k]} name"><div class="rowmsg" role="status"></div></td>
+   <td>${numInput(`${c.id}.steps.${k}.1`,v,`${SLOTNAME[k]} count`)}<div class="fieldmsg"></div></td>
+   <td style="width:90px">${hasT?numInput(`${c.id}.steps.${k}.2`,tgt,`${SLOTNAME[k]} target percent`,'placeholder="none"'):""}${k==="diagnosed"?`<label class="showbox" style="margin-top:4px"><input type="checkbox" data-f="${c.id}.diagTargetShow"${d.diagTargetShow!==false?" checked":""}> Show target line</label>`:""}</td></tr>`;}).join("");
+ const tr=TR.map(([k,l])=>`<div class="field"><label>${l}</label>${numInput(`${c.id}.tr.${k}`,d.tr[k],l)}<div class="fieldmsg"></div></div>`).join("");
+ const months=MON.map(m=>`<option${m===d.month?" selected":""}>${m}</option>`).join("");
+ return `<details class="dpanel" id="panel-${c.id}"${dn("33")}><summary>Enter data for ${c.name} <span class="hint">· names, counts and targets</span><span class="wcount" id="wc-${c.id}"></span></summary>
+ <div class="dbody">
+  <div class="grp">
+   <h4>Period</h4>
+   <div class="fields">
+    <div class="field"><label>Period shown</label><input type="text" data-f="${c.id}.period" value="${esc(d.period)}"></div>
+    <div class="field"><label>Data up to month</label><select data-f="${c.id}.month">${months}</select></div>
+    <div class="field"><label>Age group</label><input type="text" data-f="${c.id}.age" value="${esc(d.age)}"></div>
+   </div>
+   <h4>Screening cascade</h4>
+   <p class="help">Counts are year to date, in ${u}. Target % is a share of step 1${c.targetType==="due"?`, for the full year. The chart shows the share due by the month above`:""}. Leave a target empty, or untick Show target line, to hide its line.</p>
+   <table><thead><tr><th>Step</th><th>Name on the chart</th><th style="text-align:right">Count <span class="unit">(${u})</span></th><th style="text-align:right">Target %</th></tr></thead><tbody>${rows}</tbody></table>
+  </div>
+  <div class="grp">
+   <h4>Treatment cascade</h4>
+   <div class="fields"><div class="field"><label>As of</label><input type="text" data-f="${c.id}.asof" value="${esc(d.asof)}"></div></div>
+   <p class="help" style="margin-top:8px">Registered, under care and BP controlled come from HEARTS360 in the live dashboard. Enter them here only for this design.</p>
+   <div class="fields">${tr}</div>
+   <details class="calc"><summary class="btn link">Work out the estimate from population and prevalence</summary>
+    <div class="row" style="margin-top:8px">
+     <div class="field"><label>Adults (${esc(d.age)})</label><input class="num" type="text" inputmode="numeric" id="pop-${c.id}"></div>
+     <div class="field"><label>Prevalence %</label><input class="num" type="text" inputmode="decimal" id="prev-${c.id}"></div>
+     <button class="btn" type="button" data-use="${c.id}">Use this number</button>
+    </div><div class="res" id="res-${c.id}">Estimate = adults × prevalence.</div>
+   </details>
+  </div>
+  <div class="dfoot"><span class="muted">Changes draw the chart at once and save to your data file.</span>
+   <button class="btn" type="button" data-reset="${c.id}">Reset ${c.name} to example data</button></div>
+ </div></details>`;
+}
+function buildPage(){
+ document.getElementById("countries").innerHTML=CONFIG.map(c=>`<section class="country">
+  <div class="chead"><h2>${c.name}</h2></div>
+  <dl class="ctx"${dn("32"+(c.notes.eligible?","+c.notes.eligible:""))}>${c.ctx.map(([k,v])=>`<div><dt>${k}</dt><dd>${esc(v)}</dd></div>`).join("")}</dl>
+  <p class="caveat">${esc(c.caveat)}</p>
+  <div class="cwrap" id="chart-${c.id}"></div>${panel(c)}</section>`).join("");
+ attachMarkers(document.querySelector(".filebar"));
+ CONFIG.forEach(c=>render(c.id));
+ attachMarkers(document.getElementById("countries"));listNotes();
+}
+function setPath(obj,path,val){const ps=path.split(".");let o=obj;for(let i=0;i<ps.length-1;i++)o=o[ps[i]];o[ps[ps.length-1]]=val;}
+document.addEventListener("input",e=>{
+ const t=e.target,f=t.dataset&&t.dataset.f;
+ if(t.id&&(t.id.startsWith("pop-")||t.id.startsWith("prev-"))){calc(t.id.split("-")[1]);return;}
+ if(!f||t.type==="checkbox")return;
+ let v=t.value;
+ if(t.dataset.num){v=parseNum(v);const msg=t.parentElement.querySelector(".fieldmsg");
+  if(Number.isNaN(v)){t.classList.add("bad");if(msg)msg.textContent="Use digits only, like 2,100,000.";return;}
+  t.classList.remove("bad");if(msg)msg.textContent="";}
+ setPath(DATA,f,v);render(f.split(".")[0]);persist();});
+document.addEventListener("change",e=>{const t=e.target,f=t.dataset&&t.dataset.f;if(!f)return;
+ if(t.type==="checkbox"){setPath(DATA,f,t.checked);render(f.split(".")[0]);persist();}
+ else if(t.tagName==="SELECT"){setPath(DATA,f,t.value);render(f.split(".")[0]);persist();}});
+// Show numbers with commas once the field is left.
+document.addEventListener("focusout",e=>{const t=e.target;if(t.dataset&&t.dataset.num&&!t.classList.contains("bad")){const v=parseNum(t.value);if(v!==null&&!Number.isNaN(v))t.value=fmt(v)===String(v)?String(v):(Number.isInteger(v)?fmt(v):String(v));}});
+function calc(id){const p=parseNum(document.getElementById("pop-"+id).value),r=parseNum(document.getElementById("prev-"+id).value),res=document.getElementById("res-"+id);
+ res.textContent=p&&r&&!isNaN(p)&&!isNaN(r)?`Estimate = ${fmt(p)} × ${r}% = ${fmt(p*r/100)}`:"Estimate = adults × prevalence.";}
+document.addEventListener("click",e=>{
+ const u=e.target.closest("[data-use]");
+ if(u){const id=u.dataset.use,p=parseNum(document.getElementById("pop-"+id).value),r=parseNum(document.getElementById("prev-"+id).value);
+  if(!p||!r||isNaN(p)||isNaN(r)){toast("Enter adults and prevalence first.");return;}
+  DATA[id].tr.estimated=Math.round(p*r/100);const inp=document.querySelector(`[data-f="${id}.tr.estimated"]`);if(inp)inp.value=fmt(DATA[id].tr.estimated);render(id);persist();toast("Estimate updated.");return;}
+ const r=e.target.closest("[data-reset]");
+ if(r){const id=r.dataset.reset;if(!confirm(`Replace ${cfg(id).name}'s names and numbers with the example data?`))return;DATA[id]=clone(DEFAULTS[id]);buildPage();persist();document.getElementById("panel-"+id).open=true;return;}
+ const o=e.target.closest("[data-open]");
+ if(o){const p=document.getElementById("panel-"+o.dataset.open);p.open=true;p.scrollIntoView({behavior:"smooth",block:"start"});const first=p.querySelector("tr.flag input");if(first)setTimeout(()=>first.focus(),300);}
+});
+
+/* ---------- markdown file (same properties as HTN_Cascade_Data.md) ---------- */
+function flat(){const out=[];
+ CONFIG.forEach(c=>{const d=DATA[c.id],p=c.id;
+  out.push([`${p}_period`,d.period],[`${p}_target_month`,d.month],[`${p}_treatment_as_of`,d.asof],[`${p}_age_group`,d.age]);
+  SLOTS.forEach(k=>{const [l,v,t]=d.steps[k];out.push([`${p}_${k}_label`,l],[`${p}_${k}`,v]);
+   if(k==="screened"||k==="diagnosed")out.push([`${p}_${k}_target_pct`,t]);
+   if(k==="diagnosed")out.push([`${p}_diagnosed_target_show`,d.diagTargetShow!==false]);
+   if(k==="linked")out.push([`${p}_linked_show`,!!d.linkedShow]);});
+  Object.entries(d.tr).forEach(([k,v])=>out.push([`${p}_t_${k}`,v]));});
+ return out;}
+const yv=v=>v===null||v===undefined||v===""?"":typeof v==="number"||typeof v==="boolean"?String(v):JSON.stringify(String(v));
+function toMarkdown(){
+ const now=new Date(),pad=n=>String(n).padStart(2,"0"),stamp=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+ let md=`---\ntype: hypertension-cascade-data\nupdated: ${JSON.stringify(stamp)}\n`+flat().map(([k,v])=>`${k}: ${yv(v)}`).join("\n")+`\n---\n\n# Hypertension cascade data\n\nThe dashboard saves to the properties above. Edit numbers there or in the dashboard. The tables below are rebuilt on every save, so edits to them are not read back.\n`;
+ CONFIG.forEach(c=>{const d=DATA[c.id],base=num(d.steps.eligible[1])||0;
+  md+=`\n## ${c.name}\n\nScreening, this year: ${d.period}\n\n| Step | Name | Count | % of eligible | Target % |\n|---|---|---:|---:|---:|\n`;
+  SLOTS.forEach(k=>{if(k==="linked"&&!d.linkedShow)return;const [l,v,t]=d.steps[k];md+=`| ${SLOTNAME[k]} | ${l} | ${fmt(v)} | ${k==="eligible"?"100%":pctTxt(base>0?(num(v)||0)/base*100:NaN)} | ${t??""} |\n`;});
+  md+=`\nTreatment, as of ${d.asof}\n\n| Step | Count |\n|---|---:|\n`+TR.map(([k,l])=>`| ${l} | ${fmt(d.tr[k])} |`).join("\n")+"\n";});
+ return md;}
+function fromMarkdown(text){
+ const m=text.match(/^---\r?\n([\s\S]*?)\r?\n---/);if(!m)throw new Error("No properties block found at the top of this file.");
+ const kv={};m[1].split(/\r?\n/).forEach(line=>{const i=line.indexOf(":");if(i<1)return;const k=line.slice(0,i).trim();let v=line.slice(i+1).trim();
+  if(v==="")v=null;else if(v.startsWith('"')){try{v=JSON.parse(v)}catch(e){v=v.replace(/^"|"$/g,"")}}else if(v==="true"||v==="false")v=v==="true";else if(!isNaN(Number(v)))v=Number(v);kv[k]=v;});
+ if(kv.type!=="hypertension-cascade-data")throw new Error("This isn't a cascade data file. Its type property should be hypertension-cascade-data.");
+ const next=clone(DEFAULTS);
+ CONFIG.forEach(c=>{const d=next[c.id],p=c.id,g=k=>kv[k];
+  if(g(`${p}_period`)!==undefined)d.period=String(g(`${p}_period`)??"");
+  if(g(`${p}_target_month`)!==undefined)d.month=String(g(`${p}_target_month`)??"Nov");
+  if(g(`${p}_treatment_as_of`)!==undefined)d.asof=String(g(`${p}_treatment_as_of`)??"");
+  if(g(`${p}_age_group`)!==undefined)d.age=String(g(`${p}_age_group`)??"");
+  if(g(`${p}_linked_show`)!==undefined)d.linkedShow=!!g(`${p}_linked_show`);
+  if(g(`${p}_diagnosed_target_show`)!==undefined)d.diagTargetShow=g(`${p}_diagnosed_target_show`)!==false;
+  SLOTS.forEach(k=>{if(g(`${p}_${k}_label`)!=null)d.steps[k][0]=String(g(`${p}_${k}_label`));if(g(`${p}_${k}`)!==undefined)d.steps[k][1]=g(`${p}_${k}`);
+   if(g(`${p}_${k}_target_pct`)!==undefined)d.steps[k][2]=g(`${p}_${k}_target_pct`);});
+  Object.keys(d.tr).forEach(k=>{if(g(`${p}_t_${k}`)!==undefined)d.tr[k]=g(`${p}_t_${k}`);});});
+ return next;}
+let fileHandle=null,saveTimer=null;
+const fstat=document.getElementById("fstat");
+function status(t,cls){fstat.textContent=t;fstat.className="fstat"+(cls?" "+cls:"");}
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display="none",1800);}
+function persist(){try{localStorage.setItem(LS,JSON.stringify(DATA))}catch(e){}
+ if(!fileHandle){status("Saved in this browser only. Download or link a .md file to keep it.");return;}
+ status("Saving…");clearTimeout(saveTimer);saveTimer=setTimeout(writeFile,500);}
+async function writeFile(){try{const w=await fileHandle.createWritable();await w.write(toMarkdown());await w.close();
+  status(`Saved to ${fileHandle.name} at ${new Date().toLocaleTimeString([],{hour:"2-digit",minute:"2-digit"})}`,"ok");}
+ catch(e){status("Couldn't save to the file. Use Download .md instead.","err");}}
+function applyLoaded(next,src){DATA=next;try{localStorage.setItem(LS,JSON.stringify(DATA))}catch(e){}buildPage();toast("Loaded "+src);}
+const hasFSA="showOpenFilePicker" in window;
+if(!hasFSA){document.querySelectorAll(".fsa").forEach(b=>b.style.display="none");
+ document.getElementById("fhint").textContent="This browser can't write to files directly. Use Download .md to save into your Obsidian vault, and Load .md to bring numbers back. Chrome or Edge can save automatically.";}
+const MDTYPE=[{description:"Markdown",accept:{"text/markdown":[".md"]}}];
+document.getElementById("openFile").onclick=async()=>{try{const [h]=await window.showOpenFilePicker({types:MDTYPE});const next=fromMarkdown(await (await h.getFile()).text());fileHandle=h;applyLoaded(next,h.name);status(`Linked to ${h.name}. Changes save automatically.`,"ok");}catch(e){if(e.name!=="AbortError")status(e.message||"Couldn't open that file.","err");}};
+document.getElementById("newFile").onclick=async()=>{try{fileHandle=await window.showSaveFilePicker({suggestedName:"hypertension-cascade-data.md",types:MDTYPE});await writeFile();}catch(e){if(e.name!=="AbortError")status("Couldn't create the file.","err");}};
+document.getElementById("dlFile").onclick=()=>{const a=document.createElement("a"),u=URL.createObjectURL(new Blob([toMarkdown()],{type:"text/markdown"}));a.href=u;a.download="hypertension-cascade-data.md";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);toast("Downloaded hypertension-cascade-data.md");};
+document.getElementById("loadFile").onclick=()=>document.getElementById("loadInput").click();
+document.getElementById("loadInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;try{applyLoaded(fromMarkdown(await f.text()),f.name);fileHandle=null;status(`Loaded ${f.name}. Not linked: use Download .md to save changes.`);}catch(err){status(err.message,"err");}e.target.value="";};
+
+/* ---------- design notes markers ---------- */
+const tip=document.getElementById("tip");let pinned=null;
+function attachMarkers(root){root.querySelectorAll("[data-notes]").forEach(el=>{if(el.dataset.marked)return;el.dataset.marked="1";
+ if(getComputedStyle(el).position==="static")el.style.position="relative";
+ el.dataset.notes.split(",").filter(n=>NOTES[n]).forEach((n,i)=>{const m=document.createElement("i");m.className="mk";m.textContent=n;m.tabIndex=0;m.setAttribute("role","button");
+  m.setAttribute("aria-label","Design note "+n+": "+NOTES[n][0]);m.style.top="-10px";m.style.right=(-10+i*24)+"px";m.dataset.n=n;el.appendChild(m);});});
+ if(root.matches&&root.matches("[data-notes]")&&!root.dataset.marked){attachMarkers(root.parentElement);}}
+function listNotes(){const used=[...new Set([...document.querySelectorAll(".mk")].map(m=>+m.dataset.n))].sort((a,b)=>a-b);
+ document.getElementById("notesOl").innerHTML=used.map(n=>`<li><span class="num">${n}</span><span><b>${NOTES[n][0]}.</b> ${esc(NOTES[n][1])}</span></li>`).join("");}
+function showTip(m){const [h,b]=NOTES[m.dataset.n];tip.innerHTML=`<b>${m.dataset.n}. ${esc(h)}</b>${esc(b)}`;tip.style.display="block";
+ const r=m.getBoundingClientRect(),tw=tip.offsetWidth;let x=r.left+window.scrollX+r.width/2-tw/2;x=Math.max(12,Math.min(x,document.documentElement.clientWidth-tw-12));
+ tip.style.left=x+"px";tip.style.top=(r.bottom+window.scrollY+8)+"px";}
+document.addEventListener("mouseover",e=>{const m=e.target.closest(".mk");if(m&&!pinned)showTip(m);});
+document.addEventListener("mouseout",e=>{if(e.target.closest(".mk")&&!pinned)tip.style.display="none";});
+document.addEventListener("focusin",e=>{const m=e.target.closest(".mk");if(m)showTip(m);});
+document.addEventListener("click",e=>{const m=e.target.closest(".mk");if(m){pinned=pinned===m?null:m;pinned?showTip(m):(tip.style.display="none");}else if(pinned){pinned=null;tip.style.display="none";}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){pinned=null;tip.style.display="none";}});
+document.getElementById("noteToggle").addEventListener("change",e=>{document.body.classList.toggle("notes",e.target.checked);if(!e.target.checked){pinned=null;tip.style.display="none";}});
+
+buildPage();
+status(hasFSA?"Saved in this browser only. Open or create a .md file to save it there.":"Saved in this browser only. Use Download .md to keep it.");
+</script>
+</body>
+</html>

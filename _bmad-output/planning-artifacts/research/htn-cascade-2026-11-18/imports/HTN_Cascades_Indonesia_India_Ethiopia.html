@@ -1,0 +1,464 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>HTN Cascade Designs</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#f5f6f8;--card:#ffffff;--ink:#16202b;--ink2:#4a5562;
+  --line:#e6e9ee;--line2:#cfd5dd;
+  --base:#e3e7ec;--baseInk:#5e6875;
+  --screen:#5f5bd4;--screenTint:#e6e5f9;
+  --raised:#c9525c;
+  --start:#2f7bdb;--startTint:#dde9f9;--exam:#2f9aa8;--link:#2f9aa8;
+  --reg:#2f7bdb;--care:#a830d6;--ctrl:#55a93f;
+  --note:#e8590c;--ink3:#646e7a;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:14px/1.5 Inter,system-ui,-apple-system,"Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+main{max-width:1200px;margin:0 auto;padding:28px 20px 56px}
+.top{display:flex;flex-wrap:wrap;justify-content:space-between;align-items:flex-end;gap:16px}
+.top h1{font-size:24px;font-weight:700;margin:0;letter-spacing:-.01em}
+.top p{color:var(--ink2);margin:4px 0 0;font-size:14px}
+.toggle{display:inline-flex;align-items:center;gap:10px;font-size:13px;font-weight:500;color:var(--ink2);cursor:pointer;user-select:none;background:var(--card);border:1px solid var(--line2);border-radius:6px;padding:6px 12px 6px 8px}
+.toggle input{position:absolute;opacity:0;width:0;height:0}
+.sw{width:32px;height:18px;border-radius:9px;background:var(--line2);position:relative;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:transform .2s}
+.toggle input:checked+.sw{background:var(--note)}
+.toggle input:checked+.sw::after{transform:translateX(14px)}
+.toggle input:focus-visible+.sw{outline:2px solid var(--note);outline-offset:2px}
+.country{margin-top:36px}
+.chead{display:flex;flex-wrap:wrap;align-items:center;gap:8px 14px;margin-bottom:12px;position:relative}
+.chead h2{font-size:20px;font-weight:700;margin:0}
+.chips{display:flex;flex-wrap:wrap;gap:6px;position:relative}
+.chip{font-size:12px;color:var(--ink2);background:var(--card);border:1px solid var(--line2);border-radius:4px;padding:2px 8px}
+.section{background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px;display:flex;gap:28px;position:relative;box-shadow:0 1px 2px rgba(22,32,43,.04)}
+.divider{width:1px;background:var(--line);flex:none}
+.half{flex:1;min-width:0;display:flex;flex-direction:column}
+.half h3{font-size:18px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px}
+.info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid var(--ink3);border-radius:50%;font-size:11px;color:var(--ink3);font-weight:700;cursor:help;position:relative}
+.info:hover::after,.info:focus::after{content:attr(data-tip);position:absolute;z-index:30;left:50%;top:calc(100% + 8px);transform:translateX(-50%);width:280px;padding:10px 12px;border-radius:4px;background:var(--ink);color:#fff;font-size:12px;font-weight:400;line-height:1.45;text-align:left}
+.period{display:inline-block;font-size:12px;font-weight:600;color:var(--ink);background:#f0f2f5;border-radius:3px;padding:2px 8px;margin:8px 0 0;position:relative;align-self:flex-start}
+.sub{font-size:14px;color:var(--ink2);margin:8px 0 20px;min-height:42px;position:relative}
+.sub b{color:var(--ink);font-weight:600}
+.chart{position:relative;height:210px;margin-left:38px}
+.gl{position:absolute;left:0;right:0;border-top:1px solid var(--line)}
+.yl{position:absolute;left:-38px;width:32px;text-align:right;font-size:11px;color:var(--ink3);transform:translateY(-50%)}
+.bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:8px;border-bottom:1px solid var(--line2)}
+.col{flex:1;min-width:0;height:100%;position:relative;display:flex;flex-direction:column;justify-content:flex-end}
+.bar{position:relative;width:100%;border-radius:2px 2px 0 0}
+.in{position:absolute;top:8px;left:0;right:0;text-align:center;font-size:18px;font-weight:700}
+.up{text-align:center;font-size:15px;font-weight:700;margin-bottom:4px}
+.tline{position:absolute;left:-4px;right:-4px;border-top:2px dashed var(--screen);z-index:2}
+.tzone{position:absolute;left:0;right:0;background:var(--screenTint);border-radius:2px 2px 0 0}
+.tlab{position:absolute;left:0;right:0;text-align:center;font-size:12px;font-weight:600;color:var(--screen);white-space:nowrap}
+.meta{display:flex;gap:8px;margin:12px 0 0 38px}
+.meta>div{flex:1;min-width:0;position:relative}
+.n{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.l{font-size:13px;color:var(--ink);font-weight:500;line-height:1.3;margin-top:2px}
+.s{font-size:12px;color:var(--ink3);line-height:1.3;margin-top:3px}
+.pp{font-size:13px;font-weight:600;opacity:.75}
+.apart{margin-left:22px}
+.col.apart::before{content:attr(data-apart);position:absolute;left:-15px;top:0;bottom:-1px;border-left:1.5px dashed var(--line2);font-size:10px;color:var(--ink3);writing-mode:vertical-rl;transform:rotate(180deg);padding-top:4px;line-height:1;white-space:nowrap}
+.apart .bar{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.35) 0 4px,transparent 4px 8px)}
+.note{font-size:12px;color:var(--ink3);margin-top:12px}
+.opt{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--ink2);margin-left:auto;cursor:pointer}
+.opt input{width:15px;height:15px;accent-color:var(--exam);margin:0}
+.ctrls{display:flex;flex-wrap:wrap;gap:8px;align-items:center}
+.btn{font:inherit;font-size:12px;font-weight:600;border:1px solid var(--line2);background:var(--card);color:var(--ink);border-radius:4px;padding:6px 10px;cursor:pointer;display:none}
+body.editing .btn{display:inline-block}
+.btn:focus-visible{outline:2px solid var(--screen);outline-offset:2px}
+body.editing .l{outline:1px dashed var(--ink3);outline-offset:2px;border-radius:2px;cursor:text;background:#fffbe6}
+body.editing .l:focus{outline:2px solid var(--screen);background:#fff}
+.edit-hint{display:none;font-size:12px;color:var(--ink2);background:#fffbe6;border:1px solid #f0dfa0;border-radius:4px;padding:8px 12px;margin-top:14px}
+body.editing .edit-hint{display:block}
+.toast{position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:8px 14px;border-radius:4px;display:none;z-index:99}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;font-size:12px;color:var(--ink2);margin-top:16px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+.legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+
+/* annotations */
+.mk{display:none;position:absolute;z-index:20;width:20px;height:20px;border-radius:50%;background:var(--note);color:#fff;font-size:11px;font-weight:700;align-items:center;justify-content:center;cursor:pointer;border:2px solid #fff;box-shadow:0 1px 3px rgba(0,0,0,.25);font-style:normal;line-height:1}
+.mk+.mk{margin-left:22px}
+body.notes .mk{display:inline-flex}
+body.notes [data-notes]{outline:1.5px dashed rgba(232,89,12,.45);outline-offset:3px}
+.tip{position:absolute;z-index:50;max-width:320px;background:var(--ink);color:#fff;border-radius:4px;padding:12px 14px;font-size:13px;line-height:1.5;box-shadow:0 8px 24px rgba(22,32,43,.25);display:none}
+.tip b{display:block;margin-bottom:4px;font-size:13px}
+.tip .num{display:inline-flex;width:18px;height:18px;border-radius:50%;background:var(--note);font-size:11px;align-items:center;justify-content:center;margin-right:6px}
+.notes-list{display:none;margin-top:48px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:24px}
+body.notes .notes-list{display:block}
+.notes-list h2{font-size:18px;margin:0 0 4px}
+.notes-list>p{color:var(--ink2);margin:0 0 16px;font-size:13px}
+.notes-list ol{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px 28px}
+.notes-list li{display:flex;gap:10px;font-size:13px;line-height:1.5;color:var(--ink2)}
+.notes-list li b{color:var(--ink)}
+.notes-list .num{flex:none;width:22px;height:22px;border-radius:50%;background:var(--note);color:#fff;font-size:11px;font-weight:700;display:flex;align-items:center;justify-content:center}
+footer{margin-top:32px;color:var(--ink3);font-size:12px}
+@media (max-width:860px){
+  .section{padding:16px}
+  .chart{margin-left:30px;height:180px}.yl{left:-30px;width:26px}.meta{margin-left:30px;gap:4px}.bars{gap:4px}
+  .n{font-size:12.5px;letter-spacing:-.02em}.l{font-size:11px}.s{font-size:10px}.in{font-size:13px}.up{font-size:12px}
+  .apart{margin-left:16px}.col.apart::before{left:-11px;content:""}
+  .section{flex-direction:column}
+  .divider{width:auto;height:1px}
+  .sub{min-height:0}
+  .notes-list ol{grid-template-columns:1fr}
+}
+.filebar{display:flex;flex-wrap:wrap;align-items:center;gap:8px 10px;margin-top:16px;background:var(--card);border:1px solid var(--line);border-radius:6px;padding:10px 12px;position:relative}
+.filebar b{font-size:13px}
+.fstat{font-size:12px;color:var(--ink2);margin-right:auto}
+.fstat.ok{color:#2e6b1f}.fstat.err{color:#a3262f}
+.btn{display:inline-block}
+.btn.primary{background:var(--ink);color:#fff;border-color:var(--ink)}
+.fhint{flex-basis:100%;font-size:12px;color:var(--ink3);margin:0}
+.dpanel{margin-top:10px;background:var(--card);border:1px solid var(--line);border-radius:6px}
+.dpanel>summary{cursor:pointer;padding:10px 14px;font-weight:600;font-size:13px;list-style:none;display:flex;align-items:center;gap:8px}
+.dpanel>summary::-webkit-details-marker{display:none}
+.dpanel>summary::before{content:"+";display:inline-flex;width:18px;height:18px;border:1px solid var(--line2);border-radius:3px;align-items:center;justify-content:center;font-size:13px;color:var(--ink2)}
+.dpanel[open]>summary::before{content:"\2212"}
+.dpanel .body{padding:0 14px 14px;display:grid;grid-template-columns:minmax(0,1.4fr) minmax(0,1fr);gap:18px}
+.dpanel table{width:100%;border-collapse:collapse;font-size:12px}
+.dpanel th{text-align:left;font-weight:600;color:var(--ink2);padding:4px 6px;border-bottom:1px solid var(--line)}
+.dpanel td{padding:4px 6px;border-bottom:1px solid var(--line);vertical-align:middle}
+.dpanel td.slot{color:var(--ink2);white-space:nowrap}
+.dpanel input[type=text],.dpanel input[type=number]{width:100%;font:inherit;font-size:13px;border:1px solid var(--line2);border-radius:3px;padding:5px 7px;background:#fff;color:var(--ink);min-width:0}
+.dpanel input[type=number]{text-align:right}
+.dpanel input:focus{outline:2px solid var(--screen);outline-offset:0}
+.dpanel .row2{display:flex;gap:10px;margin-bottom:10px}
+.dpanel .row2 label{flex:1;font-size:12px;color:var(--ink2);font-weight:600}
+.dpanel .row2 input{margin-top:3px}
+.dpanel h4{font-size:12px;margin:0 0 6px;color:var(--ink)}
+.warn{font-size:12px;color:#8a4b00;background:#fff6e5;border:1px solid #f0d49b;border-radius:4px;padding:6px 9px;margin-top:8px}
+.warn:empty{display:none}
+.meta.many .n{font-size:16px}.meta.many .l{font-size:12px}.meta.many .s{font-size:11px}.chart.many .in{font-size:15px}.chart.many .up{font-size:13px}.chart.many .tlab{font-size:11px}
+.meta .pp{display:block;font-size:12px;margin-top:1px}
+.showbox{display:inline-flex;align-items:center;gap:5px;cursor:pointer}
+.showbox input{accent-color:var(--link);margin:0}
+@media (max-width:860px){.dpanel .body{grid-template-columns:1fr}.dpanel td.slot{white-space:normal}}
+</style>
+</head>
+<body>
+<main>
+<div class="top">
+ <div>
+  <h1>Hypertension screening and treatment cascades</h1>
+  <p>One shared design for Indonesia, India and Ethiopia. Five screening steps, named by each country. Example values until you enter your own.</p>
+ </div>
+ <div class="ctrls">
+  <label class="toggle"><input type="checkbox" id="noteToggle"><span class="sw"></span>Show design notes</label>
+ </div>
+</div>
+
+<div class="filebar" data-notes="28">
+ <b>Data file</b>
+ <span class="fstat" id="fstat">Saved in this browser only</span>
+ <button class="btn primary fsa" id="openFile" type="button">Open .md file</button>
+ <button class="btn fsa" id="newFile" type="button">Create .md file</button>
+ <button class="btn" id="dlFile" type="button">Download .md</button>
+ <button class="btn" id="loadFile" type="button">Load .md</button>
+ <button class="btn" id="resetData" type="button">Reset to example data</button>
+ <input type="file" id="loadInput" accept=".md,text/markdown,text/plain" hidden>
+ <p class="fhint" id="fhint">Open this page in Chrome or Edge, then open or create a .md file in your Obsidian vault. Every change saves to that file. Obsidian shows it as a note with properties.</p>
+</div>
+
+<div class="legend" aria-label="Colour key">
+ <span><i style="background:var(--base)"></i>Eligible (100%)</span>
+ <span><i style="background:var(--screen)"></i>Screened</span>
+ <span><i style="background:var(--raised)"></i>Raised BP or referred</span>
+ <span><i style="background:var(--link)"></i>Seen at clinic, or given medicine</span>
+ <span><i style="background:var(--start)"></i>Diagnosed and registered</span>
+ <span><i style="width:16px;height:0;border-top:2px dashed var(--ink3);border-radius:0"></i>Target due</span>
+ <span><i style="background:var(--care)"></i>Under care</span>
+ <span><i style="background:var(--ctrl)"></i>BP controlled</span>
+</div>
+<div id="countries"></div>
+
+<section class="notes-list" id="notesList">
+ <h2>Design notes</h2>
+ <p>Numbers match the design decisions doc. Hover or tap a marker on the charts to read a note in place.</p>
+ <ol id="notesOl"></ol>
+</section>
+<div class="toast" id="toast" role="status" style="position:fixed;left:50%;bottom:20px;transform:translateX(-50%);background:var(--ink);color:#fff;font-size:13px;padding:8px 14px;border-radius:4px;display:none;z-index:99"></div>
+<footer>Screening counts this year only. Treatment counts every patient ever registered. Each chart reads against its own first bar. The small grey text under a count is the step rate or the gap to target.</footer>
+</main>
+<div class="tip" id="tip" role="tooltip"></div>
+
+<script>
+const NOTES={
+ 1:["One section","Screening and treatment sit in one card. Ministry feedback was that the two charts should read as one story."],
+ 2:["Time period under each title","Screening counts this year only. Treatment counts every patient ever registered. The line under each title stops readers mixing them up."],
+ 4:["Each half reads against its own first bar","Bar heights and big percentages are a share of the first bar, so the y-axis stays true. The small grey text under each count is the step rate or the gap to target."],
+ 5:["Denominator in the subtitle","This is HEARTS360 practice. Readers see the base before they read the bars."],
+ 6:["Raised BP, one term","Indonesia and Ethiopia say Raised BP. India records referral, so its label is Referred (raised BP). Same slot, same meaning: one reading at or above 140/90."],
+ 8:["Base follows the official target","If our base differs from the ministry's, our numbers won't match their reports and they'll stop trusting the dashboard."],
+ 10:["India: base set on 1 April","People already on treatment don't need hypertension screening, so the base leaves them out. The year target is fixed on 1 April. Confirmed with Chetan."],
+ 13:["Ethiopia: base is OPD visits","Screening happens at the facility. Counts are visits, not people, so one person can count twice."],
+ 20:["Last step: diagnosed with hypertension","Every country counts diagnosis the same way: new I10 registrations in Indonesia, NP-NCD diagnosed in India, new HTN register entries in Ethiopia."],
+ 21:["India: screened means the screening count","Don't add examined, and don't take referred away. Both formulas can count the same person twice."],
+ 22:["India: examined sits apart","Examined by MO includes walk-ins and OPD checks. In some states it's bigger than referred, so it can't be a share of referred."],
+ 23:["Diagnosis goal","Estimated adults with hypertension, minus those already on treatment, gives the number still to diagnose. India spreads it by month. Indonesia shows a year goal. Not used in Ethiopia."],
+ 24:["Behind or ahead of target","One line under the count says how far behind or ahead of this month's target the programme is."],
+ 25:["Five slots, country names","Every country has the same five slots: eligible, screened, raised BP, seen at clinic, diagnosed. Each country names them in its own words. Rename any step in Enter data."],
+ 26:["Step 4 is optional","Only Ethiopia has a clean step 4. India's includes walk-ins. Indonesia's depends on whether CKG reports starter medicine. Untick Show in Enter data to hide it."],
+ 27:["Indonesia: starter medicine is not referral","Starter medicine is only given in community CKG, as a bridge to the puskesmas. Raised BP found at a puskesmas goes straight to a full month of medicine. Not everyone referred gets it. Keep this step only if CKG reports it."],
+ 28:["Data lives in one Markdown file","Numbers and names save to a .md file as properties, so Obsidian and Dataview can read them. The tables in the note are rebuilt on every save."]
+};
+const fmt=n=>Math.round(+n||0).toLocaleString("en-US");
+const pctTxt=p=>!isFinite(p)?"–":p>=10?Math.round(p)+"%":(Math.round(p*10)/10)+"%";
+const SLOTS=["eligible","screened","raised","linked","diagnosed"];
+const SLOTNAME={eligible:"1 Eligible",screened:"2 Screened",raised:"3 Raised BP",linked:"4 Seen at clinic",diagnosed:"5 Diagnosed"};
+const COLOR={eligible:"base",screened:"screen",raised:"raised",linked:"link",diagnosed:"start"};
+
+/* static config: what each country is, not its numbers */
+const CONFIG=[
+ {id:"idn",name:"Indonesia",chips:["Adults 15+","Calendar year","Screening from CKG","Diagnosis from puskesmas EHR"],chipNotes:"25",
+  base:"adults aged 15+",targetType:"year",
+  apart:{diagnosed:"EHR data"},groupNote:{diagnosed:"From EHR, not CKG"},
+  short:{raised:"raised BP",linked:"given medicine"},
+  notes:{eligible:"",raised:"6",linked:"27",diagnosed:"20,23"},sectionNotes:"1",periodNotes:"2",subNotes:"5",chartNotes:"4",
+  info:"Steps 1 to 4 come from CKG. Diagnosed counts new I10 registrations in puskesmas EHR data, a different system. Targets are for the full year."},
+ {id:"ind",name:"India",chips:["Adults 30+ not on treatment","Financial year Apr to Mar","Population-based screening","Target due to date"],
+  base:"adults aged 30+ not on treatment on 1 April",targetType:"due",
+  apart:{linked:"At facility",diagnosed:"At facility"},groupNote:{linked:"Includes walk-ins",diagnosed:"Includes walk-ins"},
+  short:{raised:"referred",linked:"examined"},
+  notes:{eligible:"10",screened:"21,24",linked:"22,26",diagnosed:"23"},subNotes:"8",
+  info:"All values come from NP-NCD reports. The year target is set on 1 April. Target lines show the share due by the end of the target month."},
+ {id:"eth",name:"Ethiopia",chips:["Adult OPD visits","Ethiopian fiscal year","Facility-based screening","Counts visits, not people"],
+  base:"adult OPD visits by people without known hypertension",targetType:"year",
+  apart:{},groupNote:{},short:{raised:"raised BP",linked:"linked"},
+  notes:{eligible:"13"},
+  info:"Counts are OPD visits by adults without known hypertension, not unique people. All steps come from facility records."}
+];
+
+/* editable data: numbers and names */
+const DEFAULTS={
+ idn:{period:"Jan to Nov 2026",month:"Nov",asof:"Nov 2026",linkedShow:true,
+  steps:{eligible:["Eligible for screening",2100000],screened:["Screened",840000,46],raised:["Raised BP",75600],linked:["Given starter medicine",41000],diagnosed:["Diagnosed with hypertension",18900,11.4]},
+  tr:{estimated:250800,registered:12213,undercare:10632,controlled:4808},age:"15+"},
+ ind:{period:"FY 2026-27, Apr to Nov",month:"Nov",asof:"Nov 2026",linkedShow:true,
+  steps:{eligible:["Eligible for screening",1640000],screened:["Screened",984000,66.7],raised:["Referred (raised BP)",196800],linked:["Examined by MO",360000],diagnosed:["Diagnosed with hypertension",76000,12.6]},
+  tr:{estimated:520000,registered:210000,undercare:160000,controlled:82000},age:"30+"},
+ eth:{period:"EFY 2019 to date",month:"Nov",asof:"Nov 2026",linkedShow:true,
+  steps:{eligible:["Eligible for screening",48000],screened:["Screened",33600,80],raised:["Raised BP",4700],linked:["Linked to NCD clinic",3760],diagnosed:["Diagnosed with hypertension",1500,null]},
+  tr:{estimated:180000,registered:21600,undercare:15100,controlled:6200},age:"30+"}
+};
+const clone=o=>JSON.parse(JSON.stringify(o));
+const LS="h360-cascade-data-v2";
+let DATA;
+try{DATA=JSON.parse(localStorage.getItem(LS))||clone(DEFAULTS)}catch(e){DATA=clone(DEFAULTS)}
+for(const k in DEFAULTS){if(!DATA[k])DATA[k]=clone(DEFAULTS[k]);}
+const cfg=id=>CONFIG.find(c=>c.id===id);
+
+/* ---------- chart ---------- */
+const dn=n=>n?` data-notes="${n}"`:"";
+const esc=t=>String(t??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+function clashes(b,base){const p=b.v/base*100;return 210*p/100<34&&b.target&&b.target.p>p&&(b.target.p-p)*2.1<30;}
+function bar(b,base,isBase){
+ const p=base>0?b.v/base*100:0, px=210*p/100, inside=isBase||px>=34;
+ const h=isBase?"100%":(px<5?(b.v>0?"5px":"0"):Math.min(p,100)+"%");
+ const label=isBase?"100%":pctTxt(p);
+ const txt=b.c==="base"?"var(--baseInk)":"#fff";
+ let t="";
+ if(b.target){
+  const tc=b.target.c||"screen",tp=Math.min(b.target.p,100);
+  if(tp>p) t+=`<div class="tzone" style="bottom:0;height:${tp}%;background:var(--${tc}Tint)"></div>`;
+  t+=`<div class="tline" style="bottom:${tp}%;border-top-color:var(--${tc})"></div><div class="tlab" style="bottom:calc(${tp}% + 4px);color:var(--${tc})">${b.target.label}</div>`;
+ }
+ const above=!inside&&!clashes(b,base)?`<span class="up" style="color:var(--${b.c==="base"?"baseInk":b.c})">${label}</span>`:"";
+ const within=inside?`<span class="in" style="color:${txt}">${label}</span>`:"";
+ const ap=b.apartFirst?` apart" data-apart="${esc(b.apart)}`:"";
+ return `<div class="col${ap}">${t}${above}<div class="bar" style="height:${h};background-color:var(--${b.c})"${dn(b.notes)}>${within}</div></div>`;
+}
+function axis(){
+ return [0,25,50,75].map(v=>`<div class="gl" style="top:${v}%"></div>`).join("")+
+  [[0,"100%"],[25,"75%"],[50,"50%"],[75,"25%"],[100,"0%"]].map(([t,l])=>`<div class="yl" style="top:${t}%">${l}</div>`).join("");
+}
+function half(o){
+ const cols=o.bars.map((b,i)=>bar(b,o.base,i===0)).join("");
+ const meta=o.bars.map((b,i)=>{
+  const pp=i>0&&clashes(b,o.base)?` <span class="pp">${pctTxt(b.v/o.base*100)}</span>`:"";
+  return `<div class="${b.apartFirst?"apart":""}"><div class="n" style="color:var(--${b.c==="base"?"ink":b.c})">${fmt(b.v)}${pp}</div><div class="l">${esc(b.label)}</div>${(b.steps||[]).map(x=>`<div class="s">${x}</div>`).join("")}</div>`;}).join("");
+ return `<div class="half"><h3>${o.title} <span class="info" tabindex="0" data-tip="${esc(o.info)}">i</span></h3>
+ <span class="period"${dn(o.periodNotes)}>${esc(o.period)}</span><p class="sub"${dn(o.subNotes)}>${o.sub}</p>
+ <div class="chart${o.bars.length>=5?" many":""}"${dn(o.chartNotes)}>${axis()}<div class="bars">${cols}</div></div><div class="meta${o.bars.length>=5?" many":""}">${meta}</div>${o.note?`<p class="note">${o.note}</p>`:""}</div>`;
+}
+function shortOf(c,d,k){const def=DEFAULTS[c.id].steps[k][0],cur=d.steps[k][0];if(cur!==def||!c.short[k])return cur.charAt(0).toLowerCase()+cur.slice(1);return c.short[k];}
+function screeningBars(c){
+ const d=DATA[c.id],base=+d.steps.eligible[1]||0,warns=[];
+ const keys=SLOTS.filter(k=>k!=="linked"||d.linkedShow);
+ let prevApart=null,prev=null;
+ const bars=keys.map(k=>{
+  const [label,v,tgt]=d.steps[k],b={k,label,v:+v||0,c:COLOR[k],notes:c.notes[k]||"",steps:[]};
+  b.apart=c.apart[k]||null;b.apartFirst=!!b.apart&&b.apart!==prevApart;prevApart=b.apart;
+  if(k==="screened"&&tgt!=null&&tgt!==""){b.target={p:+tgt,label:c.targetType==="due"?`Due by ${d.month} ${Math.round(tgt)}%`:`Year target ${Math.round(tgt)}%`};}
+  if(k==="diagnosed"&&tgt!=null&&tgt!==""){b.target={p:+tgt,c:"start",label:c.targetType==="due"?`Due by ${d.month} ${Math.round(tgt)}%`:`Year goal ${Math.round(tgt)}%`};}
+  if(prev&&k!=="screened"){
+   if(b.apartFirst) b.steps.push(c.groupNote[k]||"Other source");
+   else{b.steps.push(`${pctTxt(prev.v>0?b.v/prev.v*100:NaN)} of ${shortOf(c,d,prev.k)}`);
+    if(b.v>prev.v&&prev.k!=="eligible") warns.push(`${label} (${fmt(b.v)}) is bigger than ${prev.label} (${fmt(prev.v)}). Check the numbers, or set this step apart.`);}
+  }
+  if(k!=="eligible"&&b.v>base) warns.push(`${label} is bigger than ${d.steps.eligible[0]}. Check the numbers.`);
+  if(b.target){const due=b.target.p/100*base,diff=b.v-due;
+   b.steps.push(c.targetType==="due"?`${fmt(Math.abs(diff))} ${diff<0?"behind":"ahead of"} ${d.month} target`:`${pctTxt(due>0?b.v/due*100:NaN)} of year ${k==="diagnosed"?"goal":"target"}`);}
+  prev=b;return b;});
+ return {bars,base,warns};
+}
+function renderChart(id){
+ const c=cfg(id),d=DATA[id],{bars,base,warns}=screeningBars(c);
+ const t=d.tr,r=+t.registered||0,u=+t.undercare||0,cc=+t.controlled||0,est=+t.estimated||0;
+ const scr=half({title:"Screening cascade",info:c.info,period:`This year: ${d.period}`,periodNotes:c.periodNotes,subNotes:c.subNotes,chartNotes:c.chartNotes,
+  sub:`Of <b>${fmt(base)} ${esc(c.base)}</b>, how many reached each step this year.`,base,bars});
+ const trt=half({title:"Treatment cascade",period:`All registered patients, as of ${d.asof}`,periodNotes:c.periodNotes,
+  info:"Same definitions in every country. Under care means at least one visit in the last 12 months. BP controlled means below 140/90 at the last visit.",
+  sub:`Of <b>${fmt(est)} estimated adults aged ${esc(d.age)}</b> with hypertension, how many are registered, under care and have controlled BP.`,base:est,
+  bars:[{v:est,label:"Estimated",c:"base"},{v:r,label:"Registered",c:"reg"},
+   {v:u,label:"Under care",c:"care",steps:[pctTxt(r>0?u/r*100:NaN)+" of registered"]},
+   {v:cc,label:"BP controlled",c:"ctrl",steps:[pctTxt(u>0?cc/u*100:NaN)+" of under care"]}]});
+ const el=document.getElementById("chart-"+id);
+ el.innerHTML=`<div class="section"${dn(c.sectionNotes)}>${scr}<div class="divider"></div>${trt}</div>`;
+ document.getElementById("warn-"+id).textContent=warns.join(" ");
+ attachMarkers(el);listNotes();
+}
+
+/* ---------- data panel ---------- */
+function panel(c){
+ const d=DATA[c.id];
+ const rows=SLOTS.map(k=>{const [lab,v,tgt]=d.steps[k];const hasT=k==="screened"||(k==="diagnosed"&&c.targetType!=="none");
+  const show=k==="linked"?`<label class="showbox"><input type="checkbox" data-f="${c.id}.linkedShow"${d.linkedShow?" checked":""}> Show</label>`:"";
+  return `<tr><td class="slot">${SLOTNAME[k]} ${show}</td><td><input type="text" data-f="${c.id}.steps.${k}.0" value="${esc(lab)}" aria-label="${SLOTNAME[k]} name"></td>
+  <td><input type="number" min="0" step="1" data-f="${c.id}.steps.${k}.1" value="${v??""}" aria-label="${SLOTNAME[k]} count"></td>
+  <td>${hasT?`<input type="number" min="0" max="100" step="0.1" data-f="${c.id}.steps.${k}.2" value="${tgt??""}" aria-label="${SLOTNAME[k]} target percent" placeholder="none">`:""}</td></tr>`;}).join("");
+ const tr=[["estimated","Estimated with hypertension"],["registered","Registered"],["undercare","Under care"],["controlled","BP controlled"]].map(([k,l])=>
+  `<tr><td class="slot">${l}</td><td><input type="number" min="0" step="1" data-f="${c.id}.tr.${k}" value="${d.tr[k]??""}" aria-label="${l}"></td></tr>`).join("");
+ return `<details class="dpanel"><summary>Enter data for ${c.name}</summary><div class="body">
+ <div><div class="row2"><label>Period shown<input type="text" data-f="${c.id}.period" value="${esc(d.period)}"></label>
+ ${c.targetType==="due"?`<label>Target month<input type="text" data-f="${c.id}.month" value="${esc(d.month)}"></label>`:""}</div>
+ <h4>Screening cascade</h4><table><thead><tr><th>Step</th><th>Name</th><th style="text-align:right">Count</th><th style="text-align:right">Target %</th></tr></thead><tbody>${rows}</tbody></table>
+ <div class="warn" id="warn-${c.id}" role="status"></div></div>
+ <div><div class="row2"><label>Treatment as of<input type="text" data-f="${c.id}.asof" value="${esc(d.asof)}"></label><label>Age group<input type="text" data-f="${c.id}.age" value="${esc(d.age)}"></label></div>
+ <h4>Treatment cascade</h4><table><thead><tr><th>Step</th><th style="text-align:right">Count</th></tr></thead><tbody>${tr}</tbody></table></div>
+ </div></details>`;
+}
+function buildPage(){
+ document.getElementById("countries").innerHTML=CONFIG.map(c=>`<section class="country">
+ <div class="chead"><h2>${c.name}</h2><div class="chips"${dn(c.chipNotes)}>${c.chips.map(x=>`<span class="chip">${x}</span>`).join("")}</div></div>
+ <div id="chart-${c.id}"></div>${panel(c)}</section>`).join("");
+ attachMarkers(document.querySelector(".filebar").parentElement.querySelector(".filebar"));
+ CONFIG.forEach(c=>renderChart(c.id));
+ attachMarkers(document.getElementById("countries"));listNotes();
+}
+function setPath(obj,path,val){const ps=path.split(".");let o=obj;for(let i=0;i<ps.length-1;i++)o=o[ps[i]];o[ps[ps.length-1]]=val;}
+document.addEventListener("input",e=>{const f=e.target.dataset&&e.target.dataset.f;if(!f)return;
+ let v=e.target.type==="checkbox"?e.target.checked:e.target.value;
+ if(e.target.type==="number"){v=v===""?null:Number(v);if(v!=null&&(v<0||!isFinite(v))){e.target.setCustomValidity("Enter a number of 0 or more");e.target.reportValidity();return;}e.target.setCustomValidity("");}
+ setPath(DATA,f,v);renderChart(f.split(".")[0]);persist();});
+document.addEventListener("change",e=>{if(e.target.type==="checkbox"&&e.target.dataset.f){setPath(DATA,e.target.dataset.f,e.target.checked);renderChart(e.target.dataset.f.split(".")[0]);persist();}});
+
+/* ---------- markdown file ---------- */
+function flat(){
+ const out=[];
+ CONFIG.forEach(c=>{const d=DATA[c.id],p=c.id;
+  out.push([`${p}_period`,d.period],[`${p}_target_month`,d.month],[`${p}_treatment_as_of`,d.asof],[`${p}_age_group`,d.age]);
+  SLOTS.forEach(k=>{const [l,v,t]=d.steps[k];out.push([`${p}_${k}_label`,l],[`${p}_${k}`,v]);
+   if(k==="screened"||k==="diagnosed") out.push([`${p}_${k}_target_pct`,t]);
+   if(k==="linked") out.push([`${p}_linked_show`,!!d.linkedShow]);});
+  Object.entries(d.tr).forEach(([k,v])=>out.push([`${p}_t_${k}`,v]));});
+ return out;
+}
+const yv=v=>v===null||v===undefined||v===""?"":typeof v==="number"||typeof v==="boolean"?String(v):JSON.stringify(String(v));
+function toMarkdown(){
+ const now=new Date(),pad=n=>String(n).padStart(2,"0"),stamp=`${now.getFullYear()}-${pad(now.getMonth()+1)}-${pad(now.getDate())}T${pad(now.getHours())}:${pad(now.getMinutes())}`;
+ let md=`---\ntype: hypertension-cascade-data\nupdated: ${JSON.stringify(stamp)}\n`+flat().map(([k,v])=>`${k}: ${yv(v)}`).join("\n")+`\n---\n\n# Hypertension cascade data\n\nThe dashboard saves to the properties above. Edit numbers there or in the dashboard. The tables below are rebuilt on every save, so edits to them are not read back.\n`;
+ CONFIG.forEach(c=>{const d=DATA[c.id],base=+d.steps.eligible[1]||0;
+  md+=`\n## ${c.name}\n\nScreening, this year: ${d.period}\n\n| Step | Name | Count | % of eligible | Target % |\n|---|---|---:|---:|---:|\n`;
+  SLOTS.forEach(k=>{if(k==="linked"&&!d.linkedShow)return;const [l,v,t]=d.steps[k];md+=`| ${SLOTNAME[k]} | ${l} | ${fmt(v)} | ${k==="eligible"?"100%":pctTxt(base>0?(+v||0)/base*100:NaN)} | ${t??""} |\n`;});
+  md+=`\nTreatment, as of ${d.asof}\n\n| Step | Count |\n|---|---:|\n`+[["estimated","Estimated with hypertension"],["registered","Registered"],["undercare","Under care"],["controlled","BP controlled"]].map(([k,l])=>`| ${l} | ${fmt(d.tr[k])} |`).join("\n")+"\n";});
+ return md;
+}
+function fromMarkdown(text){
+ const m=text.match(/^---\r?\n([\s\S]*?)\r?\n---/);if(!m)throw new Error("No properties block found at the top of this file.");
+ const kv={};m[1].split(/\r?\n/).forEach(line=>{const i=line.indexOf(":");if(i<1)return;const k=line.slice(0,i).trim();let v=line.slice(i+1).trim();
+  if(v==="")v=null;else if(v.startsWith('"')){try{v=JSON.parse(v)}catch(e){v=v.replace(/^"|"$/g,"")}}else if(v==="true"||v==="false")v=v==="true";else if(!isNaN(Number(v)))v=Number(v);
+  kv[k]=v;});
+ if(kv.type!=="hypertension-cascade-data")throw new Error("This isn't a cascade data file. Its type property should be hypertension-cascade-data.");
+ const next=clone(DEFAULTS);
+ CONFIG.forEach(c=>{const d=next[c.id],p=c.id,g=k=>kv[k]!==undefined?kv[k]:undefined;
+  if(g(`${p}_period`)!==undefined)d.period=String(g(`${p}_period`)??"");
+  if(g(`${p}_target_month`)!==undefined)d.month=String(g(`${p}_target_month`)??"");
+  if(g(`${p}_treatment_as_of`)!==undefined)d.asof=String(g(`${p}_treatment_as_of`)??"");
+  if(g(`${p}_age_group`)!==undefined)d.age=String(g(`${p}_age_group`)??"");
+  if(g(`${p}_linked_show`)!==undefined)d.linkedShow=!!g(`${p}_linked_show`);
+  SLOTS.forEach(k=>{if(g(`${p}_${k}_label`)!=null)d.steps[k][0]=String(g(`${p}_${k}_label`));if(g(`${p}_${k}`)!==undefined)d.steps[k][1]=g(`${p}_${k}`);
+   if(g(`${p}_${k}_target_pct`)!==undefined)d.steps[k][2]=g(`${p}_${k}_target_pct`);});
+  Object.keys(d.tr).forEach(k=>{if(g(`${p}_t_${k}`)!==undefined)d.tr[k]=g(`${p}_t_${k}`);});});
+ return next;
+}
+let fileHandle=null,saveTimer=null;
+const fstat=document.getElementById("fstat");
+function status(t,cls){fstat.textContent=t;fstat.className="fstat"+(cls?" "+cls:"");}
+function toast(t){const el=document.getElementById("toast");el.textContent=t;el.style.display="block";clearTimeout(toast.t);toast.t=setTimeout(()=>el.style.display="none",1800);}
+function persist(){
+ try{localStorage.setItem(LS,JSON.stringify(DATA))}catch(e){}
+ if(!fileHandle){status("Saved in this browser only. Download or link a .md file to keep it.");return;}
+ status("Saving…");clearTimeout(saveTimer);saveTimer=setTimeout(writeFile,500);
+}
+async function writeFile(){
+ try{const w=await fileHandle.createWritable();await w.write(toMarkdown());await w.close();
+  status(`Saved to ${fileHandle.name} at ${new Date().toLocaleTimeString([], {hour:"2-digit",minute:"2-digit"})}`,"ok");}
+ catch(e){status("Couldn't save to the file. Use Download .md instead.","err");}
+}
+function applyLoaded(next,src){DATA=next;try{localStorage.setItem(LS,JSON.stringify(DATA))}catch(e){}buildPage();toast("Loaded "+src);}
+const hasFSA="showOpenFilePicker" in window;
+if(!hasFSA){document.querySelectorAll(".fsa").forEach(b=>b.style.display="none");
+ document.getElementById("fhint").textContent="This browser can't write to files directly. Use Download .md to save into your Obsidian vault, and Load .md to bring numbers back. Chrome or Edge can save automatically.";}
+const MDTYPE=[{description:"Markdown",accept:{"text/markdown":[".md"]}}];
+document.getElementById("openFile").onclick=async()=>{
+ try{const [h]=await window.showOpenFilePicker({types:MDTYPE});const text=await (await h.getFile()).text();
+  const next=fromMarkdown(text);fileHandle=h;applyLoaded(next,h.name);status(`Linked to ${h.name}. Changes save automatically.`,"ok");}
+ catch(e){if(e.name!=="AbortError")status(e.message||"Couldn't open that file.","err");}};
+document.getElementById("newFile").onclick=async()=>{
+ try{fileHandle=await window.showSaveFilePicker({suggestedName:"hypertension-cascade-data.md",types:MDTYPE});await writeFile();}
+ catch(e){if(e.name!=="AbortError")status("Couldn't create the file.","err");}};
+document.getElementById("dlFile").onclick=()=>{const a=document.createElement("a"),u=URL.createObjectURL(new Blob([toMarkdown()],{type:"text/markdown"}));
+ a.href=u;a.download="hypertension-cascade-data.md";a.click();setTimeout(()=>URL.revokeObjectURL(u),1000);toast("Downloaded hypertension-cascade-data.md");};
+document.getElementById("loadFile").onclick=()=>document.getElementById("loadInput").click();
+document.getElementById("loadInput").onchange=async e=>{const f=e.target.files[0];if(!f)return;
+ try{applyLoaded(fromMarkdown(await f.text()),f.name);fileHandle=null;status(`Loaded ${f.name}. Not linked: use Download .md to save changes.`);}
+ catch(err){status(err.message,"err");}e.target.value="";};
+document.getElementById("resetData").onclick=()=>{if(!confirm("Replace all numbers and names with the example data?"))return;DATA=clone(DEFAULTS);buildPage();persist();};
+
+/* ---------- annotations ---------- */
+const tip=document.getElementById("tip");let pinned=null;
+function attachMarkers(root){
+ root.querySelectorAll("[data-notes]").forEach(el=>{
+  if(el.dataset.marked)return;el.dataset.marked="1";
+  if(getComputedStyle(el).position==="static") el.style.position="relative";
+  el.dataset.notes.split(",").filter(Boolean).forEach((n,i)=>{
+   const m=document.createElement("i");m.className="mk";m.textContent=n;m.tabIndex=0;m.setAttribute("role","button");
+   m.setAttribute("aria-label","Design note "+n+": "+NOTES[n][0]);m.style.top="-10px";m.style.right=(-10+i*24)+"px";m.dataset.n=n;el.appendChild(m);});
+ });
+ if(root.matches&&root.matches("[data-notes]")&&!root.querySelector(":scope > .mk")){root.dataset.marked="";attachMarkers(root.parentElement);}
+}
+function listNotes(){
+ const used=[...new Set([...document.querySelectorAll(".mk")].map(m=>+m.dataset.n))].sort((a,b)=>a-b);
+ document.getElementById("notesOl").innerHTML=used.map(n=>`<li><span class="num">${n}</span><span><b>${NOTES[n][0]}.</b> ${NOTES[n][1]}</span></li>`).join("");
+}
+function showTip(m){const [h,b]=NOTES[m.dataset.n];tip.innerHTML=`<b><span class="num">${m.dataset.n}</span>${h}</b>${b}`;tip.style.display="block";
+ const r=m.getBoundingClientRect(),tw=tip.offsetWidth;let x=r.left+window.scrollX+r.width/2-tw/2;x=Math.max(12,Math.min(x,document.documentElement.clientWidth-tw-12));
+ tip.style.left=x+"px";tip.style.top=(r.bottom+window.scrollY+8)+"px";}
+document.addEventListener("mouseover",e=>{const m=e.target.closest(".mk");if(m&&!pinned)showTip(m);});
+document.addEventListener("mouseout",e=>{if(e.target.closest(".mk")&&!pinned)tip.style.display="none";});
+document.addEventListener("focusin",e=>{const m=e.target.closest(".mk");if(m)showTip(m);});
+document.addEventListener("focusout",e=>{if(e.target.closest(".mk")&&!pinned)tip.style.display="none";});
+document.addEventListener("click",e=>{const m=e.target.closest(".mk");if(m){pinned=pinned===m?null:m;pinned?showTip(m):(tip.style.display="none");}else if(pinned){pinned=null;tip.style.display="none";}});
+document.addEventListener("keydown",e=>{if(e.key==="Escape"){pinned=null;tip.style.display="none";}});
+document.getElementById("noteToggle").addEventListener("change",e=>{document.body.classList.toggle("notes",e.target.checked);if(!e.target.checked){pinned=null;tip.style.display="none";}});
+
+buildPage();
+status(hasFSA?"Saved in this browser only. Open or create a .md file to save it there.":"Saved in this browser only. Use Download .md to keep it.");
+</script>
+</body>
+</html>

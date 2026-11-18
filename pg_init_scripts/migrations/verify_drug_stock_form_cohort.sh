@@ -2,10 +2,9 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
-MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.5.1_to_0.5.2.sql"
-MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.5.2_to_0.5.3.sql"
+MIGRATION_11="$ROOT/pg_init_scripts/migrations/0.6.0_to_0.6.1.sql"
+MIGRATION_12="$ROOT/pg_init_scripts/migrations/0.6.1_to_0.6.2.sql"
 SPEC="$ROOT/drug_stock/form/form_field_spec.json"
-SHEET_MAP="$ROOT/drug_stock/form/wide_to_long.json"
 TABLES="$ROOT/pg_init_scripts/01_heart360_tables.sql"
 DB_NAME="${DRUG_STOCK_FORM_VERIFY_DB:-drug_stock_form_cohort_verify}"
 
@@ -14,7 +13,7 @@ if [[ ! "$DB_NAME" =~ ^[a-z_][a-z0-9_]*$ ]]; then
     exit 1
 fi
 
-for required in "$MIGRATION_11" "$MIGRATION_12" "$SPEC" "$SHEET_MAP" "$TABLES"; do
+for required in "$MIGRATION_11" "$MIGRATION_12" "$SPEC" "$TABLES"; do
     if [[ ! -f "$required" ]]; then
         echo "missing file: $required" >&2
         exit 1
@@ -56,8 +55,12 @@ drop_db() {
 
 drop_db
 "${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 <<SQL
-DROP ROLE IF EXISTS heart360tk;
-CREATE ROLE heart360tk LOGIN;
+DO \$\$
+BEGIN
+    IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'heart360tk') THEN
+        CREATE ROLE heart360tk LOGIN;
+    END IF;
+END \$\$;
 CREATE DATABASE ${DB_NAME} OWNER heart360tk;
 SQL
 
@@ -107,7 +110,6 @@ DO $$
 DECLARE
     r RECORD;
     v_lines TEXT := '';
-    v_columns TEXT;
     v_codes TEXT;
 BEGIN
     IF (
@@ -175,29 +177,6 @@ BEGIN
     IF v_codes IS DISTINCT FROM '197499,316764,316765,329526,329528,331132' THEN
         RAISE EXCEPTION 'active rxnorm codes are [%]', v_codes;
     END IF;
-
-    CREATE TEMP TABLE long_probe AS
-    SELECT *
-    FROM drug_stock_form_long_rows('{"facility":11,"reporting_month":"2026-09-01"}'::jsonb)
-    WHERE false;
-
-    SELECT string_agg(column_name, ',' ORDER BY ordinal_position)
-    INTO v_columns
-    FROM information_schema.columns
-    WHERE table_name = 'long_probe';
-
-    IF v_columns IS DISTINCT FROM 'org_unit_id,reporting_month,drug_code,in_stock,submitted_at' THEN
-        RAISE EXCEPTION 'long row columns are [%]', v_columns;
-    END IF;
-
-    IF EXISTS (
-        SELECT 1
-        FROM information_schema.columns
-        WHERE table_name = 'long_probe'
-          AND column_name IN ('received', 'consumption')
-    ) THEN
-        RAISE EXCEPTION 'long row has a received or consumption column';
-    END IF;
 END $$;
 
 DO $$
@@ -207,116 +186,6 @@ BEGIN
 EXCEPTION
     WHEN foreign_key_violation THEN
         NULL;
-END $$;
-SQL
-
-echo "long rows"
-"${PSQL[@]}" -d "$DB_NAME" -v ON_ERROR_STOP=1 <<'SQL'
-SET search_path TO heart360tk_schema;
-
-SELECT org_unit_id, reporting_month, drug_code, in_stock, submitted_at
-FROM drug_stock_form_long_rows('{
-  "facility": 11,
-  "reporting_month": "2026-09-18",
-  "submitted_at": "2026-09-27T10:15:00Z",
-  "329528": "",
-  "329526": 0,
-  "316764": "4",
-  "316765": null,
-  "331132": "  ",
-  "197499": "0",
-  "received": 9,
-  "consumption": 3
-}'::jsonb);
-
-DO $$
-DECLARE
-    r RECORD;
-    v_lines TEXT := '';
-    v_count INT;
-    v_filled INT;
-    v_month DATE;
-    v_submitted INT;
-BEGIN
-    FOR r IN
-        SELECT org_unit_id, reporting_month, drug_code, in_stock, submitted_at
-        FROM drug_stock_form_long_rows('{
-          "facility": 11,
-          "reporting_month": "2026-09-18",
-          "submitted_at": "2026-09-27T10:15:00Z",
-          "329528": "",
-          "329526": 0,
-          "316764": "4",
-          "316765": null,
-          "331132": "  ",
-          "197499": "0",
-          "received": 9,
-          "consumption": 3
-        }'::jsonb)
-        ORDER BY drug_code
-    LOOP
-        v_lines := v_lines
-            || r.drug_code || '|'
-            || coalesce(r.in_stock::text, '') || '|'
-            || r.reporting_month::text || '|'
-            || r.org_unit_id::text || '|'
-            || to_char(r.submitted_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')
-            || E'\n';
-    END LOOP;
-
-    IF v_lines IS DISTINCT FROM
-        E'197499|0|2026-09-01|11|2026-09-27T10:15:00Z\n'
-        || E'316764|4|2026-09-01|11|2026-09-27T10:15:00Z\n'
-        || E'316765||2026-09-01|11|2026-09-27T10:15:00Z\n'
-        || E'329526|0|2026-09-01|11|2026-09-27T10:15:00Z\n'
-        || E'329528||2026-09-01|11|2026-09-27T10:15:00Z\n'
-        || E'331132||2026-09-01|11|2026-09-27T10:15:00Z\n'
-    THEN
-        RAISE EXCEPTION 'long rows were [%]', v_lines;
-    END IF;
-
-    SELECT COUNT(*), COUNT(in_stock), MIN(reporting_month), COUNT(submitted_at)
-    INTO v_count, v_filled, v_month, v_submitted
-    FROM drug_stock_form_long_rows('{"facility":"11","reporting_month":"2026-01"}'::jsonb);
-
-    IF v_count <> 6 OR v_filled <> 0 OR v_month IS DISTINCT FROM DATE '2026-01-01' OR v_submitted <> 0 THEN
-        RAISE EXCEPTION 'blank month row was count % filled % month % submitted %',
-            v_count, v_filled, v_month, v_submitted;
-    END IF;
-END $$;
-
-DO $$
-BEGIN
-    PERFORM 1
-    FROM drug_stock_form_long_rows('{"facility":"Alpha Facility","reporting_month":"2026-09"}'::jsonb);
-    RAISE EXCEPTION 'facility name was accepted';
-EXCEPTION
-    WHEN raise_exception THEN
-        IF SQLERRM NOT LIKE '%org_units.id%' THEN
-            RAISE;
-        END IF;
-END $$;
-
-DO $$
-BEGIN
-    PERFORM 1
-    FROM drug_stock_form_long_rows('{"facility":11,"reporting_month":"2026-09","329528":"abc"}'::jsonb);
-    RAISE EXCEPTION 'non-numeric in_stock was accepted';
-EXCEPTION
-    WHEN invalid_text_representation THEN
-        NULL;
-END $$;
-
-DO $$
-BEGIN
-    PERFORM 1
-    FROM drug_stock_form_long_rows('{"facility":11}'::jsonb);
-    RAISE EXCEPTION 'missing reporting_month was accepted';
-EXCEPTION
-    WHEN raise_exception THEN
-        IF SQLERRM NOT LIKE '%reporting_month is required%' THEN
-            RAISE;
-        END IF;
 END $$;
 SQL
 
@@ -345,12 +214,11 @@ ACTIVE_TSV="$(mktemp)"
 "SELECT rxnorm_code, drug_name, dosage, drug_category FROM heart360tk_schema.active_stock_tracked_drugs ORDER BY rxnorm_code" \
 > "$ACTIVE_TSV"
 
-python3 - "$SPEC" "$SHEET_MAP" "$ACTIVE_TSV" <<'PY'
+python3 - "$SPEC" "$ACTIVE_TSV" <<'PY'
 import json
 import sys
 
 spec = json.load(open(sys.argv[1]))
-sheet = json.load(open(sys.argv[2]))
 errors = []
 
 confirmation = "Your stock report was received. You can close this form or submit another month."
@@ -407,7 +275,7 @@ for row in rows:
         errors.append("in-stock field uses a received or consumption code")
 
 db_rows = []
-with open(sys.argv[3]) as handle:
+with open(sys.argv[2]) as handle:
     for line in handle:
         line = line.rstrip("\n")
         if line:
@@ -419,27 +287,6 @@ spec_rows = sorted(
 if spec_rows != sorted(db_rows):
     errors.append(f"form drug list {spec_rows} != active programme {sorted(db_rows)}")
 
-columns = sheet.get("columns") or []
-names = [column.get("name") for column in columns]
-expected = ["org_unit_id", "reporting_month", "drug_code", "in_stock", "submitted_at"]
-if names != expected:
-    errors.append(f"long sheet columns are {names}")
-else:
-    by_name = {column["name"]: column for column in columns}
-    if by_name["submitted_at"].get("required") is not False:
-        errors.append("submitted_at is required")
-    stock = by_name["in_stock"]
-    if stock.get("blank_stays_blank") is not True or stock.get("zero_stays_zero") is not True:
-        errors.append("in_stock does not keep blank distinct from 0")
-    if by_name["org_unit_id"].get("from") != "facility":
-        errors.append("org_unit_id does not come from facility")
-    if by_name["drug_code"].get("rule") != "protocol_drugs.rxnorm_code":
-        errors.append("drug_code is not rxnorm_code")
-if set(names) & banned:
-    errors.append("long sheet has a received or consumption column")
-if "active_stock_tracked_drugs" not in sheet.get("unpivot", ""):
-    errors.append("unpivot does not follow the active programme query")
-
 if errors:
     print("\n".join(errors), file=sys.stderr)
     sys.exit(1)
@@ -448,7 +295,7 @@ PY
 rm -f "$ACTIVE_TSV"
 
 if grep -E -n 'private_key|service_account|sheet_id|BEGIN PRIVATE KEY|client_email' \
-    "$SPEC" "$SHEET_MAP" "$MIGRATION_12"; then
+    "$SPEC" "$MIGRATION_12"; then
     echo "credential-like text is present" >&2
     exit 1
 fi
@@ -483,14 +330,7 @@ rm -rf "$INCLUDE_DIR"
 DO $$
 BEGIN
     IF to_regclass('heart360tk_schema.drug_stock_form_cohort') IS NULL
-       OR to_regclass('heart360tk_schema.drug_stock_form_facility_export') IS NULL
-       OR NOT EXISTS (
-            SELECT 1
-            FROM pg_proc p
-            JOIN pg_namespace n ON n.oid = p.pronamespace
-            WHERE n.nspname = 'heart360tk_schema'
-              AND p.proname = 'drug_stock_form_long_rows'
-       ) THEN
+       OR to_regclass('heart360tk_schema.drug_stock_form_facility_export') IS NULL THEN
         RAISE EXCEPTION '\ir path did not create the form cohort contract';
     END IF;
 END $$;
@@ -499,14 +339,13 @@ SQL
 python3 - "$TABLES" <<'PY'
 import sys
 lines = open(sys.argv[1]).read().splitlines()
-first = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.1_to_0.5.2.sql")
-second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.5.2_to_0.5.3.sql")
+first = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.0_to_0.6.1.sql")
+second = next(i for i, line in enumerate(lines) if line.strip() == r"\ir migrations/0.6.1_to_0.6.2.sql")
 if second != first + 1:
     raise SystemExit(f"include order is line {first + 1} then line {second + 1}")
-print("include line follows 0.5.1_to_0.5.2.sql")
+print("include line follows 0.6.0_to_0.6.1.sql")
 PY
 
 drop_db
-"${PSQL[@]}" -d postgres -v ON_ERROR_STOP=1 -c "DROP ROLE IF EXISTS heart360tk;" >/dev/null
 
 echo "drug stock form cohort verified"

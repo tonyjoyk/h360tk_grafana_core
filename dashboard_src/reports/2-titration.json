@@ -1,0 +1,554 @@
+{
+  "title": "Stepping up",
+  "elements": {
+    "panel-titration-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT w.window_end, (date_trunc('month', w.window_end) - interval '8 months')::date AS first_month,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · {first month} to {last month}, against the average of all places\".\nconst root = rpt.mount('.rpt-tit-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nroot.innerHTML = '<h2 class=\"rpt-title\">Are patients with high BP getting stronger treatment?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(rpt.month(w.first_month) + ' to ' + rpt.month(w.window_end))\n  + ', against the average of all places</div>';\n",
+              "content": "<div class=\"rpt rpt-tit-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.*, w.window_end, a.uncontrolled_visits_n AS avg_d, a.stepped_up_n AS avg_n, a.titration_pct AS avg_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nCROSS JOIN report_window('${reporting_month}'::date) w\nLEFT JOIN report_titration('${reporting_month}'::date, NULL) a ON a.is_selected\nWHERE t.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst col = rpt.col;\n// Headline strip: Medicine stepped up, Average of all places, High-BP visits counted.\nconst root = rpt.mount('.rpt-tit-head');\nif (!root) { return; }\nconst { fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst L = ['Medicine stepped up', 'Average of all places', 'High-BP visits counted'];\nif (!r) { root.innerHTML = '<div class=\"rpt-strip3\">' + L.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>'; return; }\nconst N = num(r.uncontrolled_visits_n) || 0, n = num(r.stepped_up_n) || 0;\nconst period = '90 days to ' + rpt.day(r.window_end);\nlet first;\nif (yes(r.too_few)) {\n  first = col('Too few visits', '', L[0], rpt.needAtLeast(r.min_visits, N), '', true);\n} else if (num(r.titration_pct) === null) {\n  first = col('—', '', L[0], rpt.NO_DATA);\n} else {\n  const low = num(r.flag_below_pct) !== null && num(r.titration_pct) < num(r.flag_below_pct);\n  first = col(pct(r.titration_pct), low ? 'var(--flag-bar)' : 'var(--controlled)', L[0],\n    [fmt(n) + ' of ' + fmt(N) + ' high-BP visits led to a stronger prescription', period]);\n}\nconst avg = num(r.avg_pct) === null ? col('—', '', L[1], rpt.NO_DATA)\n  : col(pct(r.avg_pct), '#9B7FD4', L[1], [fmt(r.avg_n) + ' of ' + fmt(r.avg_d) + ' high-BP visits, all places together', period]);\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first + avg\n  + col(fmt(N), 'var(--text-primary)', L[2], ['Visits with BP 140/90 or above', period]) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-tit-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-line": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.month_date, t.org_unit_name, t.too_few, t.follow_up_n, t.titrated_n, t.rate_pct,\n  t.average_follow_up_n, t.average_titrated_n, t.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_titration_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nWHERE t.is_selected AND '$isAllowed' = '1'\nORDER BY t.month_date",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Share of high-BP visits followed by a stronger prescription, in the 90 days to each month end. Average is all places together.",
+        "id": 0,
+        "links": [],
+        "title": "Stepped up by month",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// Titration rate by month: the place in view against the average of all places (Metabase form, UX-06).\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nconst val = (x) => (x === null || x === undefined || x === '' ? null : Number(x));\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst few = col('too_few').map(yes);\nconst d = col('follow_up_n'), n = col('titrated_n'), ad = col('average_follow_up_n'), an = col('average_titrated_n');\nconst place = col('place')[0] || 'All locations you can access';\nreturn lineVsAverage({\n  months: col('month_date'), place: String(place),\n  value: col('rate_pct').map((v, k) => (few[k] ? null : val(v))), avg: col('average_rate_pct').map(val),\n  placeLines: (k) => [few[k] ? 'Too few visits' : fmt(n[k]) + ' of ' + fmt(d[k]) + ' high-BP visits'],\n  avgLines: (k) => [fmt(an[k]) + ' of ' + fmt(ad[k]) + ' high-BP visits'],\n  empty: allowed ? 'No data for this place.' : ''\n});\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-monthly": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.month_date, t.org_unit_name, t.too_few, t.follow_up_n, t.titrated_n, t.rate_pct,\n  t.average_follow_up_n, t.average_titrated_n, t.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_titration_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nWHERE t.is_selected AND '$isAllowed' = '1'\nORDER BY t.month_date",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "The Metabase titration table. Each month counts the 90 days to its end. The newest month is the number in the strip above.",
+        "id": 0,
+        "links": [],
+        "title": "Stepped up by month, against the average",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:monthly.js}}\n// The Metabase titration table: month, high-BP visits, stepped up, rate; the place beside the average.\nconst root = rpt.mount('.rpt-tit-monthly');\nif (!root) { return; }\nconst rows = rpt.rows('A');\nrptMonthly(root, {\n  rows: rows,\n  place: rpt.place(rows.length ? rows[0].place : ''),\n  cols: [\n    { label: 'High-BP visits', place: 'follow_up_n', avg: 'average_follow_up_n' },\n    { label: 'Stepped up', place: 'titrated_n', avg: 'average_titrated_n' },\n    { label: 'Rate', place: 'rate_pct', avg: 'average_rate_pct', pct: true, of: [1, 0] }\n  ],\n  tooFew: 'Too few visits',\n  caption: 'High-BP visits stepped up by month, against the average of all places.'\n});\n",
+              "content": "<div class=\"rpt rpt-tit-monthly\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-monthly\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT t.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'titration' AND key = 'min_visits') AS min_visits,\n  fl.flags_json\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nLEFT JOIN fl ON fl.org_unit_id = t.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, BP controlled, High-BP visits, Stepped up, Share stepped up, Why look here.\nconst root = rpt.mount('.rpt-tit-table');\nif (!root) { return; }\nconst { fmt, num, yes } = rpt;\n// Stock first (UX-09): low stepping up may come from missing medicine.\nconst reasonOf = (r) => 'Only ' + fmt(r.stepped_up_n) + ' of ' + fmt(r.uncontrolled_visits_n)\n  + ' high-BP visits led to a stronger prescription (' + rpt.pct(r.titration_pct) + '). Check medicine stock first.';\nrptTable(root, {\n  report: 'titration',\n  rows: rpt.rows('A'),\n  caption: 'High-BP visits followed by a stronger prescription, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'BP controlled', num: true, value: (r) => num(r.control_pct), cell: (r) => (num(r.control_pct) === null ? '—' : '<span class=\"rpt-ctl\">' + rpt.pct(r.control_pct) + '</span>') },\n    { label: 'High-BP visits', num: true, value: (r) => num(r.uncontrolled_visits_n), cell: (r) => fmt(r.uncontrolled_visits_n) },\n    { label: 'Stepped up', num: true, value: (r) => num(r.stepped_up_n), cell: (r) => fmt(r.stepped_up_n) },\n    { label: 'Share stepped up', num: true, guard: true, value: (r) => num(r.titration_pct), cell: (r) => rpt.pct(r.titration_pct),\n      title: (r) => fmt(r.stepped_up_n) + ' of ' + fmt(r.uncontrolled_visits_n) + ' high-BP visits' }\n  ],\n  flagNames: () => ['Medicine rarely stepped up'],\n  reason: reasonOf,\n  guardName: 'Too few visits',\n  guardReason: (r) => rpt.needAtLeast(r.min_visits, r.uncontrolled_visits_n),\n  check: { text: '◆ Control looks fine, check stock', when: (r) => yes(r.looks_fine_check) },\n  size: (r) => num(r.uncontrolled_visits_n),\n  order: 'size'\n});\n",
+              "content": "<div class=\"rpt rpt-tit-table\" id=\"rpt-tit-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-table\" id=\"rpt-tit-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-titration-note": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT t.excluded_too_recent_n, t.excluded_no_baseline_n\nFROM report_titration('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) t\nWHERE t.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst stockHref = rpt.stockHref();\n// How this is worked out (with the visits left out, UX-31), then the Next step.\nconst root = rpt.mount('.rpt-tit-note');\nif (!root) { return; }\nconst r = rpt.rows('A')[0] || {};\nconst a = rpt.num(r.excluded_too_recent_n), b = rpt.num(r.excluded_no_baseline_n);\nconst left = (a ? ' ' + rpt.fmt(a) + ' visits were too recent to check.' : '') + (b ? ' ' + rpt.fmt(b) + ' visits had no earlier prescription.' : '');\nroot.innerHTML = '<div class=\"rpt-note\"><strong>How this is worked out.</strong> Looks at visits with BP 140/90 or above in the 90 days to each month end. '\n  + 'A visit counts as stepped up if it, or the next within 30 days, has a stronger prescription. '\n  + 'Stronger means more medicines or a higher dose than before. Average is all places together.' + rpt.esc(left)\n  + ' Low stepping up may come from missing medicine, so check stock first.</div>'\n  + rpt.nextStep('Check medicine stock first', stockHref);\n",
+              "content": "<div class=\"rpt rpt-tit-note\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-tit-note\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "RowsLayout",
+    "spec": {
+      "rows": [
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-line"
+                      },
+                      "height": 10,
+                      "width": 10,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-monthly"
+                      },
+                      "height": 10,
+                      "width": 14,
+                      "x": 10,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-table"
+                      },
+                      "height": 11,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-titration-note"
+                      },
+                      "height": 3,
+                      "width": 24,
+                      "x": 0,
+                      "y": 11
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

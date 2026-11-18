@@ -1,0 +1,8 @@
+# Datasources removed from provisioning. Grafana deletes them on start, so volumes created
+# before the removal lose them too.
+apiVersion: 1
+
+deleteDatasources:
+  # Basic-auth admin Infinity datasource: any dashboard user could call the Grafana API as admin (AD-14).
+  - name: GrafanaApi
+    orgId: 1
