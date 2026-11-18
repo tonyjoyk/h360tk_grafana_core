@@ -37,7 +37,7 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 - One card, 16 of 24 grid columns, 9 rows high. No Grafana panel title: the two charts carry their own titles.
 - Two charts of equal width, side by side, with a thin line between them. Below a 560 px panel width they stack.
 - Each chart, from top to bottom:
-  1. Title, 16 px bold. No info icon. The definitions are in the panel description.
+  1. Title, 14 px medium weight, the same as Grafana's panel titles beside it. No info icon. The definitions are in the panel description.
   2. A subtitle of one sentence that names who is counted, the place and the period. Two lines are reserved, so both charts start at the same height.
   3. Bars, 120 px high. No y-axis. A thin dotted line between columns, the same in every country.
   4. Under each bar: the exact count (regular weight, 11 to 13 px, it shrinks with the card width), then the descriptive label in grey (11 px).

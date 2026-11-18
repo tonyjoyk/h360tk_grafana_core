@@ -2,10 +2,11 @@
    Two equal charts. Colors from HTN_Cascades_Indonesia_India_Ethiopia.html; prefix csc-. */
 .csc{--csc-base:#dfe3e6;--csc-baseInk:#6b7480;--csc-screen:#5f5bd4;--csc-screenTint:#ecebfb;--csc-raised:#c9525c;--csc-link:#2f9aa8;--csc-start:#2f7bdb;--csc-startTint:#e3eefb;--csc-reg:#2f7bdb;--csc-care:#a830d6;--csc-ctrl:#55a93f;--csc-ink:#16202b;--csc-ink2:#4a5562;--csc-ink3:#6b7480;--csc-line:#e6e9ee;--csc-line2:#cfd5dd;color:var(--csc-ink);font-variant-numeric:tabular-nums;container-type:inline-size}
 .csc *{box-sizing:border-box}
-.csc-card{display:flex;gap:24px;padding-top:2px}
+.csc-card{display:flex;gap:24px;padding-top:4px}
 .csc-divider{width:1px;background:var(--csc-line);flex:none}
 .csc-half{flex:1 1 0;min-width:0;display:flex;flex-direction:column}
-.csc-half h3{font-size:16px;font-weight:700;margin:0;color:var(--csc-ink)}
+/* Titles match Grafana's own panel titles (14 px, medium weight), so the row reads as one set. */
+.csc-half h3{font-size:14px;font-weight:500;line-height:20px;margin:0;color:var(--csc-ink)}
 /* Two lines for every subtitle, so both charts start at the same height. */
 .csc-sub{font-size:12px;color:var(--csc-ink2);margin:3px 0 0;line-height:1.4;min-height:2.8em}
 .csc-scroll{min-width:0}
