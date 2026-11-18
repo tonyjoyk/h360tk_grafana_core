@@ -19,7 +19,8 @@ const cascade = (() => {
   // each slot is fixed; the names, base, year start, targets and step 4 change by country.
   //   who     who the screening chart counts, for its subtitle
   //   labels  the descriptive name under each bar
-  //   short   the name after "x% of ..." in the step-rate line
+  //   apart   a step from another data source: no step rate (it looks the same as every other bar)
+//   short   the name after "x% of ..." in the step-rate line
   // To switch country, change ACTIVE. Targets are temporary front-end values until H360-499.
   const COUNTRIES = {
     idn: {
@@ -82,7 +83,7 @@ const cascade = (() => {
     const over = !inside && b.target && Math.min(b.target.p, 100) > p;
     const lift = over ? ';position:absolute;left:0;right:0;text-align:center;bottom:calc(' + Math.min(b.target.p, 100) + '% + 16px)' : '';
     const pct = '<span class="' + (inside ? 'csc-in' : 'csc-up') + '" style="color:' + color + lift + '">' + label + '</span>';
-    return '<div class="csc-col' + (b.apart ? ' csc-apart' : '') + '">' + t
+    return '<div class="csc-col">' + t
       + (inside ? '' : pct) + '<div class="csc-bar" style="height:' + h + ';background-color:var(--csc-' + b.c + ')">' + (inside ? pct : '') + '</div></div>';
   };
 
@@ -90,7 +91,7 @@ const cascade = (() => {
   const half = (o) => {
     const body = o.empty ? '<div class="csc-empty">' + esc(o.empty) + '</div>'
       : '<div class="csc-scroll"><div class="csc-plot"><div class="csc-chart"><div class="csc-bars">' + o.bars.map((b, i) => bar(b, o.base, i === 0)).join('') + '</div></div>'
-        + '<div class="csc-meta">' + o.bars.map((b) => '<div class="' + (b.apart ? 'csc-apart' : '') + '">'
+        + '<div class="csc-meta">' + o.bars.map((b) => '<div>'
           + '<div class="csc-n">' + fmt(b.v) + '</div><div class="csc-l">' + esc(b.label) + '</div>'
           + (b.line ? '<div class="csc-s"' + (b.lineColor ? ' style="color:var(--csc-' + b.lineColor + ')"' : '') + '>' + esc(b.line) + '</div>' : '')
           + '</div>').join('') + '</div></div></div>';

@@ -39,7 +39,7 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 - Each chart, from top to bottom:
   1. Title, 16 px bold. No info icon. The definitions are in the panel description.
   2. A subtitle of one sentence that names who is counted, the place and the period. Two lines are reserved, so both charts start at the same height.
-  3. Bars, 120 px high. No y-axis. Thin column lines between bars, as in the reference.
+  3. Bars, 120 px high. No y-axis. A thin dotted line between columns, the same in every country.
   4. Under each bar: the exact count (regular weight, 11 to 13 px, it shrinks with the card width), then the descriptive label in grey (11 px).
   5. Screening only: one status line in grey. "9% of screened" is the share of the step before. On a bar with a target, the line is the progress in the target color: "87% of target", "7.9% of goal".
 
@@ -49,7 +49,7 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 - Every other percent is a share of the first bar, 16 px bold, in the bar color. It is inside the bar when the bar is 28 px high or more, otherwise above the bar.
 - When a target line is above a short bar, the percent sits above the line and its label.
 - A bar above zero is at least 3 px high.
-- A bar from another data system (Indonesia: newly diagnosed, from EHR) has a dashed column line and a hatched fill. There is no text label for this.
+- Every bar looks the same in every country: solid fill, no hatching. One dotted line separates every column. A bar from another data system (Indonesia: newly diagnosed, from EHR; India: examined by MO) only loses its step rate; the reason is written in words (the country caveat, the panel description), not shown with a different look.
 
 ## Targets
 
