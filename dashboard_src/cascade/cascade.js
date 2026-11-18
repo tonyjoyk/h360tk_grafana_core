@@ -62,7 +62,8 @@ const cascade = (() => {
 
   // One bar. The first bar is the denominator: grey, 100% inside. Other bars show their share of
   // the first bar, inside when the bar is tall enough, otherwise above it on a white pill (so it
-  // stays readable over a target line). A target is a dashed line with a light tint, no label.
+  // stays readable over a target line). A target is a dashed line with a light tint and a small
+  // "Target = x%" label just above the line, in the target color.
   const bar = (b, base, isBase) => {
     const p = base > 0 ? b.v / base * 100 : 0;
     const px = H * p / 100;
@@ -73,12 +74,13 @@ const cascade = (() => {
     if (b.target) {
       const tp = Math.min(b.target.p, 100);
       if (tp > p) { t += '<div class="csc-tzone" style="height:' + tp + '%;background:var(--csc-' + b.target.c + 'Tint)"></div>'; }
-      t += '<div class="csc-tline" style="bottom:' + tp + '%;border-top-color:var(--csc-' + b.target.c + ')"></div>';
+      t += '<div class="csc-tline" style="bottom:' + tp + '%;border-top-color:var(--csc-' + b.target.c + ')"></div>'
+        + '<div class="csc-tlab" style="bottom:calc(' + tp + '% + 2px);color:var(--csc-' + b.target.c + ')">Target = ' + pctTxt(b.target.p) + '</div>';
     }
     const color = isBase ? 'var(--csc-baseInk)' : inside ? '#fff' : 'var(--csc-' + b.c + ')';
-    // A short bar under a target line: its percent sits just above the line, not on it.
+    // A short bar under a target line: its percent sits above the line and its "Target = x%" label.
     const over = !inside && b.target && Math.min(b.target.p, 100) > p;
-    const lift = over ? ';position:absolute;left:0;right:0;text-align:center;bottom:calc(' + Math.min(b.target.p, 100) + '% + 3px)' : '';
+    const lift = over ? ';position:absolute;left:0;right:0;text-align:center;bottom:calc(' + Math.min(b.target.p, 100) + '% + 16px)' : '';
     const pct = '<span class="' + (inside ? 'csc-in' : 'csc-up') + '" style="color:' + color + lift + '">' + label + '</span>';
     return '<div class="csc-col' + (b.apart ? ' csc-apart' : '') + '">' + t
       + (inside ? '' : pct) + '<div class="csc-bar" style="height:' + h + ';background-color:var(--csc-' + b.c + ')">' + (inside ? pct : '') + '</div></div>';
@@ -114,7 +116,7 @@ const cascade = (() => {
       if (tgt !== null) {
         const tp = tgt * share;
         const want = tp / 100 * base;
-        const word = k === 'diagnosed' ? 'goal' : 'target';
+        const word = 'target';
         b.target = { p: tp, c: k === 'diagnosed' ? 'start' : 'screen' };
         b.line = due ? fmt(Math.abs(v - want)) + (v < want ? ' behind ' : ' ahead of ') + monthName + ' ' + word
           : pctTxt(want > 0 ? v / want * 100 : NaN) + ' of ' + word;

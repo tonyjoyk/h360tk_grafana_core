@@ -47,13 +47,13 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 
 - The first bar is the denominator: grey, "100%" inside.
 - Every other percent is a share of the first bar, 16 px bold, in the bar color. It is inside the bar when the bar is 28 px high or more, otherwise above the bar.
-- When a target line is above a short bar, the percent sits just above the line.
+- When a target line is above a short bar, the percent sits above the line and its label.
 - A bar above zero is at least 3 px high.
 - A bar from another data system (Indonesia: newly diagnosed, from EHR) has a dashed column line and a hatched fill. There is no text label for this.
 
 ## Targets
 
-- A target is a dashed line in the bar color, with a light tint up to the line. It has no text on the chart.
+- A target is a dashed line in the bar color, with a light tint up to the line. A small label sits just above the line, centered, in the target color: "Target = 46%" (10 px, regular weight). When a short bar's percent would touch the line, the percent sits above the label.
 - The status line under the bar says the progress: "87% of target".
 
 ## Text and numbers

@@ -21,7 +21,7 @@ If your stack uses port 3000, change `3100` to `3000` in the link.
 
 - The big colored percent on each bar is a share of the first bar in its chart.
 - In the screening chart, the grey line "9% of screened" is the share of the step before.
-- Dashed lines are targets. The line under the bar says the progress: "87% of target", "7.9% of goal".
+- Dashed lines are targets, labeled "Target = 46%". The line under the bar says the progress: "87% of target", "7.9% of target".
 - The newly diagnosed bar has a dashed column line and a hatched fill because it comes from a different system (EHR).
 - The month is the latest completed month (October 2026 in the demo). Screening counts are year to date.
 - Definitions and data sources are in the panel description (hover the panel header).

@@ -17,6 +17,8 @@
 .csc-in{position:absolute;top:5px;left:0;right:0;text-align:center;font-size:16px;font-weight:700}
 .csc-up{position:relative;z-index:3;align-self:center;font-size:16px;font-weight:700;background:#fff;border-radius:3px;padding:0 3px;margin-bottom:3px;line-height:1.2}
 .csc-tline{position:absolute;left:3px;right:3px;border-top:2px dashed var(--csc-screen);z-index:2}
+/* Target label: small, quiet, on the line; it never hides the bar's own percent. */
+.csc-tlab{position:absolute;left:0;right:0;text-align:center;font-size:10px;font-weight:500;line-height:12px;white-space:nowrap;z-index:2;opacity:.9}
 .csc-tzone{position:absolute;left:3px;right:3px;bottom:0;border-radius:2px 2px 0 0}
 .csc-meta{display:flex;margin-top:8px}
 .csc-meta>div{flex:1 1 0;min-width:0;padding:0 5px}

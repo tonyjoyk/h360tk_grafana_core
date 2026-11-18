@@ -44,7 +44,7 @@ updated: 2026-11-18
 - Treatment subtitle: "Estimated adults (15+) in {place} with hypertension, as of Oct 2026."
 - Screening labels (Indonesia): "Adults eligible for screening", "Adults screened", "Raised BP (140/90 or higher)", "Newly diagnosed with hypertension". "Given starter medicine" is hidden for now (owner, 2026-11-18).
 - Treatment labels: "Estimated people with hypertension", "Cumulative registered patients", "Patients under care", "Patients with BP controlled".
-- Status lines (screening only): "87% of target", "9% of screened", "7.9% of goal".
+- Status lines (screening only): "87% of target", "9% of screened", "7.9% of target".
 
 ## Customization
 
