@@ -148,9 +148,10 @@ run_sql() {
   echo "[$(elapsed)]   ${label} done in $((SECONDS - t0))s"
 }
 
-# The demo file carries patients, visits and medicines; the seeds add call results and drug stock.
+# The demo file carries patients, visits and medicines; the seeds add call results, drug stock
+# and the temporary Indonesia cascade example data (seed 50).
 # Retired seeds in test_data/demo/seeds/retired/ are not run.
-say "Loading demo seeds (call results and drug stock)..."
+say "Loading demo seeds (call results, drug stock and cascade example data)..."
 run_sql test_data/demo/seed_screening_cascade.sql "seed_screening_cascade.sql"
 for seed in test_data/demo/seeds/*.sql; do
   [[ -e "$seed" ]] || continue
@@ -235,4 +236,8 @@ Grafana admin: admin / admin. Demo Viewers: district.d / demo, nurse.phc-a / dem
 
 3. Overdue list as nurse.phc-a (password demo):
    ${GRAFANA}/d/heart360_showcase?var-org_unit=${phc_a}&-dtab=Overdue-list
+
+4. New screening and treatment cascades, Hypertension tab, all locations (admin). Indonesia example data:
+   ${GRAFANA}/d/heart360_showcase?var-org_unit=&-dtab=Hypertension
+   How to use and change it: docs/cascades.md
 EOF

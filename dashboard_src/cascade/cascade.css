@@ -1,0 +1,48 @@
+/* Screening and treatment cascades (story 14.3). Copies HTN_Cascades_Indonesia_India_Ethiopia.html; prefix csc-. */
+.csc{--csc-base:#e3e7ec;--csc-baseInk:#5e6875;--csc-screen:#5f5bd4;--csc-screenTint:#e6e5f9;--csc-raised:#c9525c;--csc-link:#2f9aa8;--csc-start:#2f7bdb;--csc-startTint:#dde9f9;--csc-reg:#2f7bdb;--csc-care:#a830d6;--csc-ctrl:#55a93f;--csc-ink:#16202b;--csc-ink2:#4a5562;--csc-ink3:#646e7a;--csc-line:#e6e9ee;--csc-line2:#cfd5dd;color:var(--csc-ink);font-variant-numeric:tabular-nums}
+.csc *{box-sizing:border-box}
+.csc-card{background:#fff;border:1px solid var(--csc-line);border-radius:6px;padding:24px;display:flex;gap:28px;box-shadow:0 1px 2px rgba(22,32,43,.04)}
+.csc-flat .csc-card{border:0;box-shadow:none;padding:4px 0 0}
+.csc-divider{width:1px;background:var(--csc-line);flex:none}
+.csc-half{flex:1;min-width:0;display:flex;flex-direction:column}
+.csc-half h3{font-size:18px;font-weight:700;margin:0;display:flex;align-items:center;gap:8px;color:var(--csc-ink)}
+.csc-info{display:inline-flex;align-items:center;justify-content:center;width:18px;height:18px;border:1.5px solid var(--csc-ink3);border-radius:50%;font-size:11px;color:var(--csc-ink3);font-weight:700;cursor:help}
+.csc-period{display:inline-block;font-size:12px;font-weight:600;color:var(--csc-ink);background:#f0f2f5;border-radius:3px;padding:2px 8px;margin:8px 0 0;align-self:flex-start}
+.csc-sub{font-size:14px;color:var(--csc-ink2);margin:8px 0 20px;min-height:42px}
+.csc-sub b{color:var(--csc-ink);font-weight:600}
+.csc-chart{position:relative;height:210px;margin-left:38px}
+.csc-gl{position:absolute;left:0;right:0;border-top:1px solid var(--csc-line)}
+.csc-yl{position:absolute;left:-38px;width:32px;text-align:right;font-size:11px;color:var(--csc-ink3);transform:translateY(-50%)}
+.csc-bars{position:absolute;inset:0;display:flex;align-items:flex-end;gap:8px;border-bottom:1px solid var(--csc-line2)}
+.csc-col{flex:1;min-width:0;height:100%;position:relative;display:flex;flex-direction:column;justify-content:flex-end}
+.csc-bar{position:relative;width:100%;border-radius:2px 2px 0 0}
+.csc-in{position:absolute;top:8px;left:0;right:0;text-align:center;font-size:18px;font-weight:700}
+.csc-up{text-align:center;font-size:15px;font-weight:700;margin-bottom:4px}
+.csc-tline{position:absolute;left:-4px;right:-4px;border-top:2px dashed var(--csc-screen);z-index:2}
+.csc-tzone{position:absolute;left:0;right:0;border-radius:2px 2px 0 0}
+.csc-tlab{position:absolute;left:0;right:0;text-align:center;font-size:12px;font-weight:600;white-space:nowrap}
+.csc-meta{display:flex;gap:8px;margin:12px 0 0 38px}
+.csc-meta>div{flex:1;min-width:0}
+.csc-n{font-size:20px;font-weight:700;letter-spacing:-.01em}
+.csc-l{font-size:13px;color:var(--csc-ink);font-weight:500;line-height:1.3;margin-top:2px}
+.csc-s{font-size:12px;color:var(--csc-ink3);line-height:1.3;margin-top:3px}
+.csc-pp{display:block;font-size:12px;font-weight:600;opacity:.75;margin-top:1px}
+.csc-apart{margin-left:22px}
+.csc-col.csc-apart::before{content:attr(data-apart);position:absolute;left:-15px;top:0;bottom:-1px;border-left:1.5px dashed var(--csc-line2);font-size:10px;color:var(--csc-ink3);writing-mode:vertical-rl;transform:rotate(180deg);padding-top:4px;line-height:1;white-space:nowrap}
+.csc-apart .csc-bar{background-image:repeating-linear-gradient(45deg,rgba(255,255,255,.35) 0 4px,transparent 4px 8px)}
+.csc-many .csc-n{font-size:12px;letter-spacing:-.02em;white-space:nowrap}.csc-many .csc-l{font-size:12px}.csc-many .csc-s{font-size:11px}
+.csc-chart.csc-many .csc-in{font-size:15px}.csc-chart.csc-many .csc-up{font-size:13px}.csc-chart.csc-many .csc-tlab{font-size:11px}
+.csc-empty{display:flex;align-items:center;justify-content:center;height:210px;margin-left:38px;border:1px dashed var(--csc-line2);border-radius:4px;color:var(--csc-ink3);font-size:13px;text-align:center;padding:12px}
+.csc-warn{font-size:12px;color:var(--csc-ink2);background:#f0f2f5;border-radius:4px;padding:6px 9px;margin-top:12px}
+.csc-note{font-size:12px;color:var(--csc-ink3);margin-top:12px}
+.csc-scroll{min-width:0}
+@media (max-width:860px){
+  /* Phones: the chart scrolls sideways instead of shrinking (design, Visual design). */
+  .csc-scroll{overflow-x:auto;-webkit-overflow-scrolling:touch;padding:10px 0 4px}
+  .csc-plot{min-width:420px}
+  .csc-card{flex-direction:column;padding:16px}
+  .csc-divider{width:auto;height:1px}
+  .csc-chart,.csc-empty{margin-left:30px;height:180px}.csc-yl{left:-30px;width:26px}.csc-meta{margin-left:30px;gap:4px}.csc-bars{gap:4px}
+    .csc-apart{margin-left:16px}.csc-col.csc-apart::before{left:-11px;content:""}
+  .csc-sub{min-height:0}
+}
