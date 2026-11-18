@@ -35,7 +35,7 @@ LAYOUT = {
 TITLE = ""
 DESCRIPTION = (
     "Screening cascade: adults screened this year, from eligible to newly diagnosed with hypertension. "
-    "Each percent above a bar is a share of the first bar. The arrow line under a bar is the share of the step before it. "
+    "Each percent above a bar is a share of the first bar. The grey line under a bar is the share of the step before it. "
     "Steps 1 to 3 come from CKG. Newly diagnosed counts new I10 registrations in puskesmas EHR data, a different system, "
     "so that bar has a dashed line and a hatched fill. Targets are for the full year. "
     "Treatment cascade: estimated adults with hypertension, then registered, under care and BP controlled. "

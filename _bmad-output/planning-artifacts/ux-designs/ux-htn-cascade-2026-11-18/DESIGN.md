@@ -41,7 +41,7 @@ The owner asked for the card at two of three columns, with "Patients protected" 
   2. A subtitle of one sentence that names who is counted, the place and the period. Two lines are reserved, so both charts start at the same height.
   3. Bars, 120 px high. No y-axis. Thin column lines between bars, as in the reference.
   4. Under each bar: the exact count (regular weight, 11 to 13 px, it shrinks with the card width), then the descriptive label in grey (11 px).
-  5. Screening only: one status line in grey. "→ 9% of screened" is the share of the step before. On a bar with a target, the line is the progress in the target color: "87% of target", "7.9% of goal".
+  5. Screening only: one status line in grey. "9% of screened" is the share of the step before. On a bar with a target, the line is the progress in the target color: "87% of target", "7.9% of goal".
 
 ## Bars
 

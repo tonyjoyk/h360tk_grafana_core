@@ -76,7 +76,7 @@ As a country reviewer, I want to see screening and treatment on one card, so tha
 - **Given** the same view, **When** you read the treatment half, **Then** the estimate is 250,740. Registered, under care and BP controlled match the live reporting tables.
 - **Given** `showLinked: true` in `COUNTRIES.idn`, **When** you rebuild, **Then** "Given starter medicine" shows as step 4.
 - **Given** the treatment chart, **When** you read it, **Then** every percent is a share of the estimate, and there are no step-rate lines.
-- **Given** the screening chart, **When** you read a bar after "Adults screened", **Then** a grey line shows the share of the step before, for example "→ 9% of screened".
+- **Given** the screening chart, **When** you read a bar after "Adults screened", **Then** a grey line shows the share of the step before, for example "9% of screened".
 - **Given** a new step name in `COUNTRIES.idn`, **When** you rebuild, **Then** the new name shows.
 - **Given** a place with no screening rows, **When** the card shows, **Then** the left half says "No screening data for this place and month." It does not show zero.
 - **Given** a 375 px wide screen, **When** the card shows, **Then** the treatment half is below the screening half, and the screening chart scrolls sideways.

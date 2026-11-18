@@ -2,7 +2,7 @@
 // Declares one name: cascade. Self-contained. Built from HTN_Cascades_Indonesia_India_Ethiopia.html
 // and the UX audit of 2026-11-18 (ux-audit-2026-11-18.md): one denominator per chart (its first
 // bar), large colored percents above the bars, exact black counts, descriptive grey labels, thin
-// column lines, and in the screening chart only, an arrow line for the step rate.
+// column lines, and in the screening chart only, a grey line for the step rate ("9% of screened").
 // Names, targets and step 4 come from COUNTRIES, so a new country needs a new entry, not new code.
 // scripts/build_cascade_panel.py pastes this file into panel-stc on the Hypertension tab.
 const cascade = (() => {
@@ -19,7 +19,7 @@ const cascade = (() => {
   // each slot is fixed; the names, base, year start, targets and step 4 change by country.
   //   who     who the screening chart counts, for its subtitle
   //   labels  the descriptive name under each bar
-  //   short   the name after "→ x% of ..." in the step-rate line
+  //   short   the name after "x% of ..." in the step-rate line
   // To switch country, change ACTIVE. Targets are temporary front-end values until H360-499.
   const COUNTRIES = {
     idn: {
@@ -97,7 +97,7 @@ const cascade = (() => {
   };
 
   // The screening slots. The bar percent is always a share of the first bar. The status line is the
-  // step rate ("→ 9% of screened") or, on a bar with a target, the progress in the target color.
+  // step rate ("9% of screened") or, on a bar with a target, the progress in the target color.
   const screeningBars = (c, d) => {
     const base = num(d.adults) || 0;
     const due = c.targetType === 'due';
@@ -120,7 +120,7 @@ const cascade = (() => {
           : pctTxt(want > 0 ? v / want * 100 : NaN) + ' of ' + word;
         b.lineColor = b.target.c;
       } else if (prev && prev.k !== 'eligible' && !b.apart) {
-        b.line = '→ ' + pctTxt(prev.v > 0 ? v / prev.v * 100 : NaN) + ' of ' + c.short[prev.k];
+        b.line = pctTxt(prev.v > 0 ? v / prev.v * 100 : NaN) + ' of ' + c.short[prev.k];
       }
       if (prev && prev.k !== 'eligible' && !b.apart && v > prev.v) {
         warns.push(b.label + ' (' + fmt(v) + ') is bigger than ' + prev.label + ' (' + fmt(prev.v) + '). Check the numbers.');
