@@ -68,3 +68,16 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 - Do not add colors.
 - Do not stack two numbers in one bar.
 - Do not show a zero when there is no data.
+
+## Revision 2026-11-26 (owner)
+
+Supersedes the target and step-rate rules above where they differ.
+
+- **No target lines.** The screened target and the diagnosed target, their tint and their "x% of target" lines are removed.
+- **Copy.** "Newly diagnosed with hypertension" is now "Diagnosed with hypertension this year".
+- **Starter medicine (step 4) shows only when its indicator has data.** `panel.sql` returns `linked` as NULL until the real indicator exists, so the chart has four bars. Returning a value brings the fifth bar back with no other change.
+- **Two percentages per bar.**
+  - The big percent above or in the bar is always the share of the first bar (all eligible). It is unchanged.
+  - Under each label from "Raised BP" on, a second line gives the share of the bar just before it, for example "**9%** of screened" or "**25%** of raised BP". With five bars it reads "of given starter medicine" on the last bar. The number is semibold in the bar's color; the words use the label color, at 12 px.
+- **Bars fill their column edge to edge.** Separators are solid, light (`--csc-line`) and full height, including after the last column. Percents above short bars are left-aligned. This applies to both cascades.
+- **Kept as today.** No "EHR data" divider and no other mockup extras. The treatment cascade keeps a single percent per bar.

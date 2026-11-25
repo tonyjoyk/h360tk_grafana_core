@@ -26,7 +26,7 @@ SELECT to_char(m.mon, 'YYYY-MM-DD') AS reporting_month,
   ROUND(ex.adults * k.share * ex.prevalence_pct / 100) AS estimated,
   CASE WHEN k.share > 0 THEN 1 ELSE 0 END AS screening_rows,
   ROUND(ex.screened * k.share) AS screened, ROUND(ex.raised * k.share) AS raised,
-  ROUND(ex.linked * k.share) AS linked, ROUND(ex.diagnosed * k.share) AS diagnosed,
+  NULL::numeric AS linked, ROUND(ex.diagnosed * k.share) AS diagnosed,
   trt.registered, trt.under_care, trt.controlled
 FROM m CROSS JOIN ex CROSS JOIN trt CROSS JOIN k
 WHERE '${isAllowed}' = '1'

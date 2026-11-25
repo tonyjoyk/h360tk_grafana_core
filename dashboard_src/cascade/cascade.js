@@ -2,8 +2,9 @@
 // Declares one name: cascade. Self-contained. Built from HTN_Cascades_Indonesia_India_Ethiopia.html
 // and the UX audit of 2026-11-18 (ux-audit-2026-11-18.md): one denominator per chart (its first
 // bar), large colored percents above the bars, exact black counts, descriptive grey labels, thin
-// column lines, and in the screening chart only, a grey line for the step rate ("9% of screened").
-// Names, targets and step 4 come from COUNTRIES, so a new country needs a new entry, not new code.
+// column lines, and in the screening chart only, a second percent under each label: the share of
+// the step before ("9% of screened"). No target lines (owner, 2026-11-26).
+// Names and step 4 come from COUNTRIES, so a new country needs a new entry, not new code.
 // scripts/build_cascade_panel.py pastes this file into panel-stc on the Hypertension tab.
 const cascade = (() => {
   const esc = (x) => String(x == null ? '' : x).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
@@ -16,34 +17,27 @@ const cascade = (() => {
   const COLOR = { eligible: 'base', screened: 'screen', raised: 'raised', linked: 'link', diagnosed: 'start' };
 
   // One entry per country (the five-slot standard, HTN_Cascades_Design_Decisions.md). The meaning of
-  // each slot is fixed; the names, base, year start, targets and step 4 change by country.
+  // each slot is fixed; the names, base, year start and step 4 change by country.
   //   who     who the screening chart counts, for its subtitle
   //   labels  the descriptive name under each bar
-  //   apart   a step from another data source: no step rate (it looks the same as every other bar)
-//   short   the name after "x% of ..." in the step-rate line
-  // To switch country, change ACTIVE. Targets are temporary front-end values until H360-499.
+  //   short   the name after "x% of ..." in the step-before line
+  // Step 4 (linked) shows only when the panel query returns a value for it (not NULL).
+  // To switch country, change ACTIVE.
   const COUNTRIES = {
     idn: {
-      name: 'Indonesia', ageGroup: '15+', who: 'Eligible adults (15+)', yearStartMonth: 1, targetType: 'year',
-      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Raised BP (140/90 or higher)', linked: 'Given starter medicine', diagnosed: 'Newly diagnosed with hypertension' },
-      short: { eligible: 'eligible', screened: 'screened', raised: 'raised BP', linked: 'given medicine', diagnosed: 'diagnosed' },
-      // Hidden for now (owner, 2026-11-18): set to true to show the starter medicine step again.
-      showLinked: false, apart: { diagnosed: true },
-      screenedTargetPct: 46, diagnosedGoalPct: 11.4,
+      name: 'Indonesia', ageGroup: '15+', who: 'Eligible adults (15+)', yearStartMonth: 1,
+      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Raised BP (140/90 or higher)', linked: 'Given starter medicine', diagnosed: 'Diagnosed with hypertension this year' },
+      short: { eligible: 'eligible', screened: 'screened', raised: 'raised BP', linked: 'given starter medicine', diagnosed: 'diagnosed' },
     },
     ind: {
-      name: 'India', ageGroup: '30+', who: 'Eligible adults (30+) not on treatment', yearStartMonth: 4, targetType: 'due',
-      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Referred (raised BP)', linked: 'Examined by MO', diagnosed: 'Newly diagnosed with hypertension' },
+      name: 'India', ageGroup: '30+', who: 'Eligible adults (30+) not on treatment', yearStartMonth: 4,
+      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Referred (raised BP)', linked: 'Examined by MO', diagnosed: 'Diagnosed with hypertension this year' },
       short: { eligible: 'eligible', screened: 'screened', raised: 'referred', linked: 'examined', diagnosed: 'diagnosed' },
-      showLinked: true, apart: { linked: true, diagnosed: true },
-      screenedTargetPct: 66.7, diagnosedGoalPct: 12.6,
     },
     eth: {
-      name: 'Ethiopia', ageGroup: '30+', who: 'Adult OPD visits without known hypertension', yearStartMonth: 7, targetType: 'year',
-      labels: { eligible: 'OPD visits eligible for screening', screened: 'Visits with BP measured', raised: 'Raised BP (140/90 or higher)', linked: 'Linked to NCD clinic', diagnosed: 'Newly diagnosed with hypertension' },
+      name: 'Ethiopia', ageGroup: '30+', who: 'Adult OPD visits without known hypertension', yearStartMonth: 7,
+      labels: { eligible: 'OPD visits eligible for screening', screened: 'Visits with BP measured', raised: 'Raised BP (140/90 or higher)', linked: 'Linked to NCD clinic', diagnosed: 'Diagnosed with hypertension this year' },
       short: { eligible: 'eligible', screened: 'screened', raised: 'raised BP', linked: 'linked', diagnosed: 'diagnosed' },
-      showLinked: true, apart: {},
-      screenedTargetPct: 80, diagnosedGoalPct: null,
     },
   };
   const ACTIVE = 'idn';
@@ -58,32 +52,19 @@ const cascade = (() => {
     const sy = m >= s ? y : y - 1;
     return sy === y ? MON[s - 1] + ' to ' + MON[m - 1] + ' ' + y : MON[s - 1] + ' ' + sy + ' to ' + MON[m - 1] + ' ' + y;
   };
-  // Months since the year started, 1 to 12, for targets that are due by month.
-  const monthsIn = (month, startMonth) => { const { m } = ym(month); const s = Number(startMonth) || 1; return ((m - s + 12) % 12) + 1; };
 
   // One bar. The first bar is the denominator: grey, 100% inside. Other bars show their share of
-  // the first bar, inside when the bar is tall enough, otherwise above it on a white pill (so it
-  // stays readable over a target line). A target is a dashed line with a light tint and a small
-  // "Target = x%" label just above the line, in the target color.
+  // the first bar, inside when the bar is tall enough, otherwise just above it. Bars fill their
+  // column edge to edge.
   const bar = (b, base, isBase) => {
     const p = base > 0 ? b.v / base * 100 : 0;
     const px = H * p / 100;
     const inside = isBase || px >= IN;
     const h = isBase ? '100%' : (px < 3 ? (b.v > 0 ? '3px' : '0') : Math.min(p, 100) + '%');
     const label = isBase ? '100%' : pctTxt(p);
-    let t = '';
-    if (b.target) {
-      const tp = Math.min(b.target.p, 100);
-      if (tp > p) { t += '<div class="csc-tzone" style="height:' + tp + '%;background:var(--csc-' + b.target.c + 'Tint)"></div>'; }
-      t += '<div class="csc-tline" style="bottom:' + tp + '%;border-top-color:var(--csc-' + b.target.c + ')"></div>'
-        + '<div class="csc-tlab" style="bottom:calc(' + tp + '% + 2px);color:var(--csc-' + b.target.c + ')">Target = ' + pctTxt(b.target.p) + '</div>';
-    }
     const color = isBase ? 'var(--csc-baseInk)' : inside ? '#fff' : 'var(--csc-' + b.c + ')';
-    // A short bar under a target line: its percent sits above the line and its "Target = x%" label.
-    const over = !inside && b.target && Math.min(b.target.p, 100) > p;
-    const lift = over ? ';position:absolute;left:0;right:0;text-align:center;bottom:calc(' + Math.min(b.target.p, 100) + '% + 16px)' : '';
-    const pct = '<span class="' + (inside ? 'csc-in' : 'csc-up') + '" style="color:' + color + lift + '">' + label + '</span>';
-    return '<div class="csc-col">' + t
+    const pct = '<span class="' + (inside ? 'csc-in' : 'csc-up') + '" style="color:' + color + '">' + label + '</span>';
+    return '<div class="csc-col">'
       + (inside ? '' : pct) + '<div class="csc-bar" style="height:' + h + ';background-color:var(--csc-' + b.c + ')">' + (inside ? pct : '') + '</div></div>';
   };
 
@@ -93,40 +74,27 @@ const cascade = (() => {
       : '<div class="csc-scroll"><div class="csc-plot"><div class="csc-chart"><div class="csc-bars">' + o.bars.map((b, i) => bar(b, o.base, i === 0)).join('') + '</div></div>'
         + '<div class="csc-meta">' + o.bars.map((b) => '<div>'
           + '<div class="csc-n">' + fmt(b.v) + '</div><div class="csc-l">' + esc(b.label) + '</div>'
-          + (b.line ? '<div class="csc-s"' + (b.lineColor ? ' style="color:var(--csc-' + b.lineColor + ')"' : '') + '>' + esc(b.line) + '</div>' : '')
+          + (b.line ? '<div class="csc-s"><span class="csc-s-n" style="color:var(--csc-' + b.c + ')">' + esc(b.line.pct) + '</span> ' + esc(b.line.word) + '</div>' : '')
           + '</div>').join('') + '</div></div></div>';
-    return '<div class="csc-half"><h3>' + esc(o.title) + '</h3><p class="csc-sub">' + esc(o.sub) + '</p>' + body
+    return '<div class="csc-half"><h3>' + esc(o.title) + '</h3><p class="csc-sub">' + esc(o.sub)
+      + (o.legend && !o.empty ? '<span class="csc-legend">' + esc(o.legend) + '</span>' : '') + '</p>' + body
       + (o.warn ? '<div class="csc-warn">' + esc(o.warn) + '</div>' : '') + '</div>';
   };
 
-  // The screening slots. The bar percent is always a share of the first bar. The status line is the
-  // step rate ("9% of screened") or, on a bar with a target, the progress in the target color.
+  // The screening slots. The bar percent is always a share of the first bar. Every bar after
+  // "screened" adds the share of the bar just before it ("9% of screened"). Step 4 (linked) shows
+  // only when the query has a value for it.
   const screeningBars = (c, d) => {
     const base = num(d.adults) || 0;
-    const due = c.targetType === 'due';
-    const monthName = MON[ym(d.reporting_month).m - 1];
-    const share = due ? monthsIn(d.reporting_month, c.yearStartMonth) / 12 : 1;
-    const keys = ['eligible', 'screened', 'raised', 'linked', 'diagnosed'].filter((k) => k !== 'linked' || c.showLinked);
-    const target = { screened: c.screenedTargetPct, diagnosed: c.diagnosedGoalPct };
+    const keys = ['eligible', 'screened', 'raised', 'linked', 'diagnosed'].filter((k) => k !== 'linked' || num(d.linked) !== null);
     const warns = [];
     let prev = null;
     const bars = keys.map((k) => {
       const v = k === 'eligible' ? base : (num(d[k]) || 0);
-      const b = { k, label: c.labels[k], v, c: COLOR[k], apart: !!(c.apart || {})[k] };
-      const tgt = num(target[k]);
-      if (tgt !== null) {
-        const tp = tgt * share;
-        const want = tp / 100 * base;
-        const word = 'target';
-        b.target = { p: tp, c: k === 'diagnosed' ? 'start' : 'screen' };
-        b.line = due ? fmt(Math.abs(v - want)) + (v < want ? ' behind ' : ' ahead of ') + monthName + ' ' + word
-          : pctTxt(want > 0 ? v / want * 100 : NaN) + ' of ' + word;
-        b.lineColor = b.target.c;
-      } else if (prev && prev.k !== 'eligible' && !b.apart) {
-        b.line = pctTxt(prev.v > 0 ? v / prev.v * 100 : NaN) + ' of ' + c.short[prev.k];
-      }
-      if (prev && prev.k !== 'eligible' && !b.apart && v > prev.v) {
-        warns.push(b.label + ' (' + fmt(v) + ') is bigger than ' + prev.label + ' (' + fmt(prev.v) + '). Check the numbers.');
+      const b = { k, label: c.labels[k], v, c: COLOR[k] };
+      if (prev && prev.k !== 'eligible') {
+        b.line = { pct: pctTxt(prev.v > 0 ? v / prev.v * 100 : NaN), word: 'of ' + c.short[prev.k] };
+        if (v > prev.v) warns.push(b.label + ' (' + fmt(v) + ') is bigger than ' + prev.label + ' (' + fmt(prev.v) + '). Check the numbers.');
       }
       prev = b;
       return b;

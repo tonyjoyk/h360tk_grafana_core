@@ -15,7 +15,10 @@ prev AS (
   WHERE v.year = EXTRACT(YEAR FROM m.mon) AND v.age_group = '15+'),
 scr AS (
   SELECT COUNT(*) AS screening_rows, SUM(s.screened) AS screened, SUM(s.raised) AS raised,
-         SUM(s.linked) AS linked, SUM(s.diagnosed) AS diagnosed
+         -- Starter medicine (step 4) is not a real indicator yet, so it stays NULL and the chart shows
+         -- four bars. When the indicator exists, return its sum here (NULLIF(SUM(...), 0)); the bar
+         -- appears with no other change (cascade.js shows step 4 whenever it is not NULL).
+         NULL::numeric AS linked, SUM(s.diagnosed) AS diagnosed
   FROM demo_cascade_screening s, m
   WHERE s.as_of_month = m.mon AND s.org_unit_id IN (SELECT id FROM scope)),
 trt AS (
