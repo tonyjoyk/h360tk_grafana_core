@@ -45,7 +45,7 @@ REVIEWED_EDITS = {
     # Owner request 2026-11-18 (story 14.3, H360-463, H360-454): the new screening and treatment
     # cascades replace the old cascade card. Built from dashboard_src/cascade/ by
     # scripts/build_cascade_panel.py; temporary demo data until H360-501, H360-504 and H360-505.
-    "panel-stc": "d02a7c0848b212de17862217d26ec797ceb9378c16b6ddca9f5f5901b31911c9",
+    "panel-stc": "ef526fa7d747b3b4c0f711622d2628d31e9763a390081a50004c0f4877413c01",
     "panel-outcomes": "e1572c327a784463b92c50ecd35f4a44d3b8c23f8ba4a6c679ad0898ce1fc6f7",
     "panel-7": "1e81f98c68630066a95df33f50a8f38c4438070c07de50d87c5d53ee2da03a51",
     "panel-8": "a12d8757a7adf5e94bd9947b5f5183cf1fa429a235c17e071dde41182da73c0d",

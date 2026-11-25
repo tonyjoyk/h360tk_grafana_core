@@ -26,17 +26,17 @@ const cascade = (() => {
   const COUNTRIES = {
     idn: {
       name: 'Indonesia', ageGroup: '15+', who: 'Eligible adults (15+)', yearStartMonth: 1,
-      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Raised BP (140/90 or higher)', linked: 'Given starter medicine', diagnosed: 'Diagnosed with hypertension this year' },
+      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'BP ≥ 140/90', linked: 'Given starter medicine', diagnosed: 'Diagnosed this year' },
       short: { eligible: 'eligible', screened: 'screened', raised: 'raised BP', linked: 'given starter medicine', diagnosed: 'diagnosed' },
     },
     ind: {
       name: 'India', ageGroup: '30+', who: 'Eligible adults (30+) not on treatment', yearStartMonth: 4,
-      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Referred (raised BP)', linked: 'Examined by MO', diagnosed: 'Diagnosed with hypertension this year' },
+      labels: { eligible: 'Adults eligible for screening', screened: 'Adults screened', raised: 'Referred (raised BP)', linked: 'Examined by MO', diagnosed: 'Diagnosed this year' },
       short: { eligible: 'eligible', screened: 'screened', raised: 'referred', linked: 'examined', diagnosed: 'diagnosed' },
     },
     eth: {
       name: 'Ethiopia', ageGroup: '30+', who: 'Adult OPD visits without known hypertension', yearStartMonth: 7,
-      labels: { eligible: 'OPD visits eligible for screening', screened: 'Visits with BP measured', raised: 'Raised BP (140/90 or higher)', linked: 'Linked to NCD clinic', diagnosed: 'Diagnosed with hypertension this year' },
+      labels: { eligible: 'OPD visits eligible for screening', screened: 'Visits with BP measured', raised: 'BP ≥ 140/90', linked: 'Linked to NCD clinic', diagnosed: 'Diagnosed this year' },
       short: { eligible: 'eligible', screened: 'screened', raised: 'raised BP', linked: 'linked', diagnosed: 'diagnosed' },
     },
   };
@@ -76,7 +76,8 @@ const cascade = (() => {
           + '<div class="csc-n">' + fmt(b.v) + '</div><div class="csc-l">' + esc(b.label) + '</div>'
           + (b.line ? '<div class="csc-s"><span class="csc-s-n" style="color:var(--csc-' + b.c + ')">' + esc(b.line.pct) + '</span> ' + esc(b.line.word) + '</div>' : '')
           + '</div>').join('') + '</div></div></div>';
-    return '<div class="csc-half"><h3>' + esc(o.title) + '</h3><p class="csc-sub">' + esc(o.sub)
+    // Each chart's width follows its bar count, so five bars get more room than four.
+    return '<div class="csc-half" style="flex-grow:' + (o.bars ? o.bars.length : 4) + '"><h3>' + esc(o.title) + '</h3><p class="csc-sub">' + esc(o.sub)
       + (o.legend && !o.empty ? '<span class="csc-legend">' + esc(o.legend) + '</span>' : '') + '</p>' + body
       + (o.warn ? '<div class="csc-warn">' + esc(o.warn) + '</div>' : '') + '</div>';
   };

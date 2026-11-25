@@ -18,12 +18,12 @@
 .csc-col:last-child,.csc-meta>div:last-child{border-right:1px solid var(--csc-line)}
 .csc-bar{position:relative;width:100%}
 .csc-in{position:absolute;top:5px;left:0;right:0;text-align:center;font-size:16px;font-weight:700}
-.csc-up{position:relative;align-self:flex-start;font-size:16px;font-weight:700;padding:0 6px;margin-bottom:3px;line-height:1.2}
+.csc-up{position:relative;align-self:flex-start;font-size:16px;font-weight:700;padding:0 4px;margin-bottom:3px;line-height:1.2}
 .csc-meta{display:flex;margin-top:8px}
-.csc-meta>div{flex:1 1 0;min-width:0;padding:0 6px}
+.csc-meta>div{flex:1 1 0;min-width:0;padding:0 4px}
 /* Counts: regular weight and small, as in the hearts360 reference; they shrink with the card
    (cqi = 1% of its width) so 2,100,000 fits a narrow column. Only the percents are bold. */
-.csc-n{font-size:clamp(11px,2cqi,13px);font-weight:400;color:var(--csc-ink);white-space:nowrap}
+.csc-n{font-size:clamp(9px,1.7cqi,13px);font-weight:400;color:var(--csc-ink);white-space:nowrap;letter-spacing:-.01em}
 .csc-l{font-size:11px;color:var(--csc-ink3);line-height:1.3;margin-top:3px}
 /* Second percent: the share of the step before. Number semibold in the bar color, words in the
    label color, a step larger than before so it reads as data, not a footnote. */

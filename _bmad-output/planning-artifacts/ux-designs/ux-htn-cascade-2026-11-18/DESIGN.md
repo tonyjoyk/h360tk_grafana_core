@@ -74,8 +74,9 @@ The owner asked for the card at two of three columns, with "Patients protected" 
 Supersedes the target and step-rate rules above where they differ.
 
 - **No target lines.** The screened target and the diagnosed target, their tint and their "x% of target" lines are removed.
-- **Copy.** "Newly diagnosed with hypertension" is now "Diagnosed with hypertension this year".
-- **Starter medicine (step 4) shows only when its indicator has data.** `panel.sql` returns `linked` as NULL until the real indicator exists, so the chart has four bars. Returning a value brings the fifth bar back with no other change.
+- **Copy.** "Newly diagnosed with hypertension" is now "Diagnosed this year", and "Raised BP (140/90 or higher)" is now "BP ≥ 140/90".
+- **Starter medicine (step 4) shows only when it has data.** `panel.sql` returns `NULLIF(SUM(linked), 0)`; NULL hides the bar and the chart has four bars. The demo data (seed 50) has starter-medicine numbers, so the demo shows five bars until the real indicator replaces them.
+- **Width follows bar count.** Each chart's width is proportional to its number of bars (5 against 4), and counts shrink slightly on narrow cards rather than being cut.
 - **Two percentages per bar.**
   - The big percent above or in the bar is always the share of the first bar (all eligible). It is unchanged.
   - Under each label from "Raised BP" on, a second line gives the share of the bar just before it, for example "**9%** of screened" or "**25%** of raised BP". With five bars it reads "of given starter medicine" on the last bar. The number is semibold in the bar's color; the words use the label color, at 12 px.
