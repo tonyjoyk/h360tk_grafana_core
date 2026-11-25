@@ -35,10 +35,11 @@ LAYOUT = {
 # No panel title: the two charts carry their own titles, and the header row is space the card needs.
 TITLE = ""
 DESCRIPTION = (
-    "Screening cascade: adults screened this year, from eligible to newly diagnosed with hypertension. "
-    "Each percent above a bar is a share of the first bar. The grey line under a bar is the share of the step before it. "
-    "Steps 1 to 3 come from CKG. Newly diagnosed counts new I10 registrations in puskesmas EHR data, a different system, "
-    "so that bar has no step rate. Targets are for the full year. "
+    "Screening cascade: adults screened this year, from eligible to diagnosed with hypertension this year. "
+    "Each percent above a bar is a share of the first bar. From raised BP on, the line under each bar is "
+    "its share of the step before it, for example \"9% of screened\". "
+    "Eligible, screened and raised BP come from CKG. The starter medicine bar shows only when there is data for it. "
+    "Diagnosed this year counts new I10 registrations in puskesmas EHR data, a different system. "
     "Treatment cascade: estimated adults with hypertension, then registered, under care and BP controlled. "
     "Each percent is a share of the estimate. Under care means at least one visit in the last 12 months. "
     "BP controlled means below 140/90 at the last visit. "
