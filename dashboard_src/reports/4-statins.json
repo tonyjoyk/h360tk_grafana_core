@@ -1,0 +1,669 @@
+{
+  "title": "Statins",
+  "elements": {
+    "panel-statins-title": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT w.window_end, (date_trunc('month', w.window_end) - interval '8 months')::date AS first_month,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_age') AS min_age\nFROM report_window('${reporting_month}'::date) w\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Title strip: the question, then \"{place} · {first month} to {last month} · eligible = ...\".\nconst root = rpt.mount('.rpt-sta-title', { banner: true });\nif (!root) { return; }\nconst w = rpt.rows('A')[0] || {};\nconst age = rpt.num(w.min_age) === null ? '' : 'aged ' + rpt.fmt(w.min_age) + ' or older ';\nroot.innerHTML = '<h2 class=\"rpt-title\">Which eligible patients are not on a statin?</h2>'\n  + '<div class=\"rpt-sub\">' + rpt.esc(rpt.place(w.place)) + ' · ' + rpt.esc(rpt.month(w.first_month) + ' to ' + rpt.month(w.window_end))\n  + ' · eligible = ' + rpt.esc(age) + 'with diabetes, or a heart attack or stroke</div>';\n",
+              "content": "<div class=\"rpt rpt-sta-title\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-sta-title\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-headline": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT s.*, a.eligible_n AS avg_d, a.on_statin_n AS avg_n, a.on_statin_pct AS avg_pct,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_eligible') AS min_eligible\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nLEFT JOIN report_statins('${reporting_month}'::date, NULL) a ON a.is_selected\nWHERE s.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\nconst col = rpt.col;\n// Headline strip: On a statin, Average of all places, Not on a statin.\nconst root = rpt.mount('.rpt-sta-head');\nif (!root) { return; }\nconst { fmt, num, yes, pct } = rpt;\nconst r = rpt.rows('A')[0];\nconst L = ['On a statin', 'Average of all places', 'Not on a statin'];\nif (!r) { root.innerHTML = '<div class=\"rpt-strip3\">' + L.map((l) => col('—', '', l, rpt.NO_DATA)).join('') + '</div>'; return; }\nconst N = num(r.eligible_n) || 0;\nconst when = 'Eligible at the end of ' + rpt.month(rpt.reportingMonth());\nconst first = !N ? col('—', '', L[0], 'No eligible patients here.')\n  : yes(r.too_few) ? col('Too few patients', '', L[0], rpt.needAtLeast(r.min_eligible, N), '', true)\n  : col(pct(r.on_statin_pct), yes(r.flag) ? 'var(--flag-bar)' : 'var(--controlled)', L[0],\n    [fmt(r.on_statin_n) + ' of ' + fmt(N) + ' eligible patients', when]);\nconst avg = num(r.avg_pct) === null ? col('—', '', L[1], rpt.NO_DATA)\n  : col(pct(r.avg_pct), '#9B7FD4', L[1], [fmt(r.avg_n) + ' of ' + fmt(r.avg_d) + ' eligible patients, all places together', when]);\nroot.innerHTML = '<div class=\"rpt-strip3\">' + first + avg\n  + col(fmt(r.not_on_statin_n), 'var(--no-visit)', L[2], ['Eligible patients with no statin on their latest prescription', 'They may need a review.']) + '</div>';\n",
+              "content": "<div class=\"rpt rpt-sta-head\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-sta-head\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-line": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT s.month_date, s.org_unit_name, s.too_few, s.eligible_n, s.on_statin_n, s.rate_pct,\n  s.average_eligible_n, s.average_on_statin_n, s.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_statins_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE s.is_selected AND '$isAllowed' = '1'\nORDER BY s.month_date",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "Share of eligible patients with a statin on their latest prescription, at each month end. Average is all places together.",
+        "id": 0,
+        "links": [],
+        "title": "On a statin by month",
+        "vizConfig": {
+          "group": "volkovlabs-echarts-panel",
+          "kind": "VizConfig",
+          "version": "7.2.5",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "baidu": {
+                "callback": "bmapReady",
+                "key": ""
+              },
+              "editor": {
+                "format": "auto"
+              },
+              "editorMode": "code",
+              "gaode": {
+                "key": "",
+                "plugin": "AMap.Scale,AMap.ToolBar"
+              },
+              "google": {
+                "callback": "gmapReady",
+                "key": ""
+              },
+              "map": "none",
+              "renderer": "canvas",
+              "themeEditor": {
+                "config": "{}",
+                "name": "default"
+              },
+              "visualEditor": {
+                "code": "return {}",
+                "dataset": [],
+                "series": []
+              },
+              "getOption": "{{shared:tip.js}}\n// % of eligible patients on a statin by month: the place in view against the average of all places\n// (the Metabase statins graph, UX-06).\nconst rv = context.grafana && context.grafana.replaceVariables;\nconst allowed = !rv || rv('${isAllowed}') === '1';\nconst val = (x) => (x === null || x === undefined || x === '' ? null : Number(x));\nconst yes = (x) => x === true || x === 1 || x === 't' || x === 'true';\nconst few = col('too_few').map(yes);\nconst d = col('eligible_n'), n = col('on_statin_n'), ad = col('average_eligible_n'), an = col('average_on_statin_n');\nconst place = col('place')[0] || 'All locations you can access';\nreturn lineVsAverage({\n  months: col('month_date'), place: String(place),\n  value: col('rate_pct').map((v, k) => (few[k] ? null : val(v))), avg: col('average_rate_pct').map(val),\n  placeLines: (k) => [few[k] ? 'Too few patients' : fmt(n[k]) + ' of ' + fmt(d[k]) + ' eligible patients'],\n  avgLines: (k) => [fmt(an[k]) + ' of ' + fmt(ad[k]) + ' eligible patients'],\n  empty: allowed ? 'No data for this place.' : ''\n});\n"
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-monthly": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT s.month_date, s.org_unit_name, s.too_few, s.eligible_n, s.on_statin_n, s.rate_pct,\n  s.average_eligible_n, s.average_on_statin_n, s.average_rate_pct,\n  (SELECT name FROM org_units WHERE id = NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) AS place\nFROM report_statins_monthly('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nWHERE s.is_selected AND '$isAllowed' = '1'\nORDER BY s.month_date",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "The Metabase statins table. Each month counts eligible patients at its end. The newest month is the number in the strip above.",
+        "id": 0,
+        "links": [],
+        "title": "On a statin by month, against the average",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:monthly.js}}\n// The Metabase statins table: month, eligible patients, on a statin, %; the place beside the average.\nconst root = rpt.mount('.rpt-sta-monthly');\nif (!root) { return; }\nconst rows = rpt.rows('A');\nrptMonthly(root, {\n  rows: rows,\n  place: rpt.place(rows.length ? rows[0].place : ''),\n  cols: [\n    { label: 'Eligible', place: 'eligible_n', avg: 'average_eligible_n' },\n    { label: 'On a statin', place: 'on_statin_n', avg: 'average_on_statin_n' },\n    { label: '%', place: 'rate_pct', avg: 'average_rate_pct', pct: true, of: [1, 0] }\n  ],\n  tooFew: 'Too few patients',\n  caption: 'Eligible patients on a statin by month, against the average of all places.'\n});\n",
+              "content": "<div class=\"rpt rpt-sta-monthly\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-sta-monthly\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-table": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "WITH fl AS (\n  SELECT org_unit_id, json_agg(json_build_object('report', report, 'flag_reason', flag_reason, 'patients_n', patients_n)\n           ORDER BY report)::text AS flags_json\n  FROM report_flags('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) GROUP BY org_unit_id\n)\nSELECT s.*,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct, (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_eligible') AS min_eligible,\n  fl.flags_json\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nLEFT JOIN fl ON fl.org_unit_id = s.org_unit_id\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n{{shared:table.js}}\n// Facility table: Facility, Eligible, On a statin, Not on a statin, % on a statin, Why look here.\nconst root = rpt.mount('.rpt-sta-table');\nif (!root) { return; }\nconst { fmt, num, pct } = rpt;\nrptTable(root, {\n  report: 'statins',\n  rows: rpt.rows('A'),\n  caption: 'Eligible patients on a statin, by facility. Flagged facilities come first.',\n  columns: [\n    { label: 'Eligible', num: true, value: (r) => num(r.eligible_n), cell: (r) => fmt(r.eligible_n) },\n    { label: 'On a statin', num: true, value: (r) => num(r.on_statin_n), cell: (r) => fmt(r.on_statin_n) },\n    { label: 'Not on a statin', num: true, value: (r) => num(r.not_on_statin_n), cell: (r) => fmt(r.not_on_statin_n) },\n    { label: '% on a statin', num: true, guard: true, value: (r) => num(r.on_statin_pct), cell: (r) => pct(r.on_statin_pct),\n      title: (r) => fmt(r.on_statin_n) + ' of ' + fmt(r.eligible_n) + ' eligible patients' }\n  ],\n  flagNames: () => ['Few on a statin'],\n  reason: (r) => 'Only ' + pct(r.on_statin_pct) + ' of ' + fmt(r.eligible_n) + ' eligible patients are on a statin.',\n  guardName: 'Too few patients',\n  guardReason: (r) => rpt.needAtLeast(r.min_eligible, r.eligible_n),\n  size: (r) => num(r.eligible_n)\n});\n",
+              "content": "<div class=\"rpt rpt-sta-table\" id=\"rpt-sta-table\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-sta-table\" id=\"rpt-sta-table\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-note": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'min_age') AS min_age,\n  (SELECT value FROM report_flag_thresholds WHERE report = 'statins' AND key = 'flag_below_pct') AS flag_below_pct\nWHERE '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": true,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// How this is worked out, then the Next step: the patient list at a facility, else pick a facility (UX-21).\nconst root = rpt.mount('.rpt-sta-note');\nif (!root) { return; }\nrpt.wireScroll(root);\nconst t = rpt.rows('A')[0] || {};\nroot.innerHTML = '<div class=\"rpt-note\"><strong>How this is worked out.</strong> Eligible means aged ' + rpt.fmt(t.min_age) + ' or older, with diabetes or a recorded heart attack or stroke. '\n  + 'They are alive and had a visit in the last 12 months. '\n  + 'On a statin means atorvastatin, simvastatin or rosuvastatin on the latest prescription. '\n  + 'Average is all places together. A facility under ' + rpt.fmt(t.flag_below_pct) + '% is flagged.</div>'\n  + (rpt.atFacility() ? rpt.nextStep('Open the patient list', '#rpt-pl')\n    : rpt.nextStep('Pick a facility to see its patients', '#rpt-sta-table'));\n",
+              "content": "<div class=\"rpt rpt-sta-note\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-sta-note\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}",
+              "wrap": true
+            }
+          }
+        }
+      }
+    },
+    "panel-statins-patients": {
+      "kind": "Panel",
+      "spec": {
+        "data": {
+          "kind": "QueryGroup",
+          "spec": {
+            "queries": [
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "postgres-hypertension"
+                    },
+                    "group": "grafana-postgresql-datasource",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "format": "table",
+                      "rawQuery": true,
+                      "rawSql": "SELECT s.level, s.org_unit_name AS place, s.not_on_statin_n,\n  p.patient_id::text AS patient_id, p.patient_name, p.age, p.reason_eligible, p.last_visit_date\nFROM report_statins('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) s\nLEFT JOIN report_statins_patients('${reporting_month}'::date, NULLIF(NULLIF(TRIM('${org_unit}'), ''), '0')::int) p ON '$isPatientsAllowed' = '1'\nWHERE s.is_selected AND '$isAllowed' = '1'",
+                      "refId": "A"
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "A"
+                }
+              }
+            ],
+            "queryOptions": {},
+            "transformations": []
+          }
+        },
+        "description": "",
+        "id": 0,
+        "links": [],
+        "title": "",
+        "transparent": false,
+        "vizConfig": {
+          "group": "marcusolsson-dynamictext-panel",
+          "kind": "VizConfig",
+          "version": "6.3.1",
+          "spec": {
+            "fieldConfig": {
+              "defaults": {},
+              "overrides": []
+            },
+            "options": {
+              "afterRender": "{{shared:states.js}}\n// Patients to review: eligible patients not on a statin, facility level only. Overdue list pattern:\n// reason chips with counts, search by name or Patient ID, 10 rows per page, pager. No download.\nconst root = rpt.mount('.rpt-pl');\nif (!root) { return; }\nconst { esc, fmt, num } = rpt;\nconst all = rpt.rows('A');\nconst head = all[0] || {};\nconst level = num(head.level) !== null ? num(head.level) : num(rpt.v('selected_level')) || 0;\n// Above facility level the row is hidden (conditional rendering); if shown, a grey line with the next step (UX-21).\nif (rpt.orgUnit() === '0' || level < 3) {\n  root.innerHTML = rpt.info(rpt.esc(rpt.PICK_FACILITY));\n  return;\n}\nconst rows = all.filter((r) => r.patient_id != null);\nconst total = num(head.not_on_statin_n);\nconst place = rpt.place(head.place);\nconst title = '<h3 class=\"rpt-pl-title\">Patients to review</h3>'\n  + '<div class=\"rpt-pl-head\">' + fmt(total === null ? rows.length : total) + ' eligible patients not on a statin at ' + esc(place) + '</div>';\n// Graphs-only teams see the count, never names (the query joins no patients for them).\nif (rpt.v('isPatientsAllowed') !== '1') { root.innerHTML = title + rpt.info('Patient names need patient-level access. Ask your admin.'); return; }\nif (!rows.length) { root.innerHTML = title + rpt.noData('No patients to review here.'); return; }\n\nconst PAGE = 10;\nconst REASONS = ['Diabetes', 'Heart attack or stroke', 'Both'];\n// Most recent visit first: these patients are the easiest to reach at their next visit.\nconst time = (r) => { const d = rpt.toDate(r.last_visit_date); return d ? d.getTime() : 0; };\nrows.sort((a, b) => time(b) - time(a) || String(a.patient_name).localeCompare(String(b.patient_name)));\nconst state = { reason: 'All', q: '', page: 0 };\nconst visible = () => {\n  const q = state.q.trim().toLowerCase();\n  return rows.filter((r) => state.reason === 'All' || r.reason_eligible === state.reason)\n    .filter((r) => !q || [r.patient_name, r.patient_id].some((v) => String(v || '').toLowerCase().includes(q)));\n};\nconst COLS = [\n  ['Patient', (r) => esc(r.patient_name) + '<div class=\"rpt-pl-id\">' + esc(r.patient_id) + '</div>'],\n  ['Age', (r) => esc(r.age), 'num'],\n  ['Why eligible', (r) => esc(r.reason_eligible)],\n  ['Last visit', (r) => esc(rpt.day(r.last_visit_date))],\n];\nconst cls = (c) => (c ? ' class=\"' + c + '\"' : '');\nconst renderChips = () => {\n  const n = (g) => rows.filter((r) => r.reason_eligible === g).length;\n  root.querySelector('.rpt-chips').innerHTML = [['All', rows.length]].concat(REASONS.map((g) => [g, n(g)]))\n    .map(([g, c]) => '<button type=\"button\" class=\"rpt-chip' + (state.reason === g ? ' on' : '') + '\" data-reason=\"' + esc(g) + '\" aria-pressed=\"' + (state.reason === g) + '\">'\n      + esc(g) + ': ' + fmt(c) + '</button>').join('');\n};\nconst renderBody = () => {\n  const list = visible();\n  const pages = Math.max(1, Math.ceil(list.length / PAGE));\n  state.page = Math.min(Math.max(state.page, 0), pages - 1);\n  const shown = list.slice(state.page * PAGE, (state.page + 1) * PAGE);\n  root.querySelector('tbody').innerHTML = shown.length\n    ? shown.map((r) => '<tr>' + COLS.map(([, cell, c], i) => (i ? '<td' + cls(c) + '>' + cell(r) + '</td>' : '<th scope=\"row\">' + cell(r) + '</th>')).join('') + '</tr>').join('')\n    : '<tr><td class=\"rpt-empty\" colspan=\"' + COLS.length + '\">No patients match these filters.</td></tr>';\n  root.querySelector('.rpt-pager').innerHTML = list.length\n    ? '<button type=\"button\" data-page=\"-1\"' + (state.page ? '' : ' disabled') + ' aria-label=\"Previous page\">‹</button>'\n      + '<span>' + fmt(state.page * PAGE + 1) + '–' + fmt(state.page * PAGE + shown.length) + ' of ' + fmt(list.length) + '</span>'\n      + '<button type=\"button\" data-page=\"1\"' + (state.page < pages - 1 ? '' : ' disabled') + ' aria-label=\"Next page\">›</button>'\n    : '';\n  renderChips();\n};\nroot.innerHTML = title\n  + '<div class=\"rpt-chips\" role=\"group\" aria-label=\"Filter by why eligible\"></div>'\n  + '<div class=\"rpt-pl-tools\"><input type=\"search\" class=\"rpt-pl-q\" placeholder=\"Search name or Patient ID\" aria-label=\"Search patients\"></div>'\n  + '<div class=\"rpt-wrap\"><table class=\"rpt-table\"><caption class=\"rpt-sr\">Eligible patients not on a statin, most recent visit first.</caption><thead><tr>'\n  + COLS.map(([h, , c]) => '<th scope=\"col\"' + cls(c) + '>' + h + '</th>').join('')\n  + '</tr></thead><tbody></tbody></table></div><div class=\"rpt-pager\"></div>';\nrenderBody();\nroot.addEventListener('input', (e) => {\n  if (e.target.classList.contains('rpt-pl-q')) { state.q = e.target.value; state.page = 0; renderBody(); }\n});\nroot.addEventListener('click', (e) => {\n  const b = e.target.closest('button');\n  if (!b || !root.contains(b)) { return; }\n  if (b.dataset.reason) { state.reason = b.dataset.reason; state.page = 0; renderBody(); const f = root.querySelector('[data-reason=\"' + b.dataset.reason + '\"]'); if (f) { f.focus(); } return; }\n  if (b.dataset.page) { state.page += Number(b.dataset.page); renderBody(); const f = root.querySelector('[data-page=\"' + b.dataset.page + '\"]'); if (f && !f.disabled) { f.focus(); } }\n});\n",
+              "content": "<div class=\"rpt rpt-pl\" id=\"rpt-pl\"></div>",
+              "contentPartials": [],
+              "defaultContent": "<div class=\"rpt rpt-pl\" id=\"rpt-pl\"></div>",
+              "editor": {
+                "format": "auto",
+                "language": "html"
+              },
+              "editors": [
+                "styles",
+                "afterRender"
+              ],
+              "externalStyles": [],
+              "helpers": "",
+              "renderMode": "allRows",
+              "styles": "{{shared:styles.css}}\n/* Patients to review: the overdue list pattern (.ovq-*), read-only, no download. */\n.rpt-pl-title { font-size: 16px; font-weight: 500; margin: 0 0 2px; }\n.rpt-pl-head { font-size: 14px; margin: 0 0 10px; }\n.rpt-pl-tools { display: flex; gap: 8px; margin-bottom: 10px; }\n.rpt-pl-tools input { font: inherit; color: #1c1c1c; background: #fff; border: 1px solid #d9e3ff; border-radius: 4px;\n  padding: 4px 6px; height: 30px; line-height: 1.2; box-sizing: border-box; width: 280px; max-width: 100%; }\n.rpt-pl-tools input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }\n.rpt-pl-id { font-size: 12px; color: #6e7f8d; font-variant-numeric: tabular-nums; margin-top: 1px; }\n.rpt-pl .rpt-table tbody td { white-space: nowrap; }",
+              "wrap": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": {
+    "kind": "RowsLayout",
+    "spec": {
+      "rows": [
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Summary",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-title"
+                      },
+                      "height": 2,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-headline"
+                      },
+                      "height": 4,
+                      "width": 24,
+                      "x": 0,
+                      "y": 2
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-line"
+                      },
+                      "height": 10,
+                      "width": 12,
+                      "x": 0,
+                      "y": 6
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-monthly"
+                      },
+                      "height": 10,
+                      "width": 12,
+                      "x": 12,
+                      "y": 6
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Facility comparison",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-table"
+                      },
+                      "height": 11,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  },
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-note"
+                      },
+                      "height": 3,
+                      "width": 24,
+                      "x": 0,
+                      "y": 11
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        },
+        {
+          "kind": "RowsLayoutRow",
+          "spec": {
+            "collapse": false,
+            "title": "Patients to review",
+            "layout": {
+              "kind": "GridLayout",
+              "spec": {
+                "items": [
+                  {
+                    "kind": "GridLayoutItem",
+                    "spec": {
+                      "element": {
+                        "kind": "ElementReference",
+                        "name": "panel-statins-patients"
+                      },
+                      "height": 20,
+                      "width": 24,
+                      "x": 0,
+                      "y": 0
+                    }
+                  }
+                ]
+              }
+            },
+            "conditionalRendering": {
+              "kind": "ConditionalRenderingGroup",
+              "spec": {
+                "visibility": "show",
+                "condition": "and",
+                "items": [
+                  {
+                    "kind": "ConditionalRenderingVariable",
+                    "spec": {
+                      "variable": "selected_level",
+                      "operator": "matches",
+                      "value": "^([3-9]|10)$"
+                    }
+                  }
+                ]
+              }
+            }
+          }
+        }
+      ]
+    }
+  }
+}

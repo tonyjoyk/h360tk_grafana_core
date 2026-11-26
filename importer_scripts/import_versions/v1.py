@@ -2,6 +2,7 @@ import logging
 import os
 
 from import_versions.base import BaseImportVersion
+from orgunit_mapping import MappingRule
 
 log = logging.getLogger(__name__)
 
@@ -22,14 +23,22 @@ class ImportVersion1(BaseImportVersion):
         'heart360_dm_patients_catagory',
     ]
 
-    def import_zip(self, conn, extract_dir: str, metadata: dict) -> None:
+    def import_zip(
+        self,
+        conn,
+        extract_dir: str,
+        metadata: dict,
+        mapping_rules: list[MappingRule] | None = None,
+    ) -> None:
         source_key = metadata.get('source_key', '')
         log.info(
             'Importing zip for source_key=%s (import_export_version=1)',
             source_key,
         )
 
-        self.import_org_units(conn, extract_dir, source_key, metadata)
+        self.import_org_units(
+            conn, extract_dir, source_key, metadata, mapping_rules=mapping_rules
+        )
 
         for filename in sorted(os.listdir(extract_dir)):
             if filename in self.SKIP_FILES:

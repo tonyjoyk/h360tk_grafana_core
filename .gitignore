@@ -4,5 +4,8 @@ schemaspy-output
 pythonvenv
 data/upload/*.csv
 data/upload/*.xlsx
+_bmad/config.user.toml
+.env
 
 
+data/.h360_ingested/

@@ -1,0 +1,104 @@
+services:
+##
+## Two databases
+##
+
+  db-leaf:
+    image: simpledotorg/heart360tk-postgresql:${VERSION}
+    ports:
+      - 5001:5432
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 5s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
+
+  db-central:
+    image: simpledotorg/heart360tk-postgresql:${VERSION}
+    ports:
+      - 5002:5432
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready", "-d", "db_prod"]
+      interval: 5s
+      timeout: 60s
+      retries: 5
+      start_period: 80s
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - 8080:80
+    restart: unless-stopped
+    environment:
+      - PGADMIN_DEFAULT_EMAIL=admin@domain.com
+      - PGADMIN_DEFAULT_PASSWORD=your_secure_password
+      - PGADMIN_CONFIG_SERVER_MODE=False
+    volumes:
+      - ./servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      db-leaf:
+        condition: service_healthy
+      db-central:
+        condition: service_healthy
+
+
+##
+## Two Grafanas
+##
+
+  grafana-leaf:
+    image: simpledotorg/heart360tk-grafana:${VERSION}
+    ports:
+      - 3001:3000
+    restart: unless-stopped
+    environment:
+      - GF_DATABASE_URL=postgres://grafana:ZDI5MGE3YmYyMTRlNGNmYThkMTYyZjk3@db-leaf:5432/heart360tk_database
+      - GF_SECURITY_ADMIN_PASSWORD=your_secure_password
+
+
+  grafana-central:
+    image: simpledotorg/heart360tk-grafana:${VERSION}
+    ports:
+      - 3002:3000
+    restart: unless-stopped
+    environment:
+      - GF_DATABASE_URL=postgres://grafana:ZDI5MGE3YmYyMTRlNGNmYThkMTYyZjk3@db-central:5432/heart360tk_database
+      - GF_SECURITY_ADMIN_PASSWORD=your_secure_password
+
+
+##
+## One sftp
+##
+
+
+
+##
+## One Exporter
+##
+
+
+
+##
+## One Importer
+##
+
+
+
+
+##
+## One Component to laod the data, then run the integration tests
+##
+  tester:
+    image: python:3.12-slim
+    command: sh /tests/scripts/runtests.sh
+    volumes:
+      - .:/tests:ro
+      - ./target/:/target
+
+
+
+
+ 

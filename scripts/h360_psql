@@ -1,0 +1,4 @@
+#!/usr/bin/env bash
+# psql in this checkout's postgres container. Needs H360_PG_CONTAINER from scripts/h360_env.sh.
+# A later -d in "$@" picks another database.
+exec docker exec -i "${H360_PG_CONTAINER:?source scripts/h360_env.sh first}" psql -U h360tk_root -d heart360tk_database "$@"

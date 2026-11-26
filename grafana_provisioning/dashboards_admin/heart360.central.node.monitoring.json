@@ -1,0 +1,216 @@
+{
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations & Alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana-postgresql-datasource",
+        "uid": "postgres-grafana"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 2,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 100,
+      "options": {
+        "afterRender": "\nif (!document.getElementById('custom-table-cell-borders-v2')) {\n  const style = document.createElement('style');\n  style.id = 'custom-table-cell-borders-v2';\n  style.innerHTML = `\n    /* Bulletproof way to draw a border ON TOP of colored backgrounds using ::after */\n    div[data-testid=\"table-panel\"] tbody td, \n    div[data-testid=\"table-panel\"] div[role=\"cell\"],\n    [class*=\"-table-panel\"] tbody td,\n    [class*=\"-table-panel\"] div[role=\"cell\"] {\n      position: relative !important;\n    }\n    div[data-testid=\"table-panel\"] tbody td::after, \n    div[data-testid=\"table-panel\"] div[role=\"cell\"]::after,\n    [class*=\"-table-panel\"] tbody td::after,\n    [class*=\"-table-panel\"] div[role=\"cell\"]::after {\n      content: \"\" !important;\n      position: absolute !important;\n      left: 0 !important;\n      right: 0 !important;\n      bottom: 0 !important;\n      height: 1px !important;\n      background-color: rgba(128, 128, 128, 0.25) !important;\n      z-index: 99 !important;\n      pointer-events: none !important;\n    }\n  `;\n  document.head.appendChild(style);\n}\n\n\n",
+        "content": "<style id=\"global-header-styler\">\n  /* Force all table column headers to be black and bold */\n  div[role=\"columnheader\"],\n  div[role=\"columnheader\"] *,\n  th,\n  th *,\n  [data-testid=\"table-header\"],\n  [data-testid=\"table-header\"] * {\n      color: #000000 !important;\n      font-weight: 900 !important;\n  }\n</style>\n{{#if (eq user_is_admin 0)}}\n  <style>\n    /* Non-admins / non-central-node see the notice only: hide every other panel on this dashboard.\n       Scoped inside the panel, so it disappears with the panel on navigation. */\n    .react-grid-item:not(:has(#h360-access-denied)),\n    [data-viz-panel-key]:not(:has(#h360-access-denied)) {\n      display: none !important;\n    }\n  </style>\n  <div id=\"h360-access-denied\" style=\"color: #e02424; background: rgba(224, 36, 36, 0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4;\">\n    <span>\u26a0\ufe0f</span>\n    <span><strong>Access Denied:</strong> You must be an admin to view this page.</span>\n  </div>\n{{/if}}\n{{#if (eq user_is_admin 1)}}\n  {{#unless (eq is_central_node \"true\")}}\n  <style>\n    /* Non-admins / non-central-node see the notice only: hide every other panel on this dashboard.\n       Scoped inside the panel, so it disappears with the panel on navigation. */\n    .react-grid-item:not(:has(#h360-access-denied)),\n    [data-viz-panel-key]:not(:has(#h360-access-denied)) {\n      display: none !important;\n    }\n  </style>\n  <div id=\"h360-access-denied\" style=\"color: #e02424; background: rgba(224, 36, 36, 0.05); border-left: 4px solid #e02424; padding: 8px 14px; font-size: 13px; display: flex; align-items: center; gap: 8px; border-radius: 2px; line-height: 1.4;\">\n    <span>\u26a0\ufe0f</span>\n    <span><strong>Access Denied:</strong> This dashboard is available only on a central node. Configure this toolkit as a central node to use it.</span>\n  </div>\n  {{/unless}}\n{{/if}}",
+        "contentPartials": [],
+        "defaultContent": "",
+        "editor": {
+          "format": "auto",
+          "language": "markdown"
+        },
+        "editors": [],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "everyRow",
+        "styles": "",
+        "wrap": true
+      },
+      "pluginVersion": "6.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "grafana-postgresql-datasource",
+            "uid": "postgres-grafana"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "SELECT $UserIsAdmin AS user_is_admin, COALESCE(current_setting('app.is_central_node', true), 'false') AS is_central_node",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
+    },
+    {
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 3,
+        "w": 24,
+        "x": 0,
+        "y": 2
+      },
+      "id": 22,
+      "options": {
+        "code": {
+          "language": "html",
+          "showLineNumbers": false,
+          "showMiniMap": false
+        },
+        "content": "<div style=\"padding:10px 0 4px 0;\"><div style=\"font-size:28px;font-weight:600;color:#111827;\">Data source monitoring</div><div style=\"font-size:13px;color:#6b7280;margin-top:2px;\">See which systems are sending data and whether their latest data was received successfully.</div></div>",
+        "mode": "html"
+      },
+      "pluginVersion": "13.2.2",
+      "title": "",
+      "transparent": true,
+      "type": "text"
+    },
+    {
+      "datasource": {
+        "type": "postgres",
+        "uid": "postgres-hypertension"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": 0
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 24,
+        "w": 24,
+        "x": 0,
+        "y": 5
+      },
+      "id": 101,
+      "options": {
+        "afterRender": "var el = context.element || context.grafana?.element;\nif (!el) return;\nvar root = el.querySelector('#h3ds-root');\nif (!root) return;\nvar isCentralNode = String(root.dataset.central || '').trim().toLowerCase() === 'true';\n\nfunction parseJson(raw, fallback) {\n  try { return JSON.parse(raw || ''); } catch (err) { return fallback; }\n}\n\nvar STATUS = {\n  received: { label: 'Received', tone: 'green' },\n  failed: { label: 'Failed', tone: 'red' },\n  none: { label: 'No attempts yet', tone: 'grey' }\n};\nvar DATA_STATUS = {\n  data_loaded: { label: 'Available', tone: 'grey' },\n  no_data: { label: 'No data', tone: 'red' }\n};\nvar CONTROL = {\n  active: { tone: 'green', action: 'Pause data flow' },\n  paused: { tone: 'amber', action: 'Resume data flow' }\n};\nvar MAPPING = { manual: 'Manually mapped', default: 'Default' };\nvar EMPTY = 'No data sources to show.';\nvar BUSY = 'Processing\\u2026';\nvar PAGE_SIZE = 10;\n\nfunction statusOf(row) {\n  if (row.latest_attempt == null) return 'none';\n  if (row.latest_attempt === 'success') return 'received';\n  return 'failed';\n}\nfunction loadedKeys(rows) {\n  return rows.filter(function (r) { return r.data_status === 'data_loaded'; }).map(function (r) { return r.source_key; });\n}\nfunction visibleRows(rows, ui) {\n  var q = (ui.search || '').trim().toLowerCase();\n  return rows.filter(function (r) {\n    var sk = statusOf(r);\n    if (ui.filter === 'Received' && sk !== 'received') return false;\n    if (ui.filter === 'Failed' && sk !== 'failed') return false;\n    if (q && String(r.source_key).toLowerCase().indexOf(q) === -1) return false;\n    return true;\n  });\n}\nfunction counts(rows) {\n  var received = 0, failed = 0;\n  rows.forEach(function (r) {\n    var sk = statusOf(r);\n    if (sk === 'received') received++;\n    else if (sk === 'failed') failed++;\n  });\n  return { all: rows.length, received: received, failed: failed };\n}\nfunction timeAgo(ms) {\n  if (!ms) return '\\u2014';\n  var diff = Math.max(0, Date.now() - ms);\n  var min = Math.round(diff / 60000);\n  if (min < 1) return 'just now';\n  if (min < 60) return min + ' min ago';\n  var hr = Math.round(min / 60);\n  if (hr < 24) return hr + (hr === 1 ? ' hour ago' : ' hours ago');\n  var day = Math.round(hr / 24);\n  return day + (day === 1 ? ' day ago' : ' days ago');\n}\nfunction timeUntil(ms) {\n  var diff = Math.max(0, ms - Date.now());\n  var min = Math.round(diff / 60000);\n  if (min < 1) return 'in less than a minute';\n  return 'in ' + min + (min === 1 ? ' minute' : ' minutes');\n}\nfunction timingLines(schedule) {\n  var lines = [];\n  if (schedule && schedule.last_run_ms) lines.push('Last import: ' + timeAgo(schedule.last_run_ms));\n  if (schedule && schedule.next_run_ms && schedule.next_run_ms > Date.now()) {\n    lines.push('Next import ' + timeUntil(schedule.next_run_ms));\n  }\n  return lines;\n}\nfunction writeInFlight(ui) {\n  return ui.op && ui.op.kind !== 'idle';\n}\nfunction actionView(rows, ui) {\n  var loaded = loadedKeys(rows);\n  var idle = !writeInFlight(ui);\n  var forceEnabled = idle && isCentralNode;\n  var purgeEnabled = loaded.length > 0 && idle && isCentralNode;\n  var purgeLabel = BUSY;\n  if (!ui.op || ui.op.kind !== 'purging') {\n    purgeLabel = ui.selected.length ? 'Purge selected (' + ui.selected.length + ')' : 'Purge everything';\n  }\n  var forceLabel = (ui.op && ui.op.kind === 'importing') ? BUSY : 'Force import';\n  return {\n    forceEnabled: forceEnabled,\n    forcePrimary: forceEnabled,\n    forceLabel: forceLabel,\n    purgeEnabled: purgeEnabled,\n    purgeDanger: purgeEnabled,\n    purgeLabel: purgeLabel\n  };\n}\n\nvar ui = window.__h3dsUi || (window.__h3dsUi = {});\nif (ui.filter == null) ui.filter = 'All';\nif (ui.search == null) ui.search = '';\nif (!Array.isArray(ui.selected)) ui.selected = [];\nif (ui.page == null) ui.page = 1;\nif (!ui.op) ui.op = { kind: 'idle' };\nif (!ui.pausing) ui.pausing = {};\nif (window.__h3dsOp) { ui.op = window.__h3dsOp; delete window.__h3dsOp; }\nif (window.__h3dsPausing) { ui.pausing = window.__h3dsPausing; delete window.__h3dsPausing; }\n\nvar rows = parseJson(root.dataset.rows, []);\nvar schedule = parseJson(root.dataset.schedule, null);\nui.selected = ui.selected.filter(function (k) { return loadedKeys(rows).indexOf(k) !== -1; });\nwindow.__h3dsUi = ui;\n\nvar mountToken = root;\nvar receivedEl = root.querySelector('#h3ds-received');\nvar failedEl = root.querySelector('#h3ds-failed');\nvar timingEl = root.querySelector('#h3ds-timing');\nvar tabsEl = root.querySelector('.h3ds-tabs');\nvar tableEl = root.querySelector('#h3ds-table');\nvar pageEl = root.querySelector('#h3ds-pagination');\nvar forceBtn = root.querySelector('#h3ds-force-import');\nvar purgeBtn = root.querySelector('#h3ds-purge');\nvar searchInput = root.querySelector('#h3ds-search');\n\nvar ICON_REFRESH = '<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M21 12a9 9 0 1 1-3-6.7\"/><path d=\"M21 4v5h-5\"/></svg>';\nvar ICON_TRASH = '<svg width=\"14\" height=\"14\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"currentColor\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><path d=\"M4.5 7.5h15M9 4h6M7 7.5l.8 12h8.4l.8-12M10 11v5M14 11v5\"/></svg>';\nvar MODAL_BTN = 'font:inherit;font-size:13px;font-weight:500;padding:8px 16px;border-radius:8px;cursor:pointer;border:1px solid rgba(128,128,128,.4);background:transparent;color:inherit;';\nvar MODAL_DANGER = 'background:#e5484d;border-color:#e5484d;color:#fff;';\n\nfunction rootLive() {\n  return mountToken && mountToken.isConnected;\n}\nfunction esc(v) {\n  return String(v == null ? '' : v).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/\"/g, '&quot;').replace(/'/g, '&#039;');\n}\nfunction pill(tone, text) {\n  return '<span class=\"h3ds-pill h3ds-pill--' + tone + '\">' + esc(text) + '</span>';\n}\nfunction dot(tone) {\n  return '<span class=\"h3ds-dot h3ds-dot--' + tone + '\"></span>';\n}\nfunction showMessage(type, message) {\n  if (!rootLive()) return;\n  var m = mountToken.querySelector('#h3ds-message');\n  if (!m) return;\n  m.innerHTML = '<div class=\"h3ds-msg h3ds-msg--' + type + '\">' + esc(message) + '</div>';\n  clearTimeout(ui.messageTimer);\n  ui.messageTimer = setTimeout(function () {\n    if (rootLive()) {\n      var slot = mountToken.querySelector('#h3ds-message');\n      if (slot) slot.innerHTML = '';\n    }\n  }, 5000);\n  window.__h3dsUi = ui;\n}\nfunction runQuery(sql, refId) {\n  return fetch('/api/ds/query', {\n    method: 'POST',\n    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },\n    credentials: 'same-origin',\n    body: JSON.stringify({\n      from: 'now-5m', to: 'now',\n      queries: [{ refId: refId || 'ACTION', datasource: { type: 'postgres', uid: 'postgres-hypertension' }, rawSql: sql, format: 'table', rawQuery: true }]\n    })\n  }).then(function (r) {\n    if (!r.ok) return Promise.reject({ userToast: true });\n    return r.json();\n  });\n}\nfunction purgeOutcomeOk(body, refId) {\n  try {\n    var f = body.results[refId].frames[0];\n    var raw = f && f.data && f.data.values && f.data.values[0] && f.data.values[0][0];\n    if (typeof raw === 'string') raw = JSON.parse(raw);\n    if (!raw || raw.success !== true) return false;\n    if (raw.failed_count && raw.failed_count > 0) return false;\n    return true;\n  } catch (err) {\n    return false;\n  }\n}\nfunction closeModal() { var m = document.getElementById('h3ds-modal'); if (m) m.remove(); }\nfunction createModal(bodyHtml) {\n  closeModal();\n  var cs = getComputedStyle(document.body);\n  var bg = cs.backgroundColor;\n  if (!bg || bg === 'rgba(0, 0, 0, 0)' || bg === 'transparent') bg = '#ffffff';\n  var m = document.createElement('div');\n  m.id = 'h3ds-modal';\n  m.style.cssText = 'position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center;padding:24px;';\n  m.innerHTML = '<div style=\"width:560px;max-width:100%;padding:24px;border-radius:14px;box-shadow:0 20px 50px rgba(0,0,0,.35);border:1px solid rgba(128,128,128,.3);background:' + bg + ';color:' + (cs.color || '#111') + ';\">' + bodyHtml + '</div>';\n  document.body.appendChild(m);\n  m.onclick = function (e) { if (e.target === m) closeModal(); };\n  return m;\n}\nfunction rowBusy(key) {\n  if (ui.pausing[key]) return true;\n  if (ui.op && ui.op.kind === 'purging' && ui.op.keys.indexOf(key) !== -1) return true;\n  return false;\n}\nfunction sqlEscapeKey(k) {\n  return String(k).replace(/'/g, \"''\");\n}\nfunction purgeTargetsFromUi(rows, ui) {\n  var loaded = loadedKeys(rows);\n  if (ui.selected.length) {\n    return ui.selected.filter(function (k) { return loaded.indexOf(k) !== -1; });\n  }\n  return loaded.slice();\n}\nfunction keysAllowedForPurge(rows, keys) {\n  var loaded = loadedKeys(rows);\n  return keys.filter(function (k) { return loaded.indexOf(k) !== -1; });\n}\n\nfunction renderActions() {\n  if (!rootLive()) return;\n  var av = actionView(rows, ui);\n  forceBtn.innerHTML = ICON_REFRESH + '<span>' + esc(av.forceLabel) + '</span>';\n  purgeBtn.innerHTML = ICON_TRASH + '<span>' + esc(av.purgeLabel) + '</span>';\n  forceBtn.disabled = !av.forceEnabled;\n  purgeBtn.disabled = !av.purgeEnabled;\n  var centralHint = isCentralNode ? '' : 'Available on the central node only.';\n  forceBtn.title = centralHint;\n  purgeBtn.title = centralHint;\n  forceBtn.className = 'h3ds-btn' + (av.forcePrimary ? ' h3ds-btn--primary' : '');\n  purgeBtn.className = 'h3ds-btn' + (av.purgeDanger ? ' h3ds-btn--danger' : '');\n}\n\nfunction renderSummary() {\n  if (!rootLive()) return;\n  var c = counts(rows);\n  var total = c.all || 0;\n  var received = c.received || 0;\n  var failed = c.failed || 0;\n  var recvPct = total > 0 ? Math.round(received * 100 / total) : 0;\n  var failPct = total > 0 ? Math.round(failed * 100 / total) : 0;\n  receivedEl.innerHTML = '<div class=\"h3ds-card-inner\"><div><div class=\"h3ds-stat h3ds-stat--green\">' + esc(received + ' of ' + total) + '</div><div class=\"h3ds-stat-label\">data sources received data on their latest attempt</div></div><div class=\"h3ds-bar-wrap\"><div class=\"h3ds-bar\"><div class=\"h3ds-bar-fill h3ds-bar-fill--green\" style=\"width:' + recvPct + '%;\"></div></div><div class=\"h3ds-bar-pct\">' + recvPct + '%</div></div></div>';\n  failedEl.innerHTML = '<div class=\"h3ds-card-inner\"><div><div class=\"h3ds-stat h3ds-stat--red\">' + esc(String(failed)) + '</div><div class=\"h3ds-stat-label\">failed on their latest attempt</div></div><div class=\"h3ds-bar-wrap\"><div class=\"h3ds-bar\"><div class=\"h3ds-bar-fill h3ds-bar-fill--red\" style=\"width:' + failPct + '%;\"></div></div><div class=\"h3ds-bar-pct\">' + failPct + '%</div></div></div>';\n  var lastText = (schedule && schedule.last_run_ms) ? timeAgo(schedule.last_run_ms) : '';\n  var nextText = '';\n  if (schedule && schedule.next_run_ms && schedule.next_run_ms > Date.now()) {\n    var mins = Math.round((schedule.next_run_ms - Date.now()) / 60000);\n    nextText = mins < 1 ? 'Next update in less than a minute' : ('Next update in ' + mins + (mins === 1 ? ' minute' : ' minutes'));\n  }\n  if (!lastText && !nextText) {\n    timingEl.style.display = 'none';\n    timingEl.innerHTML = '';\n  } else {\n    timingEl.style.display = '';\n    timingEl.innerHTML = '<div class=\"h3ds-card-inner\"><div class=\"h3ds-stat-label h3ds-timing-title\">Latest data received</div>' + (lastText ? '<div class=\"h3ds-stat\">' + esc(lastText) + '</div>' : '') + (nextText ? '<div class=\"h3ds-timing-support\">' + esc(nextText) + '</div>' : '') + '</div>';\n  }\n}\n\nfunction renderFilters() {\n  if (!rootLive()) return;\n  var c = counts(rows);\n  var filters = ['All', 'Received', 'Failed'];\n  var html = '';\n  filters.forEach(function (f) {\n    var n = f === 'All' ? c.all : (f === 'Received' ? c.received : c.failed);\n    var sel = ui.filter === f ? ' h3ds-tab--sel' : '';\n    html += '<button type=\"button\" class=\"h3ds-tab' + sel + '\" data-filter=\"' + f + '\">' + esc(f) + ' <span class=\"h3ds-badge\">' + n + '</span></button>';\n  });\n  tabsEl.innerHTML = html;\n  Array.prototype.forEach.call(tabsEl.querySelectorAll('[data-filter]'), function (btn) {\n    btn.onclick = function () {\n      ui.filter = btn.dataset.filter;\n      ui.page = 1;\n      window.__h3dsUi = ui;\n      render();\n    };\n  });\n}\n\nfunction renderTable() {\n  if (!rootLive()) return;\n  var visible = visibleRows(rows, ui);\n  var totalPages = Math.max(1, Math.ceil(visible.length / PAGE_SIZE));\n  if (ui.page > totalPages) ui.page = totalPages;\n  if (ui.page < 1) ui.page = 1;\n  window.__h3dsUi = ui;\n  if (!visible.length) {\n    tableEl.innerHTML = '<div class=\"h3ds-empty\">' + esc(EMPTY) + '</div>';\n    pageEl.innerHTML = '';\n    return;\n  }\n  var start = (ui.page - 1) * PAGE_SIZE;\n  var page = visible.slice(start, start + PAGE_SIZE);\n  var cols = [\n    { label: '', cls: 'h3ds-col-check' },\n    { label: 'Source name', cls: 'h3ds-col-name' },\n    { label: 'Latest data received?', cls: 'h3ds-col-status' },\n    { label: 'Last received', cls: 'h3ds-col-time' },\n    { label: 'Last attempt', cls: 'h3ds-col-time' },\n    { label: 'Error', cls: 'h3ds-col-error' },\n    { label: 'Data available?', cls: 'h3ds-col-hist' },\n    { label: 'Data flow', cls: 'h3ds-col-flow' },\n    { label: 'Org unit mapping', cls: 'h3ds-col-map' }\n  ];\n  var html = '<table class=\"h3ds-table\"><colgroup>';\n  cols.forEach(function (col) { html += '<col class=\"' + col.cls + '\">'; });\n  html += '</colgroup><thead><tr>';\n  cols.forEach(function (col) {\n    html += '<th class=\"' + col.cls + '\">' + esc(col.label) + '</th>';\n  });\n  html += '</tr></thead><tbody>';\n  page.forEach(function (r) {\n    var sk = statusOf(r);\n    var st = STATUS[sk];\n    var ds = DATA_STATUS[r.data_status] || DATA_STATUS.no_data;\n    var paused = r.is_paused === true;\n    var ctrl = paused ? CONTROL.paused : CONTROL.active;\n    var busy = rowBusy(r.source_key);\n    var selectable = r.data_status === 'data_loaded';\n    var checked = ui.selected.indexOf(r.source_key) !== -1;\n    var failText = sk === 'failed' ? (r.failure_reason || 'Import failed') : '\\u2014';\n    html += '<tr>' +\n      '<td style=\"width:40px;min-width:40px;max-width:40px;padding:11px 8px;\">' +\n      '<input type=\"checkbox\" data-select=\"' + esc(r.source_key) + '\" aria-label=\"Select ' + esc(r.source_key) + '\" ' +\n      (checked ? 'checked ' : '') + (!selectable ? 'disabled ' : '') +\n      'style=\"width:16px;height:16px;cursor:' + (selectable ? 'pointer' : 'not-allowed') + ';\"></td>' +\n      '<td class=\"h3ds-key\">' + esc(r.source_key) + '</td>' +\n      '<td>' + pill(st.tone, st.label) + '</td>' +\n      '<td>' + esc(timeAgo(r.last_received_ms)) + '</td>' +\n      '<td>' + esc(timeAgo(r.last_attempt_ms)) + '</td>' +\n      '<td class=\"h3ds-col-error\">' + esc(failText) + '</td>' +\n      '<td>' + pill(ds.tone, ds.label) + '</td>' +\n      '<td><div class=\"h3ds-ctrl\">' + dot(ctrl.tone) +\n      '<button class=\"h3ds-btn h3ds-btn--sm' + (paused ? ' h3ds-btn--primary' : '') + '\" data-pause=\"' + esc(r.source_key) + '\" ' +\n      (busy ? 'disabled' : '') + '>' + esc(busy ? BUSY : ctrl.action) + '</button></div></td>' +\n      '<td>' + esc(MAPPING[r.org_unit_mapping] || MAPPING.default) + '</td></tr>';\n  });\n  html += '</tbody></table>';\n  tableEl.innerHTML = html;\n  Array.prototype.forEach.call(tableEl.querySelectorAll('[data-select]'), function (b) {\n    b.onchange = function () {\n      var key = b.dataset.select;\n      if (b.checked && ui.selected.indexOf(key) === -1) ui.selected.push(key);\n      else if (!b.checked) ui.selected = ui.selected.filter(function (k) { return k !== key; });\n      window.__h3dsUi = ui;\n      renderActions();\n      renderTable();\n    };\n  });\n  Array.prototype.forEach.call(tableEl.querySelectorAll('[data-pause]'), function (b) {\n    b.onclick = function () {\n      var k = b.dataset.pause;\n      var row = rows.find(function (r) { return r.source_key === k; });\n      if (row) writePause(row);\n    };\n  });\n  renderPagination(visible.length, totalPages, start);\n}\n\nfunction renderPagination(totalVisible, totalPages, startIdx) {\n  if (!rootLive()) return;\n  if (!totalVisible) { pageEl.innerHTML = ''; return; }\n  var end = Math.min(startIdx + PAGE_SIZE, totalVisible);\n  var h = '<div class=\"h3ds-page-row\">';\n  h += '<div class=\"h3ds-pages\">';\n  var prevDisabled = ui.page === 1;\n  h += '<button id=\"h3ds-prev\" type=\"button\" class=\"h3ds-page-btn\" ' + (prevDisabled ? 'disabled' : '') + '>&lsaquo;</button>';\n  for (var i = 1; i <= totalPages; i++) {\n    var active = i === ui.page;\n    h += '<button type=\"button\" data-page=\"' + i + '\" class=\"h3ds-page-btn' + (active ? ' h3ds-page-btn--active' : '') + '\">' + i + '</button>';\n  }\n  var nextDisabled = ui.page === totalPages;\n  h += '<button id=\"h3ds-next\" type=\"button\" class=\"h3ds-page-btn\" ' + (nextDisabled ? 'disabled' : '') + '>&rsaquo;</button>';\n  h += '</div><div class=\"h3ds-page-info\">' + (startIdx + 1) + ' - ' + end + ' of ' + totalVisible + ' rows</div></div>';\n  pageEl.innerHTML = h;\n  var p = pageEl.querySelector('#h3ds-prev');\n  var n = pageEl.querySelector('#h3ds-next');\n  if (p) p.onclick = function () { if (ui.page > 1) { ui.page--; renderTable(); renderActions(); } };\n  if (n) n.onclick = function () { if (ui.page < totalPages) { ui.page++; renderTable(); renderActions(); } };\n  Array.prototype.forEach.call(pageEl.querySelectorAll('[data-page]'), function (b) {\n    b.onclick = function () { ui.page = parseInt(b.dataset.page, 10); renderTable(); renderActions(); };\n  });\n}\n\nfunction finishOpAndRender() {\n  ui.op = { kind: 'idle' };\n  window.__h3dsUi = ui;\n  if (!rootLive()) return;\n  renderActions();\n  renderTable();\n}\n\nfunction writePause(row) {\n  var key = row.source_key;\n  if (ui.pausing[key]) return;\n  var targetPaused = !row.is_paused;\n  ui.pausing[key] = true;\n  window.__h3dsUi = ui;\n  renderTable();\n  renderActions();\n  var sql = \"UPDATE heart360tk_reporting.import_source_control SET is_paused=\" + targetPaused + \",paused_changed_at=NOW() WHERE source_key='\" + sqlEscapeKey(key) + \"';\";\n  runQuery(sql, 'PAUSE').then(function () {\n    if (!rootLive()) return;\n    row.is_paused = targetPaused;\n    showMessage('success', targetPaused ? ('Importing paused for ' + key) : ('Importing resumed for ' + key));\n  }).catch(function () {\n    if (rootLive()) showMessage('error', 'Unable to update import control.');\n  }).finally(function () {\n    delete ui.pausing[key];\n    window.__h3dsUi = ui;\n    if (!rootLive()) return;\n    renderTable();\n    renderActions();\n  });\n}\n\nfunction writeForceImport() {\n  if (writeInFlight(ui)) return;\n  var av = actionView(rows, ui);\n  if (!av.forceEnabled) return;\n  ui.op = { kind: 'importing' };\n  window.__h3dsUi = ui;\n  renderActions();\n  renderTable();\n  showMessage('info', 'Triggering force import\\u2026');\n  var sql = \"UPDATE heart360tk_reporting.import_schedule_status SET force_import_requested = true WHERE id = 1 RETURNING true as success;\";\n  runQuery(sql, 'FORCE_IMPORT').then(function () {\n    if (!rootLive()) return;\n    showMessage('success', 'Force import requested. It will start shortly.');\n  }).catch(function () {\n    if (rootLive()) showMessage('error', 'Unable to trigger force import.');\n  }).finally(function () {\n    finishOpAndRender();\n  });\n}\n\nfunction confirmAndPurge() {\n  if (writeInFlight(ui)) return;\n  var av = actionView(rows, ui);\n  if (!av.purgeEnabled) return;\n  var snapshot = purgeTargetsFromUi(rows, ui).slice();\n  if (!snapshot.length) {\n    showMessage('info', 'No data sources with loaded data to purge.');\n    return;\n  }\n  var selectedOnly = ui.selected.length > 0;\n  var count = snapshot.length;\n  var list = snapshot.map(function (k) {\n    return '<div style=\"padding:6px 10px;border-radius:6px;background:rgba(128,128,128,.12);font-size:13px;margin-top:6px;\">' + esc(k) + '</div>';\n  }).join('');\n  var title = selectedOnly ? 'Purge selected data sources?' : 'Purge all data sources?';\n  var body = selectedOnly\n    ? ('This will remove data for the ' + count + ' selected data source(s).')\n    : ('This will remove data for all ' + count + ' data sources with data loaded.');\n  var confirmLabel = selectedOnly ? 'Yes, purge selected' : 'Yes, purge everything';\n  var m = createModal(\n    '<div style=\"font-size:18px;font-weight:600;\">' + esc(title) + '</div>' +\n    '<div style=\"opacity:.75;font-size:13px;margin-top:6px;\">' + esc(body) + '</div>' +\n    '<div style=\"max-height:200px;overflow-y:auto;margin:14px 0 18px;\">' + list + '</div>' +\n    '<div style=\"display:flex;justify-content:flex-end;gap:8px;\">' +\n    '<button id=\"h3ds-purge-cancel\" type=\"button\" style=\"' + MODAL_BTN + '\">Cancel</button>' +\n    '<button id=\"h3ds-purge-confirm\" type=\"button\" style=\"' + MODAL_BTN + MODAL_DANGER + '\">' + esc(confirmLabel) + '</button></div>'\n  );\n  m.querySelector('#h3ds-purge-cancel').onclick = closeModal;\n  m.querySelector('#h3ds-purge-confirm').onclick = function () {\n    closeModal();\n    if (writeInFlight(ui)) return;\n    var keys = keysAllowedForPurge(rows, snapshot);\n    if (!keys.length) {\n      showMessage('error', 'Unable to purge data.');\n      return;\n    }\n    ui.op = { kind: 'purging', keys: keys.slice() };\n    window.__h3dsUi = ui;\n    renderActions();\n    renderTable();\n    showMessage('info', 'Purging ' + keys.length + ' data source(s)\\u2026');\n    var arraySql = 'ARRAY[' + keys.map(function (k) { return \"'\" + sqlEscapeKey(k) + \"'\"; }).join(',') + ']::text[]';\n    var sql = selectedOnly\n      ? 'SELECT heart360tk_reporting.delete_leaf_node_data(' + arraySql + ',TRUE,FALSE) AS result;'\n      : \"SELECT heart360tk_reporting.delete_leaf_node_data(ARRAY['PURGE_EVERYTHING']::text[],FALSE,TRUE) AS result;\";\n    var purgeCount = keys.length;\n    var purgeRefId = selectedOnly ? 'PURGE_SELECTED' : 'PURGE_EVERYTHING';\n    runQuery(sql, purgeRefId).then(function (body) {\n      if (!rootLive()) return;\n      if (!purgeOutcomeOk(body, purgeRefId)) {\n        showMessage('error', 'Unable to purge data.');\n        return;\n      }\n      rows.forEach(function (r) {\n        if (keys.indexOf(r.source_key) !== -1) r.data_status = 'no_data';\n      });\n      ui.selected = ui.selected.filter(function (k) { return keys.indexOf(k) === -1; });\n      window.__h3dsUi = ui;\n      showMessage('success', 'Data purged for ' + purgeCount + ' data source(s).');\n    }).catch(function () {\n      if (rootLive()) showMessage('error', 'Unable to purge data.');\n    }).finally(function () {\n      finishOpAndRender();\n    });\n  };\n}\n\nfunction render() {\n  renderActions();\n  renderSummary();\n  renderFilters();\n  renderTable();\n}\n\nif (searchInput && !searchInput.dataset.wired) {\n  searchInput.dataset.wired = '1';\n  if (searchInput.value !== ui.search) searchInput.value = ui.search;\n  var debounceTimer;\n  searchInput.oninput = function (e) {\n    clearTimeout(debounceTimer);\n    var val = e.target.value;\n    debounceTimer = setTimeout(function () {\n      ui.search = val;\n      ui.page = 1;\n      window.__h3dsUi = ui;\n      renderTable();\n    }, 150);\n  };\n} else if (searchInput && document.activeElement !== searchInput) {\n  searchInput.value = ui.search;\n}\n\nforceBtn.onclick = writeForceImport;\npurgeBtn.onclick = confirmAndPurge;\nrender();\n",
+        "content": "{{#if (eq user_is_admin 1)}}\n<div id=\"h3ds-root\" data-rows=\"{{rows_json}}\" data-schedule=\"{{schedule_json}}\" data-central=\"{{is_central_node}}\">\n  <div id=\"h3ds-message\"></div>\n  <div class=\"h3ds-actions\">\n    <button id=\"h3ds-force-import\" class=\"h3ds-btn\" type=\"button\">Force import</button>\n    <button id=\"h3ds-purge\" class=\"h3ds-btn\" type=\"button\">Purge everything</button>\n  </div>\n  <div class=\"h3ds-summary\">\n    <div id=\"h3ds-received\" class=\"h3ds-card\"></div>\n    <div id=\"h3ds-failed\" class=\"h3ds-card\"></div>\n    <div id=\"h3ds-timing\" class=\"h3ds-card\"></div>\n  </div>\n  <div class=\"h3ds-filters\">\n    <div class=\"h3ds-tabs\"></div>\n    <div class=\"h3ds-search-wrap\">\n      <svg width=\"16\" height=\"16\" viewBox=\"0 0 24 24\" fill=\"none\" stroke=\"#6B7280\" stroke-width=\"2\" stroke-linecap=\"round\" stroke-linejoin=\"round\"><circle cx=\"11\" cy=\"11\" r=\"8\"></circle><line x1=\"21\" y1=\"21\" x2=\"16.65\" y2=\"16.65\"></line></svg>\n      <input id=\"h3ds-search\" class=\"h3ds-search\" type=\"text\" placeholder=\"Search by source name\u2026\" autocomplete=\"off\" />\n    </div>\n  </div>\n  <div id=\"h3ds-table\" class=\"h3ds-table-wrap\"></div>\n  <div id=\"h3ds-pagination\"></div>\n</div>\n{{/if}}",
+        "contentPartials": [],
+        "defaultContent": "",
+        "editor": {
+          "format": "auto",
+          "language": "markdown"
+        },
+        "editors": [],
+        "externalStyles": [],
+        "helpers": "",
+        "renderMode": "everyRow",
+        "styles": ".h3ds-actions{display:flex;justify-content:flex-end;gap:8px;margin-bottom:12px;flex-wrap:wrap;}\n.h3ds-summary{display:grid;grid-template-columns:1fr 1fr 1fr;gap:12px;margin-bottom:12px;}\n@media (max-width:900px){.h3ds-summary{grid-template-columns:1fr;}}\n.h3ds-card{background:#fff;border:1px solid rgba(128,128,128,.25);border-radius:10px;padding:12px 14px;min-height:88px;}\n.h3ds-card-inner{display:flex;flex-direction:column;justify-content:space-between;height:100%;}\n.h3ds-stat{font-size:32px;font-weight:700;line-height:1.1;}\n.h3ds-stat--green{color:#007D4C;}\n.h3ds-stat--red{color:#DC2626;}\n.h3ds-stat-label{font-size:13px;color:#374151;margin-top:4px;}\n.h3ds-bar-wrap{margin-top:12px;}\n.h3ds-bar{width:100%;background:#E5E7EB;height:6px;border-radius:3px;overflow:hidden;}\n.h3ds-bar-fill{height:100%;border-radius:3px;}\n.h3ds-bar-fill--green{background:#007D4C;}\n.h3ds-bar-fill--red{background:#DC2626;}\n.h3ds-bar-pct{text-align:right;font-size:12px;color:#6B7280;margin-top:4px;}\n.h3ds-timing-line{font-size:13px;color:#111827;font-weight:600;margin-top:6px;}\n.h3ds-timing-line:first-child{margin-top:0;}\n.h3ds-filters{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:8px 0 12px;}\n.h3ds-tabs{display:flex;align-items:center;background:#fff;border:1px solid #E5E7EB;border-radius:6px;padding:4px;gap:2px;}\n.h3ds-tab{font:inherit;font-size:13px;font-weight:500;padding:4px 12px;border-radius:4px;border:none;background:transparent;color:#4B5563;cursor:pointer;display:inline-flex;align-items:center;gap:6px;}\n.h3ds-tab:hover{background:#F3F4F6;}\n.h3ds-tab--sel{background:#EBF5FF;color:#1E3A8A;}\n.h3ds-badge{background:#E5E7EB;color:#374151;padding:2px 6px;border-radius:12px;font-size:12px;font-weight:600;}\n.h3ds-tab--sel .h3ds-badge{background:#DBEAFE;color:#1E40AF;}\n.h3ds-search-wrap{position:relative;width:260px;max-width:100%;}\n.h3ds-search-wrap svg{position:absolute;left:10px;top:10px;pointer-events:none;}\n.h3ds-search{width:100%;padding:8px 12px 8px 32px;border:1px solid #E5E7EB;border-radius:6px;font-size:14px;outline:none;background:#fff;color:#111;}\n.h3ds-btn{display:inline-flex;align-items:center;gap:6px;font:inherit;font-size:13px;font-weight:500;padding:7px 14px;border-radius:8px;border:1px solid rgba(128,128,128,.35);background:#fff;color:inherit;cursor:pointer;transition:background .15s,opacity .15s;}\n.h3ds-btn:hover:not(:disabled){background:rgba(128,128,128,.22);}\n.h3ds-btn:disabled{opacity:.45;cursor:not-allowed;}\n.h3ds-btn--primary{background:#3b82f6;border-color:#3b82f6;color:#fff;}\n.h3ds-btn--primary:hover:not(:disabled){background:#2563eb;}\n.h3ds-btn--danger{background:#e5484d;border-color:#e5484d;color:#fff;}\n.h3ds-btn--danger:hover:not(:disabled){background:#cf3a3f;}\n.h3ds-btn--sm{padding:4px 10px;font-size:12px;}\n.h3ds-table-wrap{background:#fff;border:1px solid rgba(128,128,128,.25);border-radius:10px;overflow:auto;box-shadow:none;}\n.h3ds-table{width:100%;border:none;border-collapse:separate;border-spacing:0;font-size:13px;background:#fff;table-layout:fixed;}\n.h3ds-table th,.h3ds-table td{border:none;border-bottom:1px solid rgba(128,128,128,.18);}\n.h3ds-table tbody tr:last-child td{border-bottom:none;}\n.h3ds-col-check{width:40px;padding-left:8px;padding-right:8px;}\n.h3ds-col-name{width:12%;}\n.h3ds-col-status{width:9%;}\n.h3ds-col-time{width:8%;}\n.h3ds-col-error{width:auto;white-space:normal;overflow-wrap:anywhere;}\n.h3ds-col-hist{width:9%;}\n.h3ds-col-flow{width:12%;}\n.h3ds-col-map{width:10%;}\n.h3ds-timing-title{margin-top:0;}\n.h3ds-timing-title+.h3ds-stat{margin-top:4px;}\n.h3ds-table th{text-align:left;padding:10px 14px;font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.05em;background:#fff;}\n.h3ds-table td{padding:11px 14px;vertical-align:middle;}\n.h3ds-timing-support{margin-top:8px;font-size:12px;font-weight:400;color:#6b7280;}\n.h3ds-table tbody tr:hover{background:rgba(128,128,128,.07);}\n.h3ds-key{font-weight:600;}\n.h3ds-ctrl{display:flex;align-items:center;gap:8px;flex-wrap:wrap;}\n.h3ds-ctrl-label{font-size:12px;font-weight:600;color:#374151;}\n.h3ds-pill{display:inline-block;font-size:12px;font-weight:600;padding:2px 10px;border-radius:999px;border:1px solid transparent;white-space:nowrap;}\n.h3ds-pill--green{background:rgba(34,197,94,.15);color:#16a34a;border-color:rgba(34,197,94,.35);}\n.h3ds-pill--red{background:rgba(239,68,68,.15);color:#e5484d;border-color:rgba(239,68,68,.35);}\n.h3ds-pill--amber{background:rgba(245,158,11,.16);color:#d97706;border-color:rgba(245,158,11,.4);}\n.h3ds-pill--grey{background:rgba(128,128,128,.15);border-color:rgba(128,128,128,.3);color:#4b5563;}\n.h3ds-dot{display:inline-block;width:10px;height:10px;border-radius:50%;flex-shrink:0;}\n.h3ds-dot--green{background:#16a34a;box-shadow:0 0 0 3px rgba(34,197,94,.2);}\n.h3ds-dot--amber{background:#d97706;box-shadow:0 0 0 3px rgba(245,158,11,.2);}\n.h3ds-empty{padding:32px;text-align:center;opacity:.65;}\n.h3ds-msg{margin-bottom:12px;padding:9px 14px;border-radius:8px;font-size:13px;border:1px solid transparent;}\n.h3ds-msg--success{background:rgba(34,197,94,.14);color:#16a34a;border-color:rgba(34,197,94,.35);}\n.h3ds-msg--error{background:rgba(239,68,68,.14);color:#e5484d;border-color:rgba(239,68,68,.35);}\n.h3ds-msg--info{background:rgba(59,130,246,.14);color:#3b82f6;border-color:rgba(59,130,246,.35);}\n.h3ds-page-row{display:flex;justify-content:center;align-items:center;gap:12px;width:100%;margin-top:8px;flex-wrap:wrap;}\n.h3ds-pages{display:flex;gap:4px;align-items:center;}\n.h3ds-page-btn{width:26px;height:26px;display:flex;align-items:center;justify-content:center;border-radius:4px;background:#f3f4f6;border:none;color:#4b5563;font-size:12px;font-weight:600;cursor:pointer;}\n.h3ds-page-btn:disabled{opacity:.4;cursor:not-allowed;}\n.h3ds-page-btn--active{background:#3b82f6;color:#fff;}\n.h3ds-page-info{color:#4b5563;font-size:12px;font-weight:500;}",
+        "wrap": true
+      },
+      "pluginVersion": "6.3.0",
+      "targets": [
+        {
+          "datasource": {
+            "type": "postgres",
+            "uid": "postgres-hypertension"
+          },
+          "editorMode": "code",
+          "format": "table",
+          "rawQuery": true,
+          "rawSql": "WITH control AS (\n  SELECT source_key, data_status, is_paused, review_note\n  FROM heart360tk_reporting.import_source_control\n  WHERE $UserIsAdmin = 1\n),\nlast_attempt AS (\n  SELECT DISTINCT ON (source_key) source_key, started_at, status, error_message\n  FROM heart360tk_reporting.import_run_log\n  WHERE $UserIsAdmin = 1 AND log_type = 'leaf_node'\n  ORDER BY source_key, started_at DESC\n),\nlast_success AS (\n  SELECT DISTINCT ON (source_key) source_key, started_at\n  FROM heart360tk_reporting.import_run_log\n  WHERE $UserIsAdmin = 1 AND log_type = 'leaf_node' AND status = 'success'\n  ORDER BY source_key, started_at DESC\n),\nsource_rows AS (\n  SELECT\n    c.source_key,\n    la.status AS latest_attempt,\n    (EXTRACT(EPOCH FROM la.started_at) * 1000)::bigint AS last_attempt_ms,\n    (EXTRACT(EPOCH FROM ls.started_at) * 1000)::bigint AS last_received_ms,\n    CASE WHEN la.status = 'failed'\n         THEN COALESCE(NULLIF(la.error_message, ''), 'Import failed') END AS failure_reason,\n    CASE WHEN c.data_status = 'data_loaded' THEN 'data_loaded' ELSE 'no_data' END AS data_status,\n    c.is_paused,\n    CASE WHEN c.review_note = 'Mapped' THEN 'manual' ELSE 'default' END AS org_unit_mapping\n  FROM control c\n  LEFT JOIN last_attempt la ON la.source_key = c.source_key\n  LEFT JOIN last_success ls ON ls.source_key = c.source_key\n),\nschedule AS (\n  SELECT (EXTRACT(EPOCH FROM next_run_at) * 1000)::bigint AS next_run_ms\n  FROM heart360tk_reporting.import_schedule_status\n  WHERE id = 1 AND $UserIsAdmin = 1\n),\nlast_run AS (\n  SELECT (EXTRACT(EPOCH FROM MAX(started_at)) * 1000)::bigint AS last_run_ms\n  FROM heart360tk_reporting.import_run_log\n  WHERE $UserIsAdmin = 1 AND log_type = 'leaf_node'\n)\nSELECT\n  COALESCE((SELECT json_agg(row_to_json(s) ORDER BY s.source_key) FROM source_rows s), '[]'::json)::text AS rows_json,\n  (SELECT row_to_json(t) FROM (SELECT sc.next_run_ms, lr.last_run_ms FROM last_run lr LEFT JOIN schedule sc ON true) t)::text AS schedule_json,\n  COALESCE(current_setting('app.is_central_node', true), 'false') AS is_central_node,\n  $UserIsAdmin AS user_is_admin",
+          "refId": "A"
+        }
+      ],
+      "title": "",
+      "transparent": true,
+      "type": "marcusolsson-dynamictext-panel"
+    }
+  ],
+  "preload": false,
+  "refresh": "30s",
+  "schemaVersion": 42,
+  "tags": [
+    "admin"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {},
+        "datasource": {
+          "type": "grafana-postgresql-datasource",
+          "uid": "postgres-grafana"
+        },
+        "definition": "SELECT CASE WHEN (u.is_admin OR EXISTS (\n  SELECT 1 FROM grafana_schema.team_member tm\n  JOIN grafana_schema.team t ON tm.team_id = t.id\n  WHERE tm.user_id = u.id AND t.name LIKE '%\\_ALL' ESCAPE '\\'\n)) THEN 1 ELSE 0 END\nFROM grafana_schema.\"user\" u WHERE u.id = ${__user.id}",
+        "hide": 2,
+        "name": "UserIsAdmin",
+        "options": [],
+        "query": "SELECT CASE WHEN (u.is_admin OR EXISTS (\n  SELECT 1 FROM grafana_schema.team_member tm\n  JOIN grafana_schema.team t ON tm.team_id = t.id\n  WHERE tm.user_id = u.id AND t.name LIKE '%\\_ALL' ESCAPE '\\'\n)) THEN 1 ELSE 0 END\nFROM grafana_schema.\"user\" u WHERE u.id = ${__user.id}",
+        "refresh": 1,
+        "regex": "",
+        "regexApplyTo": "value",
+        "sort": 0,
+        "type": "query"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-6h",
+    "to": "now"
+  },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "Data source monitoring",
+  "uid": "heart360-central-node-monitoring",
+  "version": 2,
+  "weekStart": ""
+}

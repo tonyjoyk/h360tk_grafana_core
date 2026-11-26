@@ -1,0 +1,110 @@
+{
+  "timeZone": "Asia/Kolkata",
+  "timestamp_assumption": "Naive Timestamp cells are wall-clock time in timeZone (here Asia/Kolkata, UTC+05:30, no daylight saving). Shapes accepted by the puller: YYYY-MM-DD HH:MM:SS, ISO-8601 with an offset, Google Forms en-US M/D/YYYY h:mm:ss AM/PM, and a Google Sheets serial (days since 1899-12-30, no Lotus 1900 leap-day bug) when the API returns SERIAL_NUMBER. submitted_at is emitted as ISO-8601 with that offset. Reporting Month is normalised to the first of the month.",
+  "protocol_drugs": [
+    {
+      "drug_name": "Amlodipine",
+      "dosage": "5 mg",
+      "rxnorm_code": "329528",
+      "label": "In-Stock Amlodipine 5 mg"
+    },
+    {
+      "drug_name": "Amlodipine",
+      "dosage": "10 mg",
+      "rxnorm_code": "329526",
+      "label": "In-Stock Amlodipine 10 mg"
+    },
+    {
+      "drug_name": "Telmisartan",
+      "dosage": "40 mg",
+      "rxnorm_code": "316764",
+      "label": "In-Stock Telmisartan 40 mg"
+    },
+    {
+      "drug_name": "Telmisartan",
+      "dosage": "80 mg",
+      "rxnorm_code": "316765",
+      "label": "In-Stock Telmisartan 80 mg"
+    },
+    {
+      "drug_name": "Chlorthalidone",
+      "dosage": "12.5 mg",
+      "rxnorm_code": "331132",
+      "label": "In-Stock Chlorthalidone 12.5 mg"
+    },
+    {
+      "drug_name": "Chlorthalidone",
+      "dosage": "25 mg",
+      "rxnorm_code": "197499",
+      "label": "In-Stock Chlorthalidone 25 mg"
+    },
+    {
+      "drug_name": "Hydrochlorothiazide",
+      "dosage": "",
+      "rxnorm_code": "blank-hctz",
+      "label": "In-Stock Hydrochlorothiazide"
+    }
+  ],
+  "values": [
+    [
+      "Timestamp",
+      "Email address",
+      "Facility",
+      "Reporting Month",
+      "Amlodipine 5 mg - tablets on hand",
+      "Amlodipine 10 mg - tablets on hand",
+      "Telmisartan 40 mg - tablets on hand",
+      "Chlorthalidone 25 mg - tablets on hand",
+      "Hydrochlorothiazide - tablets on hand",
+      "Notes"
+    ],
+    [
+      "2026-10-05 09:15:00",
+      "phc.a.late@example.org",
+      "PHC-A (id 101)",
+      "2026-10",
+      40,
+      "",
+      "n/a",
+      0,
+      15,
+      "later submission, listed first"
+    ],
+    [
+      "2026-10-01 11:00:00",
+      "phc.b.nurse@example.org",
+      "PHC-B (102)",
+      "2026-10-18",
+      7,
+      2,
+      4,
+      "?",
+      "",
+      "blank hydrochlorothiazide is not reported"
+    ],
+    [
+      "2026-09-20 08:00:00",
+      "phc.a.early@example.org",
+      "PHC-A (id 101)",
+      "2026-09",
+      10,
+      3,
+      5,
+      8,
+      4,
+      "earlier PHC-A submission, listed after the later one"
+    ],
+    [
+      "2026-10-03 16:45:00",
+      "phc.c.clerk@example.org",
+      "103",
+      "2026-10",
+      1,
+      0,
+      9,
+      2,
+      6,
+      "facility cell is the bare org_units.id"
+    ]
+  ]
+}
